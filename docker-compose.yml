@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: aml_postgres
+    environment:
+      POSTGRES_DB: aml_compliance_db
+      POSTGRES_USER: compliance_admin
+      POSTGRES_PASSWORD: SecretSecurePassword99
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U compliance_admin -d aml_compliance_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aml_network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: aml_redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aml_network
+
+  backend_api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aml_backend_api
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres:5432/aml_compliance_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=VerySecretJWTKeyForTokens_ReplaceInProduction
+      - ENCRYPTION_KEY=StrongAESKeyForPIIEncryptionBase64String=
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aml_network
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aml_celery_worker
+    command: celery -A app.core.celery_app.celery_app worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres:5432/aml_compliance_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=VerySecretJWTKeyForTokens_ReplaceInProduction
+      - ENCRYPTION_KEY=StrongAESKeyForPIIEncryptionBase64String=
+    volumes:
+      - ./backend:/app
+      - shared_documents:/app/shared_docs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aml_network
+
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aml_celery_beat
+    command: celery -A app.core.celery_app.celery_app beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres:5432/aml_compliance_db
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aml_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: aml_frontend
+    command: npm run dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend_api
+    networks:
+      - aml_network
+
+networks:
+  aml_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  shared_documents:
