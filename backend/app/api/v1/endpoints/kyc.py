@@ -43,10 +43,13 @@ async def submit_kyc(
         full_name=kyc_in.full_name,
         date_of_birth=kyc_in.dob,
         nationality=kyc_in.nationality,
+        tax_residency=kyc_in.tax_residency,
         address=kyc_in.address,
         source_of_funds=kyc_in.source_of_funds,
         source_of_wealth=kyc_in.source_of_wealth,
         occupation=kyc_in.occupation,
+        annual_income_range=kyc_in.annual_income_range,
+        expected_activity_desc=kyc_in.expected_activity_desc,
         risk_category=kyc_in.risk_category or "low"
     )
     db.add(kyc_profile)
@@ -65,11 +68,14 @@ async def submit_kyc(
         full_name=kyc_in.full_name,
         dob=kyc_in.dob,
         nationality=kyc_in.nationality,
+        tax_residency=kyc_profile.tax_residency,
         address=kyc_in.address,
         occupation=kyc_profile.occupation,
         source_of_funds=kyc_profile.source_of_funds,
         source_of_wealth=kyc_profile.source_of_wealth,
+        annual_income_range=kyc_profile.annual_income_range,
         risk_category=kyc_profile.risk_category,
+        expected_activity_desc=kyc_profile.expected_activity_desc,
         created_at=kyc_profile.created_at,
         updated_at=kyc_profile.updated_at,
     )
@@ -145,6 +151,9 @@ async def update_kyc(
         customer.nationality = kyc_in.nationality
         kyc.nationality = kyc_in.nationality
         changed = True
+    if kyc_in.tax_residency is not None and kyc_in.tax_residency != kyc.tax_residency:
+        kyc.tax_residency = kyc_in.tax_residency
+        changed = True
     if kyc_in.address is not None and kyc_in.address != kyc.address:
         customer.street_address = kyc_in.address
         kyc.address = kyc_in.address
@@ -157,6 +166,12 @@ async def update_kyc(
         changed = True
     if kyc_in.occupation is not None and kyc_in.occupation != kyc.occupation:
         kyc.occupation = kyc_in.occupation
+        changed = True
+    if kyc_in.annual_income_range is not None and kyc_in.annual_income_range != kyc.annual_income_range:
+        kyc.annual_income_range = kyc_in.annual_income_range
+        changed = True
+    if kyc_in.expected_activity_desc is not None and kyc_in.expected_activity_desc != kyc.expected_activity_desc:
+        kyc.expected_activity_desc = kyc_in.expected_activity_desc
         changed = True
     if kyc_in.risk_category is not None and kyc_in.risk_category != kyc.risk_category:
         kyc.risk_category = kyc_in.risk_category
@@ -180,11 +195,14 @@ async def update_kyc(
         full_name=kyc.full_name,
         dob=kyc.date_of_birth,
         nationality=kyc.nationality,
+        tax_residency=kyc.tax_residency,
         address=kyc.address,
         occupation=kyc.occupation,
         source_of_funds=kyc.source_of_funds,
         source_of_wealth=kyc.source_of_wealth,
+        annual_income_range=kyc.annual_income_range,
         risk_category=kyc.risk_category,
+        expected_activity_desc=kyc.expected_activity_desc,
         created_at=kyc.created_at,
         updated_at=kyc.updated_at,
     )

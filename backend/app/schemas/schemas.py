@@ -135,11 +135,14 @@ class KYCProfileCreate(BaseModel):
     full_name: str
     dob: date
     nationality: str
+    tax_residency: Optional[str] = None
     address: str
     occupation: str
     source_of_funds: str
     source_of_wealth: str
+    annual_income_range: Optional[str] = None
     risk_category: Optional[str] = "low"
+    expected_activity_desc: Optional[str] = None
 
     @field_validator("risk_category")
     @classmethod
@@ -155,11 +158,14 @@ class KYCProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     dob: Optional[date] = None
     nationality: Optional[str] = None
+    tax_residency: Optional[str] = None
     address: Optional[str] = None
     occupation: Optional[str] = None
     source_of_funds: Optional[str] = None
     source_of_wealth: Optional[str] = None
+    annual_income_range: Optional[str] = None
     risk_category: Optional[str] = None
+    expected_activity_desc: Optional[str] = None
 
     @field_validator("risk_category")
     @classmethod
@@ -177,11 +183,14 @@ class KYCProfileResponse(BaseModel):
     full_name: Optional[str] = None
     dob: Optional[date] = None
     nationality: Optional[str] = None
+    tax_residency: Optional[str] = None
     address: Optional[str] = None
     occupation: str
     source_of_funds: str
     source_of_wealth: str
+    annual_income_range: Optional[str] = None
     risk_category: str
+    expected_activity_desc: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

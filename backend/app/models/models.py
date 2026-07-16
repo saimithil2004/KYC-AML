@@ -128,6 +128,7 @@ class KYCProfile(Base):
     occupation: Mapped[Optional[str]] = mapped_column(String(100))
     risk_category: Mapped[str] = mapped_column(String(50), default="low")
     annual_income_range: Mapped[Optional[str]] = mapped_column(String(100))
+    tax_residency: Mapped[Optional[str]] = mapped_column(String(100))
     expected_activity_desc: Mapped[Optional[str]] = mapped_column(Text)
     screening_completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     notes: Mapped[Optional[str]] = mapped_column(Text)

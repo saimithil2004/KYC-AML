@@ -1,0 +1,80 @@
+# ============================================================
+# Sanctions Agent — Constants
+# ============================================================
+
+from app.agents.screening.constants import (
+    ROLE_CUSTOMER, ROLE_DIRECTOR, ROLE_UBO,
+    ROLE_SHAREHOLDER, ROLE_AUTHORISED_SIGNATORY, ROLE_COMPANY,
+    MATCH_CONFIRMED, MATCH_POSSIBLE, MATCH_NONE, MATCH_UNSCREENED,
+    THRESHOLD_CONFIRMED, THRESHOLD_POSSIBLE,
+    RISK_LOW, RISK_MEDIUM, RISK_HIGH, RISK_CRITICAL,
+    WEIGHT_COMPANY_NAME, WEIGHT_REG_NUMBER, WEIGHT_COMPANY_COUNTRY,
+)
+
+# ─── Rule Identifiers ───────────────────────────────────────
+RULE_NO_MATCH                 = "SAN001"
+RULE_POSSIBLE_MATCH           = "SAN002"
+RULE_CONFIRMED_INDIVIDUAL     = "SAN003"
+RULE_CONFIRMED_COMPANY        = "SAN004"
+RULE_TERRORIST_FINANCING      = "SAN005"
+RULE_ASSET_FREEZE             = "SAN006"
+RULE_TRAVEL_BAN               = "SAN007"
+RULE_MULTIPLE_MATCHES         = "SAN008"
+RULE_PASSPORT_MATCH           = "SAN009"
+RULE_REGISTRATION_MATCH       = "SAN010"
+
+# ─── Sanction Categories ────────────────────────────────────
+SANCTION_CATEGORY_INDIVIDUAL  = "INDIVIDUAL_SANCTION"
+SANCTION_CATEGORY_COMPANY     = "COMPANY_SANCTION"
+SANCTION_CATEGORY_ASSET_FREEZE = "ASSET_FREEZE"
+SANCTION_CATEGORY_TRAVEL_BAN   = "TRAVEL_BAN"
+SANCTION_CATEGORY_FINANCIAL    = "FINANCIAL_RESTRICTION"
+SANCTION_CATEGORY_EXPORT       = "EXPORT_RESTRICTION"
+SANCTION_CATEGORY_TERRORIST    = "TERRORIST_FINANCING"
+SANCTION_CATEGORY_PROLIFERATION = "PROLIFERATION_FINANCING"
+
+ALL_SANCTION_CATEGORIES = {
+    SANCTION_CATEGORY_INDIVIDUAL,
+    SANCTION_CATEGORY_COMPANY,
+    SANCTION_CATEGORY_ASSET_FREEZE,
+    SANCTION_CATEGORY_TRAVEL_BAN,
+    SANCTION_CATEGORY_FINANCIAL,
+    SANCTION_CATEGORY_EXPORT,
+    SANCTION_CATEGORY_TERRORIST,
+    SANCTION_CATEGORY_PROLIFERATION,
+}
+
+# ─── Sanctions Lists ────────────────────────────────────────
+LIST_OFAC             = "OFAC"
+LIST_UK_SANCTIONS     = "UK_SANCTIONS_LIST"
+LIST_UN               = "UN_SANCTIONS"
+LIST_EU               = "EU_SANCTIONS"
+LIST_OPEN_SANCTIONS   = "OPEN_SANCTIONS"
+LIST_INTERNAL         = "INTERNAL_WATCHLIST"
+
+ALL_SANCTIONS_LISTS = [
+    LIST_OFAC,
+    LIST_UK_SANCTIONS,
+    LIST_UN,
+    LIST_EU,
+    LIST_OPEN_SANCTIONS,
+    LIST_INTERNAL,
+]
+
+# ─── Recommendations ────────────────────────────────────────
+REC_CONTINUE                  = "Continue with standard screening"
+REC_MANUAL_REVIEW             = "Manual Review required by compliance analyst"
+REC_EDD                       = "Enhanced Due Diligence (EDD) required"
+REC_ESCALATE                  = "Escalate to Compliance Officer immediately"
+REC_SAR_REVIEW                = "Consider Suspicious Activity Report (SAR) Review"
+
+# ─── Statuses ───────────────────────────────────────────────
+SANCTIONS_STATUS_CLEAR        = "CLEAR"
+SANCTIONS_STATUS_POSSIBLE     = "POSSIBLE_MATCH"
+SANCTIONS_STATUS_CONFIRMED    = "CONFIRMED_SANCTION"
+
+# ─── Next Agent ─────────────────────────────────────────────
+NEXT_AGENT                    = "country_risk_agent"
+
+# ─── Provider Names ─────────────────────────────────────────
+PROVIDER_MOCK                 = "MockSanctionsProvider"

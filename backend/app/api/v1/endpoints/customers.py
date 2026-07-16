@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 from uuid import UUID
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user, verify_compliance_officer
-from app.models.models import User, Customer
+from app.models.models import User, Customer, Company, Director, UBO
 from app.schemas.schemas import CustomerCreate, CustomerResponse, CustomerUpdate
 
 router = APIRouter()
@@ -46,6 +46,65 @@ async def create_customer(
         status="pending_verification"
     )
     db.add(customer)
+    await db.flush()
+
+    if customer_in.customer_type == "corporate":
+        if not customer_in.company:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Company details are required for corporate customers."
+            )
+        
+        result = await db.execute(select(Company).where(Company.registration_number == customer_in.company.registration_number))
+        existing_company = result.scalars().first()
+        if existing_company:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A company with this registration number already exists."
+            )
+
+        company = Company(
+            customer_id=customer.id,
+            company_name=customer_in.company.company_name,
+            registration_number=customer_in.company.registration_number,
+            registered_address=customer_in.company.registered_address,
+            trading_address=customer_in.company.trading_address,
+            country_of_incorporation=customer_in.company.country_of_incorporation,
+            incorporation_date=customer_in.company.incorporation_date,
+            sic_code=customer_in.company.sic_code,
+            status="active"
+        )
+        db.add(company)
+        await db.flush()
+
+        if customer_in.directors:
+            for dir_in in customer_in.directors:
+                director = Director(
+                    company_id=company.id,
+                    first_name=dir_in.first_name,
+                    last_name=dir_in.last_name,
+                    dob=dir_in.dob,
+                    nationality=dir_in.nationality,
+                    appointment_date=dir_in.appointment_date,
+                    is_active=True,
+                    verification_status="unverified"
+                )
+                db.add(director)
+
+        if customer_in.ubos:
+            for ubo_in in customer_in.ubos:
+                ubo = UBO(
+                    company_id=company.id,
+                    first_name=ubo_in.first_name,
+                    last_name=ubo_in.last_name,
+                    dob=ubo_in.dob,
+                    nationality=ubo_in.nationality,
+                    ownership_percentage=ubo_in.ownership_percentage,
+                    control_type=ubo_in.control_type,
+                    verification_status="unverified"
+                )
+                db.add(ubo)
+
     await db.commit()
     await db.refresh(customer)
     return customer
@@ -60,6 +119,60 @@ async def get_my_customer(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer profile not found.")
     return customer
+
+@router.get("/me/company")
+async def get_my_company(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(Customer).where(Customer.user_id == current_user.id))
+    customer = result.scalars().first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer profile not found.")
+        
+    comp_result = await db.execute(select(Company).where(Company.customer_id == customer.id))
+    company = comp_result.scalars().first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company details not found.")
+        
+    dir_result = await db.execute(select(Director).where(Director.company_id == company.id))
+    directors = dir_result.scalars().all()
+    
+    ubo_result = await db.execute(select(UBO).where(UBO.company_id == company.id))
+    ubos = ubo_result.scalars().all()
+    
+    return {
+        "company": {
+            "company_name": company.company_name,
+            "registration_number": company.registration_number,
+            "registered_address": company.registered_address,
+            "trading_address": company.trading_address,
+            "country_of_incorporation": company.country_of_incorporation,
+            "incorporation_date": company.incorporation_date,
+            "sic_code": company.sic_code,
+        },
+        "directors": [
+            {
+                "first_name": d.first_name,
+                "last_name": d.last_name,
+                "dob": d.dob,
+                "nationality": d.nationality,
+                "appointment_date": d.appointment_date,
+            }
+            for d in directors
+        ],
+        "ubos": [
+            {
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "dob": u.dob,
+                "nationality": u.nationality,
+                "ownership_percentage": float(ubo_in.ownership_percentage) if hasattr(ubo_in := u, "ownership_percentage") else 0,
+                "control_type": u.control_type,
+            }
+            for u in ubos
+        ]
+    }
 
 @router.get("/{id}", response_model=CustomerResponse)
 async def get_customer_by_id(
