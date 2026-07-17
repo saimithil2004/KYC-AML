@@ -332,9 +332,25 @@ def print_report(scenario: dict, state: AgentState, metrics: WorkflowMetrics) ->
     _section("WORKFLOW SUMMARY")
     _kv("Agents Executed",  str(metrics.agents_executed))
     _kv("Agents Skipped",   str(metrics.agents_skipped))
-    overall_score = state.overall_score
+    overall_score = min(state.risk_breakdown.values()) if state.risk_breakdown else state.overall_score
+    
+    max_severity_val = 1
+    for val in state.risk_breakdown.values():
+        if val < 25:
+            tier_val = 4      # CRITICAL
+        elif val < 50:
+            tier_val = 3      # HIGH
+        elif val < 80:
+            tier_val = 2      # MEDIUM
+        else:
+            tier_val = 1      # LOW
+        max_severity_val = max(max_severity_val, tier_val)
+        
+    reverse_map = {1: "low", 2: "medium", 3: "high", 4: "critical"}
+    risk_tier = reverse_map[max_severity_val].upper()
+
     _kv("Overall Score",    f"{overall_score:.1f}")
-    _kv("Risk Tier",        state.risk_tier.upper())
+    _kv("Risk Tier",        risk_tier)
     _kv("Total Time",       f"{metrics.total_ms:.1f} ms")
 
     workflow_colour = GREEN if metrics.workflow_success else RED

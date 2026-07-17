@@ -280,16 +280,17 @@ def _print_compliance_report(scenario: dict, state: AgentState, timings: dict) -
     _kv("Manual Review",  "YES" if meta.get("manual_review_required") else "NO")
     _kv("Execution Time", f"{timings.get('pep_agent', 0):.1f} ms")
 
-    matched_pep = meta.get("matched_subjects", [])
+    matched_pep = meta.get("pep_matched_subjects", [])
     if matched_pep and pep_status != "CLEAR":
         print(f"\n    {BOLD}PEP Match Details:{RESET}")
         for m in matched_pep[:3]:
-            print(f"      {RED}• {m.get('full_name', '?')}"
+            rec = m.get("matched_record") or {}
+            print(f"      {RED}• {m.get('subject_name', '?')}"
                   f"  [{m.get('match_confidence', '?')}]{RESET}")
             if m.get("pep_category"):
                 print(f"        Category: {m['pep_category']}")
-            if m.get("position"):
-                print(f"        Position: {m['position']}")
+            if rec.get("position"):
+                print(f"        Position: {rec['position']}")
 
     pep_recs = meta.get("pep_recommendations", [])
     if pep_recs:
@@ -307,18 +308,19 @@ def _print_compliance_report(scenario: dict, state: AgentState, timings: dict) -
     _kv("Risk Level",     str(san_risk).upper(),  _status_colour(str(san_risk)))
     _kv("Execution Time", f"{timings.get('sanctions_agent', 0):.1f} ms")
 
+    # Display checked lists
     san_audit = meta.get("sanctions_audit", {})
     lists_checked = san_audit.get("sanctions_lists_checked", [])
     if lists_checked:
         _kv("Lists Checked", ", ".join(lists_checked[:4]))
 
-    matched_san = meta.get("matched_subjects", [])
+    matched_san = meta.get("sanctions_matched_subjects", [])
     if matched_san and san_status != "CLEAR":
         print(f"\n    {BOLD}Sanctions Match Details:{RESET}")
         for m in matched_san[:3]:
-            print(f"      {RED}• {m.get('full_name', '?')}"
+            print(f"      {RED}• {m.get('subject_name', '?')}"
                   f"  [{m.get('sanction_category', '?')}]"
-                  f"  List: {m.get('sanction_list', '?')}{RESET}")
+                  f"  List: {m.get('matched_list', '?')}{RESET}")
 
     san_recs = meta.get("sanctions_recommendations", [])
     if san_recs:
@@ -380,8 +382,24 @@ def _print_compliance_report(scenario: dict, state: AgentState, timings: dict) -
     # ── Overall Assessment ────────────────────────────────────────────────────
     _section("OVERALL COMPLIANCE ASSESSMENT")
 
-    overall_score = state.overall_score
-    risk_tier     = state.risk_tier.upper()
+    # Consolidate overall risk score (minimum of all breakdown scores)
+    overall_score = min(state.risk_breakdown.values()) if state.risk_breakdown else state.overall_score
+    
+    # Consolidate risk tier (highest of all agent risk levels based on score thresholds)
+    max_severity_val = 1
+    for val in state.risk_breakdown.values():
+        if val < 25:
+            tier_val = 4      # CRITICAL
+        elif val < 50:
+            tier_val = 3      # HIGH
+        elif val < 80:
+            tier_val = 2      # MEDIUM
+        else:
+            tier_val = 1      # LOW
+        max_severity_val = max(max_severity_val, tier_val)
+        
+    reverse_map = {1: "low", 2: "medium", 3: "high", 4: "critical"}
+    risk_tier = reverse_map[max_severity_val].upper()
 
     print(f"  {BOLD}Risk Score:    {_risk_badge(risk_tier)}  {overall_score:.1f} / 100.0{RESET}")
     print()

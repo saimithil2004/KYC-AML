@@ -204,6 +204,7 @@ class SanctionsAgent(BaseAgent):
         state.shared_metadata["sanctions_score"]           = sanctions_score
         state.shared_metadata["sanctions_risk"]            = risk_level
         state.shared_metadata["matched_subjects"]          = matched_subjects
+        state.shared_metadata["sanctions_matched_subjects"] = matched_subjects
         state.shared_metadata["matched_companies"]         = matched_companies
         state.shared_metadata["sanctions_findings"]        = findings
         state.shared_metadata["sanctions_recommendations"] = recommendations

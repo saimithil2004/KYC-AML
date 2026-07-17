@@ -199,6 +199,7 @@ class PepAgent(BaseAgent):
         state.shared_metadata["pep_risk"]            = risk_level
         state.shared_metadata["screened_subjects"]   = [s.model_dump() for s in subjects]
         state.shared_metadata["matched_subjects"]    = matched_subjects
+        state.shared_metadata["pep_matched_subjects"] = matched_subjects
         state.shared_metadata["pep_findings"]        = findings
         state.shared_metadata["pep_recommendations"] = recommendations
         state.shared_metadata["pep_audit_trail"]     = audit.model_dump()
