@@ -47,6 +47,7 @@ from app.agents.company.agent import CompanyAgent
 from app.agents.pep.agent import PepAgent
 from app.agents.sanctions.agent import SanctionsAgent
 from app.agents.country.agent import CountryRiskAgent
+from app.agents.transaction.agent import TransactionAgent
 
 from scripts.scenarios import ALL_SCENARIOS
 
@@ -180,6 +181,7 @@ async def run_workflow(scenario: dict) -> tuple[AgentState, WorkflowMetrics]:
         ("PEP Agent",          PepAgent()),
         ("Sanctions Agent",    SanctionsAgent()),
         ("Country Risk Agent", CountryRiskAgent()),
+        ("Transaction Agent",  TransactionAgent()),
     ]
 
     for display_name, agent in pipeline:
@@ -312,6 +314,19 @@ def print_report(scenario: dict, state: AgentState, metrics: WorkflowMetrics) ->
         _kv("High Risk Countries", ", ".join(high_risk), YELLOW)
     if prohibited:
         _kv("Prohibited Countries", ", ".join(prohibited), RED)
+
+    # ── Transaction Agent ─────────────────────────────────────────────────────
+    _section("TRANSACTION AGENT")
+    tx_status = meta.get("transaction_status", "N/A")
+    tx_score  = meta.get("transaction_score", 0.0)
+    tx_risk   = meta.get("transaction_risk", "N/A")
+    _kv("Status",     tx_status,           _status_colour(tx_status))
+    _kv("Score",      f"{tx_score:.1f}")
+    _kv("Risk Level", str(tx_risk).upper())
+    _kv("Time",       f"{metrics.agent_times.get('transaction_agent', 0):.1f} ms")
+    tx_alerts = meta.get("transaction_alerts", [])
+    if tx_alerts:
+        _kv("Triggered Alerts", ", ".join(tx_alerts), YELLOW)
 
     # ── Summary ───────────────────────────────────────────────────────────────
     _section("WORKFLOW SUMMARY")

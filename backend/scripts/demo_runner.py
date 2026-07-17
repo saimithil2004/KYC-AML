@@ -36,6 +36,7 @@ from app.agents.company.agent import CompanyAgent
 from app.agents.pep.agent import PepAgent
 from app.agents.sanctions.agent import SanctionsAgent
 from app.agents.country.agent import CountryRiskAgent
+from app.agents.transaction.agent import TransactionAgent
 
 from scenarios import ALL_SCENARIOS
 
@@ -164,16 +165,17 @@ def build_state(scenario: dict) -> AgentState:
 # Pipeline runner with per-agent progress output
 # ─────────────────────────────────────────────────────────────────────────────
 async def _run_with_progress(scenario: dict):
-    """Run the five-agent pipeline, printing live status per agent."""
+    """Run the six-agent pipeline, printing live status per agent."""
     state   = build_state(scenario)
     timings = {}
 
     pipeline = [
-        ("1/5", "🔍", "KYC Agent",          KycAgent()),
-        ("2/5", "🏢", "Company Agent",      CompanyAgent()),
-        ("3/5", "🏛️", "PEP Agent",          PepAgent()),
-        ("4/5", "⛔", "Sanctions Agent",    SanctionsAgent()),
-        ("5/5", "🌍", "Country Risk Agent", CountryRiskAgent()),
+        ("1/6", "🔍", "KYC Agent",          KycAgent()),
+        ("2/6", "🏢", "Company Agent",      CompanyAgent()),
+        ("3/6", "🏛️", "PEP Agent",          PepAgent()),
+        ("4/6", "⛔", "Sanctions Agent",    SanctionsAgent()),
+        ("5/6", "🌍", "Country Risk Agent", CountryRiskAgent()),
+        ("6/6", "💳", "Transaction Agent",   TransactionAgent()),
     ]
 
     print()
@@ -347,6 +349,32 @@ def _print_compliance_report(scenario: dict, state: AgentState, timings: dict) -
     if cty_recs:
         print(f"\n    {BOLD}Recommendations:{RESET}")
         for r in cty_recs[:3]:
+            print(f"      {YELLOW}→ {r}{RESET}")
+
+    # ── Transaction Agent ─────────────────────────────────────────────────────
+    _agent_header("TRANSACTION AGENT — Behavioral Flow Monitoring", "💳")
+    tx_status    = meta.get("transaction_status", "N/A")
+    tx_score     = meta.get("transaction_score", 0.0)
+    tx_risk      = meta.get("transaction_risk", "N/A")
+    tx_alerts    = meta.get("transaction_alerts", [])
+    tx_findings  = meta.get("transaction_findings", [])
+    _kv("Status",         tx_status,             _status_colour(tx_status))
+    _kv("Behavioral Score", f"{tx_score:.1f} / 100.0")
+    _kv("Risk Level",     str(tx_risk).upper(),  _status_colour(str(tx_risk)))
+    _kv("Execution Time", f"{timings.get('transaction_agent', 0):.1f} ms")
+
+    if tx_alerts:
+        _kv("Triggered Alerts", ", ".join(tx_alerts), YELLOW)
+
+    if tx_findings:
+        print(f"\n    {BOLD}Findings & Suspicious Indicators:{RESET}")
+        for f in tx_findings[:4]:
+            print(f"      {RED}• {f}{RESET}")
+
+    tx_recs = meta.get("transaction_recommendations", [])
+    if tx_recs:
+        print(f"\n    {BOLD}Recommendations:{RESET}")
+        for r in tx_recs[:3]:
             print(f"      {YELLOW}→ {r}{RESET}")
 
     # ── Overall Assessment ────────────────────────────────────────────────────
