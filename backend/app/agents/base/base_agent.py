@@ -127,6 +127,59 @@ class BaseAgent(abc.ABC):
                     metadata=filtered_data
                 )
                 
+                # AI Governance Interception Hook
+                if self.db:
+                    try:
+                        from app.services.ai_governance_service import AIGovernanceService
+                        from app.services.explainability_service import ExplainabilityService
+                        
+                        prompt_content = data.get("prompt_content") or f"Execute agent check for: {state.customer_id}"
+                        response_content = data.get("response_content") or reason
+                        
+                        input_tokens = int(data.get("input_tokens") or len(prompt_content) // 4)
+                        output_tokens = int(data.get("output_tokens") or len(response_content) // 4)
+                        
+                        model_name = data.get("model_name") or "gemini-2.0-flash"
+                        template_name = data.get("prompt_template_name") or f"{agent_name}_prompt"
+                        
+                        # Log execution in database
+                        exec_log = await AIGovernanceService.log_execution(
+                            db=self.db,
+                            model_name=model_name,
+                            template_name=template_name,
+                            prompt_content=prompt_content,
+                            response_content=response_content,
+                            latency_ms=int(duration_ms),
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            customer_id=state.customer_id,
+                            case_id=state.case_id,
+                            investigation_id=state.investigation_id,
+                            risk_score_id=getattr(state, "risk_score_id", None)
+                        )
+                        
+                        # Log explanation report
+                        await ExplainabilityService.generate_explanation_report(
+                            db=self.db,
+                            execution_id=exec_log.id,
+                            agent_name=agent_name,
+                            overall_score=result.risk_score,
+                            findings=result.findings,
+                            rules_triggered=data.get("rules_triggered") or [],
+                            matched_entities=data.get("matched_entities") or [],
+                            missing_evidence=data.get("missing_evidence") or [],
+                            alternative_outcomes=data.get("alternative_outcomes") or []
+                        )
+                        
+                        # Attach governance metadata to agent result
+                        result.metadata["ai_execution_id"] = str(exec_log.id)
+                        result.metadata["model_version"] = self.get_version()
+                        result.metadata["prompt_version"] = "1.0.0"
+                        result.metadata["estimated_cost"] = exec_log.cost
+                        result.metadata["tokens_used"] = exec_log.tokens_used
+                    except Exception as ex:
+                        logger.warning(f"BaseAgent: AI Governance logging failed for '{agent_name}': {ex}")
+
                 # Cache results and run post hooks
                 state.agent_results[agent_name] = result.model_dump()
                 self.post_execute(state, result)

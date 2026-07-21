@@ -4,6 +4,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: aml_postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: aml_compliance_db
       POSTGRES_USER: compliance_admin
@@ -12,6 +13,13 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+        reservations:
+          memory: 512M
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U compliance_admin -d aml_compliance_db"]
       interval: 5s
@@ -23,11 +31,19 @@ services:
   redis:
     image: redis:7.2-alpine
     container_name: aml_redis
+    restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          memory: 256M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -41,16 +57,32 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: aml_backend_api
+    restart: unless-stopped
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       - DATABASE_URL=postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres:5432/aml_compliance_db
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=VerySecretJWTKeyForTokens_ReplaceInProduction
       - ENCRYPTION_KEY=StrongAESKeyForPIIEncryptionBase64String=
+      - ENV=production
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - backup_data:/app/backups
+      - shared_documents:/app/shared_docs
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,15 +96,30 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: aml_celery_worker
+    restart: unless-stopped
     command: celery -A app.core.celery_app.celery_app worker --loglevel=info
     environment:
       - DATABASE_URL=postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres:5432/aml_compliance_db
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=VerySecretJWTKeyForTokens_ReplaceInProduction
       - ENCRYPTION_KEY=StrongAESKeyForPIIEncryptionBase64String=
+      - ENV=production
     volumes:
       - ./backend:/app
+      - backup_data:/app/backups
       - shared_documents:/app/shared_docs
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.core.celery_app.celery_app inspect ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,12 +133,24 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: aml_celery_beat
+    restart: unless-stopped
     command: celery -A app.core.celery_app.celery_app beat --loglevel=info
     environment:
       - DATABASE_URL=postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres:5432/aml_compliance_db
       - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=VerySecretJWTKeyForTokens_ReplaceInProduction
+      - ENCRYPTION_KEY=StrongAESKeyForPIIEncryptionBase64String=
+      - ENV=production
     volumes:
       - ./backend:/app
+      - backup_data:/app/backups
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          memory: 128M
     depends_on:
       postgres:
         condition: service_healthy
@@ -105,6 +164,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: aml_frontend
+    restart: unless-stopped
     command: npm run dev
     ports:
       - "3000:3000"
@@ -113,6 +173,13 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1536M
+        reservations:
+          memory: 256M
     depends_on:
       - backend_api
     networks:
@@ -126,3 +193,5 @@ volumes:
   postgres_data:
   redis_data:
   shared_documents:
+  backup_data:
+

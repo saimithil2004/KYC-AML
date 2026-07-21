@@ -1,1 +1,3 @@
-# Account Agent Module
+from app.agents.account.agent import AccountBehaviorAgent
+
+__all__ = ["AccountBehaviorAgent"]

@@ -1,143 +1,130 @@
-# UK Compliance AML & KYC Agentic Platform - Phase 2 Setup
+# Enterprise AML & KYC Compliance Platform (v1.0.0)
 
-This repository contains the complete production-grade foundation setup for the **Agentic AML + KYC Compliance Platform** designed for UK financial institutions.
+A production-grade, AI-agentic Anti-Money Laundering (AML) and Know Your Customer (KYC) compliance platform. Designed for banks and enterprise financial institutions, this system leverages autonomous multi-agent graphs, real-time transaction monitoring, continuous re-screening, compliance policy guardrails, and explainable AI governance audits.
 
 ---
 
-## 1. Project Directory Structure
+## 1. Core Architectural Features
 
-```
-c:/Users/saimi/Desktop/KYC AML/
-├── docker-compose.yml
-├── README.md
-├── backend/
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   ├── main.py
-│   └── app/
-│       ├── __init__.py
-│       ├── api/
-│       │   ├── __init__.py
-│       │   └── v1/
-│       │       ├── __init__.py
-│       │       ├── api.py
-│       │       └── endpoints/
-│       │           ├── __init__.py
-│       │           ├── auth.py
-│       │           ├── customers.py
-│       │           ├── documents.py
-│       │           └── kyc.py
-│       ├── core/
-│       │   ├── __init__.py
-│       │   ├── config.py
-│       │   ├── database.py
-│       │   ├── security.py
-│       │   └── celery_app.py
-│       ├── dependencies/
-│       │   ├── __init__.py
-│       │   └── auth.py
-│       ├── models/
-│       │   ├── __init__.py
-│       │   └── models.py
-│       ├── schemas/
-│       │   ├── __init__.py
-│       │   └── schemas.py
-│       └── tasks/
-│           ├── __init__.py
-│           ├── kyc_tasks.py
-│           └── schedule_tasks.py
-├── frontend/
-│   ├── Dockerfile
-│   ├── package.json
-│   └── app/
-│       ├── layout.tsx
-│       ├── globals.css
-│       ├── page.tsx
-│       ├── auth/
-│       │   ├── login/
-│       │   │   └── page.tsx
-│       │   └── register/
-│       │       └── page.tsx
-│       └── customer/
-│           ├── dashboard/
-│           │   └── page.tsx
-│           └── profile/
-│               └── page.tsx
-├── database/
-│   └── seed.py
-└── docs/
+*   **Multi-Agent LangGraph Orchestrator**: Runs autonomous checking loops across specialized compliance agents.
+*   **Real-Time Screening**: Fuzzy name checks, PEP checks, sanctions checks, and adverse media scraping.
+*   **Continuous Monitoring**: Scheduled cron jobs check customer risk changes periodically, triggering re-screening.
+*   **Explainable AI (XAI)**: Generates structured decision trees and compliance justification audits for compliance desks.
+*   **AI Governance & Registry**: Tracks model parameters, version histories, and estimated token usage costs.
+*   **Human-In-The-Loop Reviews**: Submits rating reviews and overrides parameters logs to keep model evaluation metrics precise.
+*   **DevOps & Production Readiness**: Scalable container compose profiles, Prometheus exporters, and Kubernetes manifests.
+*   **Hardened Enterprise Security**: TOTP Multi-Factor Authentication, AES-256 GCM PII encryption, password lockout policies, and comprehensive RBAC.
+
+---
+
+## 2. Platform Architecture
+
+```mermaid
+graph TD
+    A[Next.js Admin Console] -->|API Requests| B[FastAPI Backend Gateway]
+    B -->|RBAC / JWT / MFA| C[Authentication & Security]
+    B -->|Trigger Screening| D[Celery Tasks Queue]
+    D -->|Orchestrate Agents| E[LangGraph Orchestrator]
+    E -->|Analyze Profile| F[KYC Agent]
+    E -->|Fuzzy Matches| G[Sanctions & PEP Agents]
+    E -->|Risk Scoring| H[Risk Scoring Agent]
+    B -->|Read/Write Data| I[(PostgreSQL DB / Replica)]
+    D -->|Read/Write Cache| J[(Redis Sentinel Cache)]
+    B -->|Governance Audits| K[AI Governance & Registry]
+    B -->|Export Metrics| L[Prometheus / Grafana]
 ```
 
 ---
 
-## 2. Technical Stack Setup
+## 3. Technology Stack
 
-### Backend (FastAPI + SQLAlchemy)
-- Root entry point is located in [main.py](file:///c:/Users/saimi/Desktop/KYC%20AML/backend/main.py) routing traffic through dynamic schemas.
-- Database tables (17 core relational entities) are mapped via [models.py](file:///c:/Users/saimi/Desktop/KYC%20AML/backend/app/models/models.py).
-- Authentication, session validation, and Role-Based Access Control filters are implemented in [auth.py](file:///c:/Users/saimi/Desktop/KYC%20AML/backend/app/dependencies/auth.py).
-
-### Background Task Queue (Redis + Celery)
-- Celery Task client is registered in [celery_app.py](file:///c:/Users/saimi/Desktop/KYC%20AML/backend/app/core/celery_app.py).
-- Real-time screening pipeline operations (fuzzy PEP scans, sanctions match checks, document OCR loops) are defined in [kyc_tasks.py](file:///c:/Users/saimi/Desktop/KYC%20AML/backend/app/tasks/kyc_tasks.py).
-- Periodic verification sweeps (scheduling reviews based on risk profiles) are defined in [schedule_tasks.py](file:///c:/Users/saimi/Desktop/KYC%20AML/backend/app/tasks/schedule_tasks.py).
+*   **Backend**: FastAPI, SQLAlchemy (PostgreSQL + SQLite support), Pydantic V2, Celery.
+*   **Frontend**: Next.js (App Router), TypeScript, Tailwind CSS, Lucide Icons.
+*   **Database**: PostgreSQL (with read replica support), PgVector for semantic similarities.
+*   **Caching & Queue**: Redis Sentinel / Redis Cluster.
+*   **AI & LLM**: Google Gemini (via Google GenAI SDK), LangGraph.
+*   **Security**: PyJWT, cryptography (AES-256 GCM), PyOTP (MFA).
+*   **Observability**: Prometheus metrics exporter, Loki logger streams.
 
 ---
 
-## 3. Git Branching Strategy & PR Workflows
+## 4. Project Directory Structure
 
-We use a modified Git Flow strategy:
-
-### Branch Structure
-- `main`: Production-ready release branch. Directly mapped to VPS deployment.
-- `develop`: Primary integration branch. All feature branches merge here first.
-- `frontend-dev`: Development track for UI team.
-- `backend-dev`: Development track for Core API/DB team.
-- `agent-dev`: Development track for LangGraph Agent systems.
-
-### PR and Review Guidelines
-1.  **Creation:** Developer branches off target subsystem track (e.g. `feat/ocr-handling` branch off `backend-dev`).
-2.  **Verification:** Automated CI checks must pass (Linting, base unit testing).
-3.  **Review:** Minimum of one approved code review from the respective subsystem lead developer is mandatory.
-4.  **Merge:** Squash and merge into the target integration branch (`backend-dev`, `frontend-dev`, or `agent-dev`).
-
----
-
-## 4. Weekly Developer Responsibilities (Week 1 Setup)
-
-### Developer 1: Backend Foundation & Infrastructure
-*   Configure Alembic migrations environment.
-*   Deploy database models to local Postgres instance and test migrations.
-*   Implement JWT verification middleware and configure RBAC authorization handlers.
-*   Set up FastAPI Swagger documentation endpoints.
-
-### Developer 2: Agent Design & Risk Engine
-*   Construct LangGraph schema loops (orchestrator state definition).
-*   Mock out individual agents (PEP, Sanctions, Country checks).
-*   Define the mathematical weights structure for Risk Engine calculations.
-
-### Developer 3: Frontend Foundation Setup
-*   Initialize Next.js 15 App router structure.
-*   Scaffold layouts, navigation sidebars, and onboarding routes.
-*   Implement state controls on Registration and Login forms.
+```
+KYC-AML/
+├── backend/                   # Python API Gateway & Celery Worker
+│   ├── app/
+│   │   ├── agents/           # Specialized LangGraph Compliance Agents
+│   │   ├── api/              # API Route Controllers (v1)
+│   │   ├── core/             # Configuration, Database Connection & Middleware
+│   │   ├── models/           # SQLAlchemy DB Models
+│   │   ├── services/         # Core business logic services
+│   │   └── tasks/            # Celery Periodic & Event tasks
+│   ├── tests/                # Comprehensive Pytest suites
+│   └── main.py               # Application startup entry point
+├── frontend/                  # Next.js App Router Project
+│   ├── app/                  # Next.js Page views
+│   ├── components/           # Shared React components
+│   └── lib/                  # Client API functions & helpers
+├── deployment/                # Production Infrastructure Configs
+│   ├── kubernetes/           # K8s Ingress, StatefulSet, NetworkPolicies
+│   ├── nginx/                # Reverse proxy configs
+│   └── prometheus/           # Metrics scrapers
+├── docker-compose.yml         # Local development stack
+├── docker-compose.prod.yml    # Multi-stage production compose stack
+└── README.md                  # Comprehensive Documentation
+```
 
 ---
 
-## 5. Day-by-Day Implementation Roadmap (Week 1)
+## 5. Getting Started
 
-*   **Day 1: Bootstrap Environments**
-    - Setup Docker container files. Spin up PostgreSQL & Redis instances locally.
-    - Confirm local API compiles.
-*   **Day 2: Database Schema Validation**
-    - Run Alembic initialization. Apply database migrations to build tables.
-    - Run data seed scripts to verify keys.
-*   **Day 3: Authentication and Session Locks**
-    - Deploy registration/login endpoints. Validate password hashing and cookie storage.
-*   **Day 4: Next.js Layouts & UI Forms**
-    - Scaffold Next.js client forms. Wire registration submit requests to backend auth routes.
-*   **Day 5: Background Task Orchestration**
-    - Configure Celery workers. Run mock OCR and screening pipeline operations via queue tasks.
-*   **Day 6: LangGraph Loop Prototyping**
-    - Define main graph paths. Run mock sequence execution.
-*   **Day 7: System Integration Verification**
-    - End-to-end user registration, document upload, and status evaluation checks.
+### Prerequisites
+*   Docker & Docker Compose (v2.0+)
+*   Python 3.11+
+*   Node.js v18+
+
+### Environment Configuration
+Create a `.env` file at the root and backend directories:
+```env
+ENV=development
+SECRET_KEY=VerySecretJWTKeyForTokens_ReplaceInProduction
+ENCRYPTION_KEY=StrongAESKeyForPIIEncryptionBase64String=
+DATABASE_URL=postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres:5432/aml_compliance_db
+REDIS_URL=redis://redis:6379/0
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+### Run Locally via Docker Compose
+To boot the database, cache, backend api, and frontend client:
+```bash
+docker-compose up --build
+```
+Access points:
+*   Frontend: `http://localhost:3000`
+*   Backend API Swagger docs: `http://localhost:8000/docs`
+*   Prometheus Exporter: `http://localhost:8000/api/v1/health/metrics`
+
+---
+
+## 6. Running Tests
+
+### Backend Unit & Regression Tests
+Run the entire validation suite including Phase 17 unit checks:
+```bash
+cd backend
+python -m pytest --asyncio-mode=auto -v
+```
+
+### Frontend Build Compilation
+Verify there are no Next.js build errors or static generation issues:
+```bash
+cd frontend
+npm run build
+```
+
+---
+
+## 7. License
+
+Distributed under the MIT License. See `LICENSE` for more details.

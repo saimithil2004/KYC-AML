@@ -2,11 +2,55 @@
 
 import React from "react";
 import Link from "next/link";
-import { ShieldCheck, LogOut, LayoutDashboard, FileCheck, Users, HelpCircle } from "lucide-react";
+import {
+  ShieldCheck, LogOut, LayoutDashboard, FileCheck, Users,
+  ArrowUpDown, AlertTriangle, Briefcase, ScrollText, Zap, FileText, Sliders, RefreshCw,
+  Webhook, Bell, Server, Brain, Cpu, FileCode, History, BarChart3
+} from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
+
+const navItems = [
+  { section: "General", items: [
+    { href: "/admin", label: "Overview Dashboard", icon: LayoutDashboard },
+  ]},
+  { section: "Review", items: [
+    { href: "/admin/documents", label: "Verification Desk", icon: FileCheck },
+    { href: "/admin/investigations", label: "Investigations Workspace", icon: Briefcase },
+  ]},
+  { section: "Compliance", items: [
+    { href: "/admin/transactions", label: "Transactions", icon: ArrowUpDown },
+    { href: "/admin/alerts", label: "Alerts", icon: AlertTriangle },
+    { href: "/admin/cases", label: "Cases", icon: Briefcase },
+    { href: "/admin/monitoring", label: "Monitoring Hub", icon: RefreshCw },
+  ]},
+  { section: "Rules", items: [
+    { href: "/admin/regulations", label: "Regulations Lib", icon: FileText },
+    { href: "/admin/policy-rules", label: "Policy Rules", icon: Sliders },
+  ]},
+  { section: "Intelligence", items: [
+    { href: "/admin/analytics", label: "Executive Analytics", icon: ScrollText },
+    { href: "/admin/reports", label: "Reports & Schedules", icon: FileText },
+  ]},
+  { section: "AI Governance", items: [
+    { href: "/admin/ai", label: "AI Analytics", icon: BarChart3 },
+    { href: "/admin/ai/models", label: "AI Models", icon: Cpu },
+    { href: "/admin/ai/prompts", label: "AI Prompts", icon: FileCode },
+    { href: "/admin/ai/executions", label: "AI Executions", icon: History },
+    { href: "/admin/ai/governance", label: "AI Governance", icon: Brain },
+  ]},
+  { section: "System", items: [
+    { href: "/admin/audit", label: "Audit Log", icon: ScrollText },
+    { href: "/admin/integrations", label: "Integrations & Alerts", icon: Webhook },
+    { href: "/admin/system", label: "System Admin", icon: Zap },
+    { href: "/admin/devops", label: "DevOps Hub", icon: Server },
+    { href: "/customer/dashboard", label: "Customer View", icon: LayoutDashboard },
+  ]},
+];
+
+
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -41,30 +85,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         <div className="flex flex-1">
           {/* Admin Sidebar */}
-          <aside className="w-56 shrink-0 border-r border-zinc-200 bg-white p-4 space-y-1">
-            <p className="px-3 text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-2">Navigation</p>
-            {[
-              { href: "/admin/documents", label: "Verification Desk", icon: FileCheck },
-              { href: "/customer/dashboard", label: "Customer View", icon: LayoutDashboard },
-            ].map((item) => {
-              const Icon = item.icon;
-              const active = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
-                    active
-                      ? "bg-teal-50 text-teal-800"
-                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
-                  )}
-                >
-                  <Icon className="h-4 w-4 text-zinc-400" />
-                  {item.label}
-                </Link>
-              );
-            })}
+          <aside className="w-56 shrink-0 border-r border-zinc-200 bg-white p-4 space-y-5">
+            {navItems.map((section) => (
+              <div key={section.section}>
+                <p className="px-3 text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1">
+                  {section.section}
+                </p>
+                <div className="space-y-0.5">
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = pathname === item.href || (item.href !== "/customer/dashboard" && pathname?.startsWith(item.href));
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
+                          active
+                            ? "bg-teal-50 text-teal-800"
+                            : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+                        )}
+                      >
+                        <Icon className={cn("h-4 w-4", active ? "text-teal-600" : "text-zinc-400")} />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </aside>
 
           {/* Admin Content */}

@@ -1,0 +1,87 @@
+name: Backend CI Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'backend/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: aml_compliance_db_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install flake8 black pytest pytest-asyncio pytest-cov
+
+    - name: Run code formatting check (Black)
+      run: |
+        cd backend
+        black --check app tests
+
+    - name: Run style linter (Flake8)
+      run: |
+        cd backend
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 app tests --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings.
+        flake8 app tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Run test suite with pytest
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres_test_password@localhost:5432/aml_compliance_db_test
+        REDIS_URL: redis://localhost:6379/0
+        SECRET_KEY: test_secret_key_validation_must_be_strong_min_length_32_bytes
+        ENCRYPTION_KEY: StrongAESKeyForPIIEncryptionBase64String=
+        ENV: test
+      run: |
+        cd backend
+        python -m pytest --asyncio-mode=auto --cov=app --cov-report=xml
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./backend/coverage.xml
+        fail_ci_if_error: false

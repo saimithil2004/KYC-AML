@@ -1,0 +1,169 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-primary-pvc
+  namespace: aml-compliance
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: aml-postgres-primary
+  namespace: aml-compliance
+spec:
+  serviceName: aml-postgres-primary-svc
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aml-postgres-primary
+  template:
+    metadata:
+      labels:
+        app: aml-postgres-primary
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          env:
+            - name: POSTGRES_DB
+              value: aml_compliance_db
+            - name: POSTGRES_USER
+              value: compliance_admin
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: aml-secrets
+                  key: SECRET_KEY # Using secret key for simple test db password, or custom password env
+          ports:
+            - containerPort: 5432
+              name: postgres
+          volumeMounts:
+            - name: postgres-primary-storage
+              mountPath: /var/lib/postgresql/data
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: "500m"
+              memory: 512Mi
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - compliance_admin
+                - -d
+                - aml_compliance_db
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - compliance_admin
+                - -d
+                - aml_compliance_db
+            initialDelaySeconds: 15
+            periodSeconds: 5
+      volumes:
+        - name: postgres-primary-storage
+          persistentVolumeClaim:
+            claimName: postgres-primary-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aml-postgres-primary-svc
+  namespace: aml-compliance
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: aml-postgres-primary
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-replica-pvc
+  namespace: aml-compliance
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: aml-postgres-replica
+  namespace: aml-compliance
+spec:
+  serviceName: aml-postgres-replica-svc
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aml-postgres-replica
+  template:
+    metadata:
+      labels:
+        app: aml-postgres-replica
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          env:
+            - name: POSTGRES_DB
+              value: aml_compliance_db
+            - name: POSTGRES_USER
+              value: compliance_admin
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: aml-secrets
+                  key: SECRET_KEY
+          ports:
+            - containerPort: 5432
+              name: postgres
+          volumeMounts:
+            - name: postgres-replica-storage
+              mountPath: /var/lib/postgresql/data
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: "250m"
+              memory: 256Mi
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - compliance_admin
+                - -d
+                - aml_compliance_db
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: postgres-replica-storage
+          persistentVolumeClaim:
+            claimName: postgres-replica-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aml-postgres-replica-svc
+  namespace: aml-compliance
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: aml-postgres-replica

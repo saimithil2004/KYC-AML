@@ -1,0 +1,82 @@
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+entryPoints:
+  web:
+    address: :80
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+
+  websecure:
+    address: :443
+    http:
+      tls:
+        certResolver: letsencrypt
+
+providers:
+  docker:
+    exposedByDefault: false
+    endpoint: "unix:///var/run/docker.sock"
+  file:
+    filename: /etc/traefik/dynamic.yml
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: devops@enterprise.com
+      storage: /acme.json
+      httpChallenge:
+        entryPoint: web
+
+# Dynamic configurations template (embedded/placed in same file or loaded dynamically)
+# Define router rules, rate limiting middlewares, security headers, and backend services.
+http:
+  routers:
+    backend-router:
+      rule: "Host(`compliance.enterprise.com`) && PathPrefix(`/api/v1`)"
+      service: backend-service
+      entryPoints:
+        - websecure
+      middlewares:
+        - security-headers
+        - rate-limit
+
+    frontend-router:
+      rule: "Host(`compliance.enterprise.com`)"
+      service: frontend-service
+      entryPoints:
+        - websecure
+      middlewares:
+        - security-headers
+
+  services:
+    backend-service:
+      loadBalancer:
+        servers:
+          - url: "http://backend_api:8000"
+    frontend-service:
+      loadBalancer:
+        servers:
+          - url: "http://frontend:3000"
+
+  middlewares:
+    security-headers:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        forceSTSHeader: true
+        stsSeconds: 63072000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        referrerPolicy: "no-referrer-when-downgrade"
+
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50

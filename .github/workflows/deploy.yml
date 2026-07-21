@@ -1,0 +1,66 @@
+name: Production Deployment Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (e.g. v16.0.0)
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to DockerHub (Enterprise Registry)
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and Push Backend Production Image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: true
+        tags: |
+          enterprise/aml-backend:${{ github.ref_name }}
+          enterprise/aml-backend:latest
+
+    - name: Build and Push Frontend Production Image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: true
+        tags: |
+          enterprise/aml-frontend:${{ github.ref_name }}
+          enterprise/aml-frontend:latest
+
+    - name: Configure Kubernetes Kubeconfig context
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBE_CONFIG_DATA }}
+
+    - name: Deploy Kubernetes Manifests (Rolling Upgrade)
+      run: |
+        kubectl apply -f deployment/kubernetes/namespace.yaml
+        kubectl apply -f deployment/kubernetes/configmap.yaml
+        kubectl apply -f deployment/kubernetes/secrets.yaml
+        kubectl apply -f deployment/kubernetes/postgres.yaml
+        kubectl apply -f deployment/kubernetes/redis.yaml
+        
+        # Roll out services
+        kubectl apply -f deployment/kubernetes/backend.yaml
+        kubectl apply -f deployment/kubernetes/celery.yaml
+        kubectl apply -f deployment/kubernetes/frontend.yaml
+        kubectl apply -f deployment/kubernetes/ingress.yaml
+        kubectl apply -f deployment/kubernetes/network-policy.yaml
+        
+        # Verify deployment rollouts
+        kubectl rollout status deployment/aml-backend-api -n aml-compliance --timeout=300s
+        kubectl rollout status deployment/aml-frontend -n aml-compliance --timeout=300s

@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  backend_api:
+    image: aml_prod_backend_api:latest
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+
+  frontend:
+    image: aml_prod_frontend:latest
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+
+  # Dedicated Celery worker for heavy transactional AML checks
+  celery_worker_transactions:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aml_celery_worker_transactions
+    restart: always
+    command: celery -A app.core.celery_app.celery_app worker -Q transactions --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres_primary:5432/aml_compliance_db
+      - REDIS_URL=redis://redis_master:6379/0
+      - REDIS_SENTINELS=redis_sentinel:26379
+      - REDIS_SENTINEL_SERVICE_NAME=mymaster
+      - SECRET_KEY=VerySecretJWTKeyForTokens_ReplaceInProduction
+      - ENCRYPTION_KEY=StrongAESKeyForPIIEncryptionBase64String=
+      - ENV=production
+    volumes:
+      - shared_documents:/app/shared_docs
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+    networks:
+      - aml_prod_network
+
+  # Dedicated Celery worker for daily monitoring & batch reporting
+  celery_worker_batch:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aml_celery_worker_batch
+    restart: always
+    command: celery -A app.core.celery_app.celery_app worker -Q default,monitoring,reports --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres_primary:5432/aml_compliance_db
+      - REDIS_URL=redis://redis_master:6379/0
+      - REDIS_SENTINELS=redis_sentinel:26379
+      - REDIS_SENTINEL_SERVICE_NAME=mymaster
+      - SECRET_KEY=VerySecretJWTKeyForTokens_ReplaceInProduction
+      - ENCRYPTION_KEY=StrongAESKeyForPIIEncryptionBase64String=
+      - ENV=production
+    volumes:
+      - shared_documents:/app/shared_docs
+      - backup_data:/app/backups
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1536M
+    networks:
+      - aml_prod_network
+
+networks:
+  aml_prod_network:
+    external: true
+    name: aml_prod_network
+
+volumes:
+  shared_documents:
+    external: true
+  backup_data:
+    external: true

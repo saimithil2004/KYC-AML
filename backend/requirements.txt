@@ -7,10 +7,23 @@ asyncpg==0.29.0
 alembic==1.13.1
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-bcrypt==4.1.3
+bcrypt==4.0.1
 celery==5.4.0
 redis==5.0.6
 langgraph==0.0.66
 psycopg2-binary==2.9.9
 python-multipart==0.0.9
 httpx==0.27.0
+google-generativeai>=0.7.0
+openpyxl==3.1.5
+reportlab==5.0.0
+# Phase 15 — Enterprise Security & Observability
+cryptography>=42.0.0
+psutil>=5.9.0
+slowapi>=0.1.9
+python-json-logger>=2.0.7
+pyotp>=2.9.0
+qrcode>=7.4.2
+Pillow>=10.0.0
+# Phase 16 — DevOps & Observability
+prometheus-client>=0.20.0

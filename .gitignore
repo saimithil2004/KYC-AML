@@ -83,3 +83,19 @@ lerna-debug.log*
 # TypeScript build info
 *.tsbuildinfo
 next-env.d.ts
+
+# Test caches and coverage
+.pytest_cache/
+coverage/
+htmlcov/
+
+# Celery beat schedule
+celerybeat-schedule
+backend/celerybeat-schedule
+
+# Local uploads and backups directories
+uploads/
+backups/
+backend/uploads/
+backend/backups/
+

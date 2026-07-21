@@ -1,0 +1,58 @@
+name: Security Vulnerability Scans
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Run weekly at midnight on Mondays
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  security-scans:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # 1. Trivy Vulnerability Scan (Dockerfiles & Manifests)
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        ignore-unfixed: true
+        format: 'table'
+        exit-code: '0'  # Warn, do not fail CI for non-blocking unfixed vulnerabilities
+        severity: 'CRITICAL,HIGH'
+
+    # 2. Python Security Static Analysis (Bandit)
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install security auditing tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety pip-audit
+
+    - name: Run Bandit (Security Lint)
+      run: |
+        # Scan code ignoring test files
+        bandit -r backend/app -ll -ii
+
+    # 3. Python Dependency Audits (Safety & pip-audit)
+    - name: Run Safety check (Python dependency database)
+      run: |
+        # Run safety scanner on dependencies
+        safety check -r backend/requirements.txt || true  # Log warnings, continue
+
+    - name: Run pip-audit (DEP vulnerabilities)
+      run: |
+        pip-audit -r backend/requirements.txt || true
+
+    # 4. NodeJS Dependency Audits (npm audit)
+    - name: Run npm audit
+      run: |
+        cd frontend
+        npm audit --audit-level=high || true

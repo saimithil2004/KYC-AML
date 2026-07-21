@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aml-redis-master
+  namespace: aml-compliance
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aml-redis-master
+  template:
+    metadata:
+      labels:
+        app: aml-redis-master
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          command: ["redis-server", "--appendonly", "yes"]
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: "100m"
+              memory: 128Mi
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aml-redis-master-svc
+  namespace: aml-compliance
+spec:
+  ports:
+    - port: 6379
+  selector:
+    app: aml-redis-master
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aml-redis-sentinel
+  namespace: aml-compliance
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aml-redis-sentinel
+  template:
+    metadata:
+      labels:
+        app: aml-redis-sentinel
+    spec:
+      containers:
+        - name: sentinel
+          image: redis:7.2-alpine
+          command:
+            - sh
+            - -c
+            - |
+              echo "port 26379" > /tmp/sentinel.conf
+              echo "sentinel monitor mymaster aml-redis-master-svc 6379 1" >> /tmp/sentinel.conf
+              echo "sentinel down-after-milliseconds mymaster 5000" >> /tmp/sentinel.conf
+              echo "sentinel failover-timeout mymaster 60000" >> /tmp/sentinel.conf
+              echo "sentinel parallel-syncs mymaster 1" >> /tmp/sentinel.conf
+              redis-server /tmp/sentinel.conf --sentinel
+          ports:
+            - containerPort: 26379
+              name: sentinel
+          resources:
+            limits:
+              cpu: "500m"
+              memory: 512Mi
+            requests:
+              cpu: "100m"
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aml-redis-sentinel-svc
+  namespace: aml-compliance
+spec:
+  ports:
+    - port: 26379
+  selector:
+    app: aml-redis-sentinel

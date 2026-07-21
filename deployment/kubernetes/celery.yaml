@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aml-celery-worker
+  namespace: aml-compliance
+  labels:
+    app: aml-celery-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aml-celery-worker
+  template:
+    metadata:
+      labels:
+        app: aml-celery-worker
+    spec:
+      containers:
+        - name: worker
+          image: aml-backend-api:latest
+          command: ["celery", "-A", "app.core.celery_app.celery_app", "worker", "--loglevel=info"]
+          envFrom:
+            - configMapRef:
+                name: aml-config
+            - secretRef:
+                name: aml-secrets
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: "200m"
+              memory: 256Mi
+          livenessProbe:
+            exec:
+              command:
+                - celery
+                - -A
+                - app.core.celery_app.celery_app
+                - inspect
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 20
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aml-celery-worker-hpa
+  namespace: aml-compliance
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aml-celery-worker
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aml-celery-beat
+  namespace: aml-compliance
+  labels:
+    app: aml-celery-beat
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: aml-celery-beat
+  template:
+    metadata:
+      labels:
+        app: aml-celery-beat
+    spec:
+      containers:
+        - name: beat
+          image: aml-backend-api:latest
+          command: ["celery", "-A", "app.core.celery_app.celery_app", "beat", "--loglevel=info"]
+          envFrom:
+            - configMapRef:
+                name: aml-config
+            - secretRef:
+                name: aml-secrets
+          resources:
+            limits:
+              cpu: "500m"
+              memory: 512Mi
+            requests:
+              cpu: "100m"
+              memory: 128Mi

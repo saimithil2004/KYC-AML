@@ -24,8 +24,15 @@ async def get_current_user(
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
         user_id: str = payload.get("sub")
         token_type: str = payload.get("type")
+        jti: str = payload.get("jti")
         if user_id is None or token_type != "access":
             raise credentials_exception
+        
+        # Check token blacklist (revocation)
+        from app.services.auth_service import AuthService
+        if jti and await AuthService.is_token_revoked(db, jti):
+            raise credentials_exception
+            
         user_uuid = UUID(user_id)
     except JWTError:
         raise credentials_exception

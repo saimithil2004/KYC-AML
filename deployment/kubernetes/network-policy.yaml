@@ -1,0 +1,84 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-by-default
+  namespace: aml-compliance
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres-only-from-apps
+  namespace: aml-compliance
+spec:
+  podSelector:
+    matchLabels:
+      app: aml-postgres-primary
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: aml-backend-api
+        - podSelector:
+            matchLabels:
+              app: aml-celery-worker
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis-only-from-apps
+  namespace: aml-compliance
+spec:
+  podSelector:
+    matchLabels:
+      app: aml-redis-master
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: aml-backend-api
+        - podSelector:
+            matchLabels:
+              app: aml-celery-worker
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-from-ingress-and-frontend
+  namespace: aml-compliance
+spec:
+  podSelector:
+    matchLabels:
+      app: aml-backend-api
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: aml-frontend
+        - namespaceSelector: {} # Allow from ingress namespace if decoupled
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-from-ingress
+  namespace: aml-compliance
+spec:
+  podSelector:
+    matchLabels:
+      app: aml-frontend
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 3000

@@ -1,0 +1,260 @@
+version: '3.8'
+
+services:
+  postgres_primary:
+    image: pgvector/pgvector:pg16
+    container_name: aml_postgres_primary
+    restart: always
+    environment:
+      POSTGRES_DB: aml_compliance_db
+      POSTGRES_USER: compliance_admin
+      POSTGRES_PASSWORD: SecretSecurePassword99
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_primary_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U compliance_admin -d aml_compliance_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aml_prod_network
+
+  postgres_replica:
+    image: pgvector/pgvector:pg16
+    container_name: aml_postgres_replica
+    restart: always
+    environment:
+      POSTGRES_DB: aml_compliance_db
+      POSTGRES_USER: compliance_admin
+      POSTGRES_PASSWORD: SecretSecurePassword99
+    ports:
+      - "5433:5432"
+    # Fallback/mock database file volume for replica
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U compliance_admin -d aml_compliance_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres_primary:
+        condition: service_healthy
+    networks:
+      - aml_prod_network
+
+  redis_master:
+    image: redis:7.2-alpine
+    container_name: aml_redis_master
+    restart: always
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_master_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aml_prod_network
+
+  redis_sentinel:
+    image: redis:7.2-alpine
+    container_name: aml_redis_sentinel
+    restart: always
+    # Creates simple configuration for Sentinel monitoring aml_redis_master
+    command: >
+      sh -c "echo 'port 26379' > /tmp/sentinel.conf &&
+             echo 'sentinel monitor mymaster redis_master 6379 1' >> /tmp/sentinel.conf &&
+             echo 'sentinel down-after-milliseconds mymaster 5000' >> /tmp/sentinel.conf &&
+             echo 'sentinel failover-timeout mymaster 60000' >> /tmp/sentinel.conf &&
+             echo 'sentinel parallel-syncs mymaster 1' >> /tmp/sentinel.conf &&
+             redis-server /tmp/sentinel.conf --sentinel"
+    ports:
+      - "26379:26379"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    depends_on:
+      redis_master:
+        condition: service_healthy
+    networks:
+      - aml_prod_network
+
+  backend_api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aml_prod_backend_api
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres_primary:5432/aml_compliance_db
+      - DATABASE_REPLICA_URL=postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres_replica:5432/aml_compliance_db
+      - REDIS_URL=redis://redis_master:6379/0
+      - REDIS_SENTINELS=redis_sentinel:26379
+      - REDIS_SENTINEL_SERVICE_NAME=mymaster
+      - SECRET_KEY=VerySecretJWTKeyForTokens_ReplaceInProduction
+      - ENCRYPTION_KEY=StrongAESKeyForPIIEncryptionBase64String=
+      - ENV=production
+      - RATE_LIMIT_ENABLED=true
+    volumes:
+      - shared_documents:/app/shared_docs
+      - backup_data:/app/backups
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      postgres_primary:
+        condition: service_healthy
+      postgres_replica:
+        condition: service_healthy
+      redis_master:
+        condition: service_healthy
+      redis_sentinel:
+        condition: service_healthy
+    networks:
+      - aml_prod_network
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aml_prod_celery_worker
+    restart: always
+    command: celery -A app.core.celery_app.celery_app worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres_primary:5432/aml_compliance_db
+      - REDIS_URL=redis://redis_master:6379/0
+      - REDIS_SENTINELS=redis_sentinel:26379
+      - REDIS_SENTINEL_SERVICE_NAME=mymaster
+      - SECRET_KEY=VerySecretJWTKeyForTokens_ReplaceInProduction
+      - ENCRYPTION_KEY=StrongAESKeyForPIIEncryptionBase64String=
+      - ENV=production
+    volumes:
+      - shared_documents:/app/shared_docs
+      - backup_data:/app/backups
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.core.celery_app.celery_app inspect ping"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      postgres_primary:
+        condition: service_healthy
+      redis_master:
+        condition: service_healthy
+    networks:
+      - aml_prod_network
+
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aml_prod_celery_beat
+    restart: always
+    command: celery -A app.core.celery_app.celery_app beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres_primary:5432/aml_compliance_db
+      - REDIS_URL=redis://redis_master:6379/0
+      - REDIS_SENTINELS=redis_sentinel:26379
+      - REDIS_SENTINEL_SERVICE_NAME=mymaster
+      - SECRET_KEY=VerySecretJWTKeyForTokens_ReplaceInProduction
+      - ENCRYPTION_KEY=StrongAESKeyForPIIEncryptionBase64String=
+      - ENV=production
+    volumes:
+      - backup_data:/app/backups
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    depends_on:
+      postgres_primary:
+        condition: service_healthy
+      redis_master:
+        condition: service_healthy
+    networks:
+      - aml_prod_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: aml_prod_frontend
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=http://nginx:80/api/v1
+      - PORT=3000
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1536M
+    depends_on:
+      - backend_api
+    networks:
+      - aml_prod_network
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: aml_prod_nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deployment/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    depends_on:
+      - backend_api
+      - frontend
+    networks:
+      - aml_prod_network
+
+networks:
+  aml_prod_network:
+    driver: bridge
+
+volumes:
+  postgres_primary_data:
+  postgres_replica_data:
+  redis_master_data:
+  shared_documents:
+  backup_data:
