@@ -28,10 +28,14 @@ from typing import List
 
 from app.agents.pep.models import ScreeningSubject, PepRecord
 from app.agents.pep.constants import (
-    PEP_CATEGORY_DOMESTIC, PEP_CATEGORY_FOREIGN,
-    PEP_CATEGORY_INTERNATIONAL_ORG, PEP_CATEGORY_FAMILY_MEMBER,
-    PEP_CATEGORY_CLOSE_ASSOCIATE, PEP_CATEGORY_FORMER_PEP,
-    PEP_CATEGORY_CURRENT_PEP, PROVIDER_MOCK,
+    PEP_CATEGORY_DOMESTIC,
+    PEP_CATEGORY_FOREIGN,
+    PEP_CATEGORY_INTERNATIONAL_ORG,
+    PEP_CATEGORY_FAMILY_MEMBER,
+    PEP_CATEGORY_CLOSE_ASSOCIATE,
+    PEP_CATEGORY_FORMER_PEP,
+    PEP_CATEGORY_CURRENT_PEP,
+    PROVIDER_MOCK,
 )
 
 
@@ -77,7 +81,6 @@ class BasePepProvider(abc.ABC):
 # Realistic mock dataset.  Each record covers a distinct PEP category so
 # every business rule (PEP001–PEP007) can be exercised in tests.
 _MOCK_PEP_DATABASE: List[PepRecord] = [
-
     # ── Domestic PEP — Current ──────────────────────────────────────────────
     PepRecord(
         record_id="PEP-UK-001",
@@ -91,7 +94,6 @@ _MOCK_PEP_DATABASE: List[PepRecord] = [
         source=PROVIDER_MOCK,
         last_updated="2024-01-01",
     ),
-
     # ── Foreign PEP — Current ───────────────────────────────────────────────
     PepRecord(
         record_id="PEP-FR-001",
@@ -105,7 +107,6 @@ _MOCK_PEP_DATABASE: List[PepRecord] = [
         source=PROVIDER_MOCK,
         last_updated="2024-01-01",
     ),
-
     # ── International Organisation PEP ─────────────────────────────────────
     PepRecord(
         record_id="PEP-INT-001",
@@ -119,7 +120,6 @@ _MOCK_PEP_DATABASE: List[PepRecord] = [
         source=PROVIDER_MOCK,
         last_updated="2024-01-01",
     ),
-
     # ── Family Member of PEP ────────────────────────────────────────────────
     PepRecord(
         record_id="PEP-FAM-001",
@@ -133,7 +133,6 @@ _MOCK_PEP_DATABASE: List[PepRecord] = [
         source=PROVIDER_MOCK,
         last_updated="2024-01-01",
     ),
-
     # ── Close Associate ─────────────────────────────────────────────────────
     PepRecord(
         record_id="PEP-ASC-001",
@@ -147,7 +146,6 @@ _MOCK_PEP_DATABASE: List[PepRecord] = [
         source=PROVIDER_MOCK,
         last_updated="2024-01-01",
     ),
-
     # ── Former PEP ─────────────────────────────────────────────────────────
     PepRecord(
         record_id="PEP-FMR-001",
@@ -161,7 +159,6 @@ _MOCK_PEP_DATABASE: List[PepRecord] = [
         source=PROVIDER_MOCK,
         last_updated="2024-01-01",
     ),
-
     # ── Fuzzy match candidate (slightly different name spelling) ────────────
     PepRecord(
         record_id="PEP-FUZ-001",

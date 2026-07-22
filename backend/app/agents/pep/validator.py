@@ -19,11 +19,15 @@ import uuid
 from typing import Any, Dict, List
 
 from app.agents.base.agent_state import AgentState
+
 # ScreeningSubject and ROLE_* constants come from the shared screening package
 from app.agents.screening.models import ScreeningSubject
 from app.agents.screening.constants import (
-    ROLE_CUSTOMER, ROLE_DIRECTOR, ROLE_UBO,
-    ROLE_SHAREHOLDER, ROLE_AUTHORISED_SIGNATORY,
+    ROLE_CUSTOMER,
+    ROLE_DIRECTOR,
+    ROLE_UBO,
+    ROLE_SHAREHOLDER,
+    ROLE_AUTHORISED_SIGNATORY,
 )
 
 
@@ -92,9 +96,9 @@ class PepValidator:
 
         # ── 4. Shareholders ───────────────────────────────────────────────────
         shareholders = (
-            state.customer_profile.get("shareholders") or
-            (state.companies[0].get("shareholders") if state.companies else None) or
-            []
+            state.customer_profile.get("shareholders")
+            or (state.companies[0].get("shareholders") if state.companies else None)
+            or []
         )
         for idx, sh in enumerate(shareholders):
             subject = PepValidator._extract_person(
@@ -135,7 +139,7 @@ class PepValidator:
             return None
 
         first = str(customer.get("first_name") or "").strip()
-        last  = str(customer.get("last_name")  or "").strip()
+        last = str(customer.get("last_name") or "").strip()
         full_name = f"{first} {last}".strip()
 
         if not full_name:
@@ -147,8 +151,10 @@ class PepValidator:
             full_name=full_name,
             dob=str(customer.get("dob") or "").strip() or None,
             nationality=str(customer.get("nationality") or "").strip() or None,
-            country=str(customer.get("country") or
-                        customer.get("registered_country") or "").strip() or None,
+            country=str(
+                customer.get("country") or customer.get("registered_country") or ""
+            ).strip()
+            or None,
             company_name=None,
         )
 
@@ -168,7 +174,7 @@ class PepValidator:
             full_name = str(person["name"]).strip()
         else:
             first = str(person.get("first_name") or "").strip()
-            last  = str(person.get("last_name")  or "").strip()
+            last = str(person.get("last_name") or "").strip()
             full_name = f"{first} {last}".strip()
 
         if not full_name:
@@ -190,9 +196,9 @@ class PepValidator:
         if state.companies:
             company = state.companies[0]
             return (
-                str(company.get("company_name") or "").strip() or
-                str(company.get("name") or "").strip() or
-                None
+                str(company.get("company_name") or "").strip()
+                or str(company.get("name") or "").strip()
+                or None
             )
         if state.customer_profile.get("company_name"):
             return str(state.customer_profile["company_name"]).strip()

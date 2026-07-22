@@ -2,14 +2,16 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 
+
 class AgentState(BaseModel):
     """
     Shared memory context representing the full state of a case.
     Every agent reads from and updates this same state context.
     """
+
     customer_id: str
     case_id: str
-    
+
     # Core Domain Context Models (Inputs/References)
     customer: Dict[str, Any] = Field(default_factory=dict)
     customer_profile: Dict[str, Any] = Field(default_factory=dict)
@@ -24,27 +26,27 @@ class AgentState(BaseModel):
     risk_scores: List[Dict[str, Any]] = Field(default_factory=list)
     policies: List[Dict[str, Any]] = Field(default_factory=list)
     monitoring_schedule: Optional[Dict[str, Any]] = None
-    
+
     # Execution Tracking
     current_agent: Optional[str] = None
     completed_agents: List[str] = Field(default_factory=list)
     execution_history: List[Dict[str, Any]] = Field(default_factory=list)
-    
+
     # Shared Metadata
     shared_metadata: Dict[str, Any] = Field(default_factory=dict)
-    
+
     # Outputs aggregated from individual agent executions
     agent_results: Dict[str, Any] = Field(default_factory=dict)
-    
+
     # Central risk engine metrics
     overall_score: float = 0.0
     risk_tier: str = "low"
     risk_breakdown: Dict[str, float] = Field(default_factory=dict)
-    
+
     # Decision output
     final_decision: Optional[str] = None  # "approve", "reject", "edd", "manual_review"
     decision_reason: Optional[str] = None
-    
+
     # Execution logs
     logs: List[str] = Field(default_factory=list)
 

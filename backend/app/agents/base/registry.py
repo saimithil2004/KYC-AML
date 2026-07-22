@@ -6,11 +6,13 @@ from app.agents.base.exceptions import RegistryError
 
 logger = logging.getLogger(__name__)
 
+
 class AgentRegistry:
     """
     Thread-safe Singleton Agent Registry.
     Supports dependency injection, dynamic loading, and plugin integration.
     """
+
     _instance = None
     _lock = threading.Lock()
 
@@ -24,6 +26,7 @@ class AgentRegistry:
     @classmethod
     def register(cls, name: str):
         """Decorator to register an Agent class by name."""
+
         def decorator(subclass: Type[BaseAgent]):
             registry_inst = cls.get_registry()
             with registry_inst._lock:
@@ -32,6 +35,7 @@ class AgentRegistry:
                 registry_inst._registry[name] = subclass
                 logger.info(f"Registered agent '{name}' to registry index.")
                 return subclass
+
         return decorator
 
     def register_agent_class(self, name: str, agent_class: Type[BaseAgent]):
@@ -53,6 +57,7 @@ class AgentRegistry:
         if not agent_class:
             raise RegistryError(f"Agent '{name}' not found in registry index.")
         from app.agents.base.agent_context import AgentContext
+
         context = AgentContext(db_session=db_session)
         return agent_class(context=context)
 

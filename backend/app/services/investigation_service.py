@@ -16,9 +16,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.schema_helpers import ensure_phase12_schema
 from app.models.models import (
-    Customer, Case, User, Investigation, Evidence, CaseNote,
-    SAR, TimelineEvent, Assignment, AuditLog, RiskScore,
-    Alert, MonitoringHistory
+    Customer,
+    Case,
+    User,
+    Investigation,
+    Evidence,
+    CaseNote,
+    SAR,
+    TimelineEvent,
+    Assignment,
+    AuditLog,
+    RiskScore,
+    Alert,
+    MonitoringHistory,
 )
 from app.services.audit_service import AuditService
 
@@ -30,9 +40,7 @@ class InvestigationService:
 
     @staticmethod
     async def get_or_create_investigation(
-        db: AsyncSession,
-        case_id: UUID,
-        current_user_id: UUID
+        db: AsyncSession, case_id: UUID, current_user_id: UUID
     ) -> Investigation:
         """Fetch or initialize a workspace investigation for a case."""
         await ensure_phase12_schema(db)
@@ -61,11 +69,17 @@ class InvestigationService:
                 ai_summary={
                     "case_summary": "Initial compliance review workspace established. Case logs pending analysis.",
                     "suspicious_behaviour_analysis": "Pending investigation audit review.",
-                    "recommended_actions": ["Conduct initial alert matching checks", "Verify customer ID profile"],
-                    "questions_for_investigator": ["Is this a duplicate customer profile?", "Are transactional flags valid?"],
+                    "recommended_actions": [
+                        "Conduct initial alert matching checks",
+                        "Verify customer ID profile",
+                    ],
+                    "questions_for_investigator": [
+                        "Is this a duplicate customer profile?",
+                        "Are transactional flags valid?",
+                    ],
                     "missing_evidence_suggestions": ["Proof of residential address"],
-                    "risk_explanation": "Initial review baseline."
-                }
+                    "risk_explanation": "Initial review baseline.",
+                },
             )
             db.add(inv)
             await db.flush()
@@ -77,7 +91,7 @@ class InvestigationService:
                 event_type="case_created",
                 title="Investigation Workspace Opened",
                 description="Compliance officer initialized investigation workspace.",
-                actor_id=current_user_id
+                actor_id=current_user_id,
             )
 
             # Log audit
@@ -87,7 +101,10 @@ class InvestigationService:
                 action="CREATE_INVESTIGATION",
                 entity_name="investigation",
                 entity_id=inv.id,
-                new_values={"case_id": str(case_id), "customer_id": str(case_obj.customer_id)}
+                new_values={
+                    "case_id": str(case_id),
+                    "customer_id": str(case_obj.customer_id),
+                },
             )
             await db.commit()
             await db.refresh(inv)
@@ -96,20 +113,23 @@ class InvestigationService:
 
     @staticmethod
     async def get_investigation_details(
-        db: AsyncSession,
-        investigation_id: UUID
+        db: AsyncSession, investigation_id: UUID
     ) -> Dict[str, Any]:
         """Gathers full multi-panel workspace view payload (Part 1)."""
         await ensure_phase12_schema(db)
 
         # 1. Load Investigation
-        inv_res = await db.execute(select(Investigation).where(Investigation.id == investigation_id))
+        inv_res = await db.execute(
+            select(Investigation).where(Investigation.id == investigation_id)
+        )
         inv = inv_res.scalars().first()
         if not inv:
             raise ValueError("Investigation not found.")
 
         # 2. Customer & KYC
-        cust_res = await db.execute(select(Customer).where(Customer.id == inv.customer_id))
+        cust_res = await db.execute(
+            select(Customer).where(Customer.id == inv.customer_id)
+        )
         cust = cust_res.scalars().first()
         kyc = cust.kyc_profile if cust else None
 
@@ -117,12 +137,15 @@ class InvestigationService:
         docs = cust.documents if cust else []
 
         # 4. Alerts
-        alerts_res = await db.execute(select(Alert).where(Alert.customer_id == inv.customer_id))
+        alerts_res = await db.execute(
+            select(Alert).where(Alert.customer_id == inv.customer_id)
+        )
         alerts = alerts_res.scalars().all()
 
         # 5. Transactions
         # Fetching transactions via account transfers if any
         from app.models.models import Account, Transaction
+
         tx_res = await db.execute(
             select(Transaction)
             .join(Account, Account.id == Transaction.sender_account_id)
@@ -132,43 +155,57 @@ class InvestigationService:
 
         # 6. Risk Scores
         risk_res = await db.execute(
-            select(RiskScore).where(RiskScore.customer_id == inv.customer_id).order_by(desc(RiskScore.created_at))
+            select(RiskScore)
+            .where(RiskScore.customer_id == inv.customer_id)
+            .order_by(desc(RiskScore.created_at))
         )
         risks = risk_res.scalars().all()
 
         # 7. Monitoring History
         mon_res = await db.execute(
-            select(MonitoringHistory).where(MonitoringHistory.customer_id == inv.customer_id).order_by(desc(MonitoringHistory.screening_date))
+            select(MonitoringHistory)
+            .where(MonitoringHistory.customer_id == inv.customer_id)
+            .order_by(desc(MonitoringHistory.screening_date))
         )
         history = mon_res.scalars().all()
 
         # 8. Notes
         notes_res = await db.execute(
-            select(CaseNote).where(CaseNote.investigation_id == investigation_id).order_by(CaseNote.created_at.desc())
+            select(CaseNote)
+            .where(CaseNote.investigation_id == investigation_id)
+            .order_by(CaseNote.created_at.desc())
         )
         notes = notes_res.scalars().all()
 
         # 9. Evidence
         ev_res = await db.execute(
-            select(Evidence).where(Evidence.investigation_id == investigation_id).order_by(Evidence.timestamp.desc())
+            select(Evidence)
+            .where(Evidence.investigation_id == investigation_id)
+            .order_by(Evidence.timestamp.desc())
         )
         evidences = ev_res.scalars().all()
 
         # 10. SARs
         sar_res = await db.execute(
-            select(SAR).where(SAR.investigation_id == investigation_id).order_by(SAR.created_at.desc())
+            select(SAR)
+            .where(SAR.investigation_id == investigation_id)
+            .order_by(SAR.created_at.desc())
         )
         sars = sar_res.scalars().all()
 
         # 11. Timeline
         timeline_res = await db.execute(
-            select(TimelineEvent).where(TimelineEvent.investigation_id == investigation_id).order_by(TimelineEvent.timestamp.asc())
+            select(TimelineEvent)
+            .where(TimelineEvent.investigation_id == investigation_id)
+            .order_by(TimelineEvent.timestamp.asc())
         )
         timeline = timeline_res.scalars().all()
 
         # 12. Assignments history
         assign_res = await db.execute(
-            select(Assignment).where(Assignment.investigation_id == investigation_id).order_by(Assignment.assigned_at.desc())
+            select(Assignment)
+            .where(Assignment.investigation_id == investigation_id)
+            .order_by(Assignment.assigned_at.desc())
         )
         assignments = assign_res.scalars().all()
 
@@ -185,15 +222,12 @@ class InvestigationService:
             "evidence": evidences,
             "sars": sars,
             "timeline": timeline,
-            "assignments": assignments
+            "assignments": assignments,
         }
 
     @staticmethod
     async def add_note(
-        db: AsyncSession,
-        investigation_id: UUID,
-        author_id: UUID,
-        note_text: str
+        db: AsyncSession, investigation_id: UUID, author_id: UUID, note_text: str
     ) -> CaseNote:
         """Add case note. Rich text formatting & mentions handled on frontend."""
         await ensure_phase12_schema(db)
@@ -202,7 +236,7 @@ class InvestigationService:
             id=uuid4(),
             investigation_id=investigation_id,
             author_id=author_id,
-            note_text=note_text
+            note_text=note_text,
         )
         db.add(note)
         await db.flush()
@@ -214,7 +248,7 @@ class InvestigationService:
             event_type="comment_added",
             title="Note Added by Investigator",
             description=f"Note: {note_text[:100]}...",
-            actor_id=author_id
+            actor_id=author_id,
         )
 
         # Audit
@@ -224,7 +258,7 @@ class InvestigationService:
             action="ADD_CASE_NOTE",
             entity_name="case_note",
             entity_id=note.id,
-            new_values={"investigation_id": str(investigation_id)}
+            new_values={"investigation_id": str(investigation_id)},
         )
         await db.commit()
         await db.refresh(note)
@@ -232,10 +266,7 @@ class InvestigationService:
 
     @staticmethod
     async def edit_note(
-        db: AsyncSession,
-        note_id: UUID,
-        author_id: UUID,
-        new_text: str
+        db: AsyncSession, note_id: UUID, author_id: UUID, new_text: str
     ) -> CaseNote:
         """Edit an existing note and record audit log entry (Part 3)."""
         await ensure_phase12_schema(db)
@@ -257,18 +288,14 @@ class InvestigationService:
             action="EDIT_CASE_NOTE",
             entity_name="case_note",
             entity_id=note_id,
-            new_values={"investigation_id": str(note.investigation_id)}
+            new_values={"investigation_id": str(note.investigation_id)},
         )
         await db.commit()
         await db.refresh(note)
         return note
 
     @staticmethod
-    async def delete_note(
-        db: AsyncSession,
-        note_id: UUID,
-        author_id: UUID
-    ) -> bool:
+    async def delete_note(db: AsyncSession, note_id: UUID, author_id: UUID) -> bool:
         """Delete an existing case note (Part 3)."""
         await ensure_phase12_schema(db)
 
@@ -286,7 +313,7 @@ class InvestigationService:
             action="DELETE_CASE_NOTE",
             entity_name="case_note",
             entity_id=note_id,
-            old_values={"investigation_id": str(note.investigation_id)}
+            old_values={"investigation_id": str(note.investigation_id)},
         )
         await db.commit()
         return True
@@ -299,7 +326,7 @@ class InvestigationService:
         evidence_type: str,
         file_content: bytes,
         uploaded_by: UUID,
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ) -> Evidence:
         """Part 2 - Store evidence and compute SHA256 checksum hash."""
         await ensure_phase12_schema(db)
@@ -308,7 +335,9 @@ class InvestigationService:
         sha256_hash = hashlib.sha256(file_content).hexdigest()
 
         # Store in local evidence directory mock
-        evidence_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "evidence_files")
+        evidence_dir = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "evidence_files"
+        )
         os.makedirs(evidence_dir, exist_ok=True)
         file_id = uuid4()
         storage_path = os.path.join(evidence_dir, f"{file_id}_{file_name}")
@@ -324,7 +353,7 @@ class InvestigationService:
             file_path=storage_path,
             description=description,
             uploaded_by=uploaded_by,
-            file_hash=sha256_hash
+            file_hash=sha256_hash,
         )
         db.add(evidence)
         await db.flush()
@@ -336,7 +365,7 @@ class InvestigationService:
             event_type="evidence_uploaded",
             title="Evidence Document Uploaded",
             description=f"File: {file_name} ({evidence_type}), Hash: {sha256_hash[:8]}...",
-            actor_id=uploaded_by
+            actor_id=uploaded_by,
         )
 
         # Audit
@@ -346,7 +375,10 @@ class InvestigationService:
             action="UPLOAD_EVIDENCE",
             entity_name="evidence",
             entity_id=evidence.id,
-            new_values={"investigation_id": str(investigation_id), "file_name": file_name}
+            new_values={
+                "investigation_id": str(investigation_id),
+                "file_name": file_name,
+            },
         )
         await db.commit()
         await db.refresh(evidence)
@@ -354,9 +386,7 @@ class InvestigationService:
 
     @staticmethod
     async def delete_evidence(
-        db: AsyncSession,
-        evidence_id: UUID,
-        actor_id: UUID
+        db: AsyncSession, evidence_id: UUID, actor_id: UUID
     ) -> bool:
         """Remove evidence record and purge file from local workspace."""
         await ensure_phase12_schema(db)
@@ -377,10 +407,10 @@ class InvestigationService:
         await InvestigationService.log_timeline_event(
             db=db,
             investigation_id=ev.investigation_id,
-            event_type="evidence_uploaded", # keep timeline category
+            event_type="evidence_uploaded",  # keep timeline category
             title="Evidence Removed",
             description=f"Evidence file {ev.file_name} was deleted from case records.",
-            actor_id=actor_id
+            actor_id=actor_id,
         )
 
         # Audit
@@ -390,7 +420,10 @@ class InvestigationService:
             action="DELETE_EVIDENCE",
             entity_name="evidence",
             entity_id=evidence_id,
-            old_values={"investigation_id": str(ev.investigation_id), "file_name": ev.file_name}
+            old_values={
+                "investigation_id": str(ev.investigation_id),
+                "file_name": ev.file_name,
+            },
         )
 
         await db.delete(ev)
@@ -403,12 +436,14 @@ class InvestigationService:
         investigation_id: UUID,
         assignee_id: UUID,
         role: str,  # investigator, supervisor
-        current_user_id: UUID
+        current_user_id: UUID,
     ) -> Assignment:
         """Part 4 - Reassign investigator or supervisor to investigation workspace."""
         await ensure_phase12_schema(db)
 
-        res = await db.execute(select(Investigation).where(Investigation.id == investigation_id))
+        res = await db.execute(
+            select(Investigation).where(Investigation.id == investigation_id)
+        )
         inv = res.scalars().first()
         if not inv:
             raise ValueError("Investigation not found.")
@@ -426,7 +461,7 @@ class InvestigationService:
             investigation_id=investigation_id,
             assigned_by=current_user_id,
             assigned_to=assignee_id,
-            role=role
+            role=role,
         )
         db.add(assignment)
         await db.flush()
@@ -440,10 +475,12 @@ class InvestigationService:
         await InvestigationService.log_timeline_event(
             db=db,
             investigation_id=investigation_id,
-            event_type="case_assigned" if role == "investigator" else "supervisor_assigned",
+            event_type=(
+                "case_assigned" if role == "investigator" else "supervisor_assigned"
+            ),
             title=f"Reassigned {role.title()}",
             description=f"Assigned owner updated to {assignee_name}.",
-            actor_id=current_user_id
+            actor_id=current_user_id,
         )
 
         # Audit
@@ -453,7 +490,7 @@ class InvestigationService:
             action=f"ASSIGN_{role.upper()}",
             entity_name="investigation",
             entity_id=investigation_id,
-            new_values={"assigned_to": str(assignee_id)}
+            new_values={"assigned_to": str(assignee_id)},
         )
         await db.commit()
         await db.refresh(assignment)
@@ -467,9 +504,7 @@ class InvestigationService:
         # Fetch active open investigation case counts by assigned investigator
         res = await db.execute(
             select(
-                User.id,
-                User.email,
-                func.count(Investigation.id).label("active_cases")
+                User.id, User.email, func.count(Investigation.id).label("active_cases")
             )
             .join(Investigation, Investigation.assigned_to == User.id, isouter=True)
             .where(or_(Investigation.status != "closed", Investigation.id == None))
@@ -477,12 +512,7 @@ class InvestigationService:
         )
         rows = res.all()
         return [
-            {
-                "user_id": str(r[0]),
-                "email": r[1],
-                "active_cases": r[2]
-            }
-            for r in rows
+            {"user_id": str(r[0]), "email": r[1], "active_cases": r[2]} for r in rows
         ]
 
     @staticmethod
@@ -493,7 +523,7 @@ class InvestigationService:
         reason: str,
         risk_indicators: List[str],
         recommendation: str,
-        created_by: UUID
+        created_by: UUID,
     ) -> SAR:
         """Part 6 - Initialize Suspicious Activity Report draft for investigation."""
         await ensure_phase12_schema(db)
@@ -511,13 +541,15 @@ class InvestigationService:
             risk_indicators=risk_indicators,
             recommendation=recommendation,
             status="draft",
-            created_by=created_by
+            created_by=created_by,
         )
         db.add(sar)
         await db.flush()
 
         # Update parent case sar_filed indicator
-        res = await db.execute(select(Investigation).where(Investigation.id == investigation_id))
+        res = await db.execute(
+            select(Investigation).where(Investigation.id == investigation_id)
+        )
         inv = res.scalars().first()
         if inv:
             case_res = await db.execute(select(Case).where(Case.id == inv.case_id))
@@ -532,7 +564,7 @@ class InvestigationService:
             event_type="sar_generated",
             title="SAR Report Drafted",
             description=f"Generated draft report: {sar_num}.",
-            actor_id=created_by
+            actor_id=created_by,
         )
 
         # Audit
@@ -542,7 +574,10 @@ class InvestigationService:
             action="DRAFT_SAR",
             entity_name="sar",
             entity_id=sar.id,
-            new_values={"investigation_id": str(investigation_id), "sar_number": sar_num}
+            new_values={
+                "investigation_id": str(investigation_id),
+                "sar_number": sar_num,
+            },
         )
         await db.commit()
         await db.refresh(sar)
@@ -553,7 +588,7 @@ class InvestigationService:
         db: AsyncSession,
         sar_id: UUID,
         status: str,  # submitted, approved, rejected, archived
-        actor_id: UUID
+        actor_id: UUID,
     ) -> SAR:
         """Transitions SAR report status workflow (Part 6)."""
         await ensure_phase12_schema(db)
@@ -575,7 +610,7 @@ class InvestigationService:
             event_type="sar_generated",
             title=f"SAR {status.title()}",
             description=f"Transitioned report status from {old_status} to {status.lower()}.",
-            actor_id=actor_id
+            actor_id=actor_id,
         )
 
         # Audit
@@ -586,7 +621,7 @@ class InvestigationService:
             entity_name="sar",
             entity_id=sar_id,
             old_values={"status": old_status},
-            new_values={"status": status}
+            new_values={"status": status},
         )
         await db.commit()
         await db.refresh(sar)
@@ -597,12 +632,14 @@ class InvestigationService:
         db: AsyncSession,
         investigation_id: UUID,
         action: str,  # close, reopen, escalate, return, edd_required
-        actor_id: UUID
+        actor_id: UUID,
     ) -> Investigation:
         """Transitions case workflow state machines and raises compliance notification entries (Part 8)."""
         await ensure_phase12_schema(db)
 
-        res = await db.execute(select(Investigation).where(Investigation.id == investigation_id))
+        res = await db.execute(
+            select(Investigation).where(Investigation.id == investigation_id)
+        )
         inv = res.scalars().first()
         if not inv:
             raise ValueError("Investigation not found.")
@@ -655,10 +692,12 @@ class InvestigationService:
         await InvestigationService.log_timeline_event(
             db=db,
             investigation_id=investigation_id,
-            event_type="decision_made" if action in ("close", "return") else "case_escalated",
+            event_type=(
+                "decision_made" if action in ("close", "return") else "case_escalated"
+            ),
             title=event_title,
             description=event_desc,
-            actor_id=actor_id
+            actor_id=actor_id,
         )
 
         # Log audit entry
@@ -669,7 +708,7 @@ class InvestigationService:
             entity_name="investigation",
             entity_id=investigation_id,
             old_values={"status": old_status},
-            new_values={"status": inv.status}
+            new_values={"status": inv.status},
         )
         await db.commit()
         await db.refresh(inv)
@@ -682,7 +721,7 @@ class InvestigationService:
         event_type: str,
         title: str,
         description: str,
-        actor_id: Optional[UUID] = None
+        actor_id: Optional[UUID] = None,
     ) -> TimelineEvent:
         """Create chronological timeline event log (Part 5)."""
         await ensure_phase12_schema(db)
@@ -693,7 +732,7 @@ class InvestigationService:
             event_type=event_type,
             title=title,
             description=description,
-            actor_id=actor_id
+            actor_id=actor_id,
         )
         db.add(ev)
         await db.flush()
@@ -705,31 +744,36 @@ class InvestigationService:
         await ensure_phase12_schema(db)
 
         # 1. Open investigations
-        open_invs = (await db.execute(
-            select(func.count(Investigation.id)).where(Investigation.status != "closed")
-        )).scalar_one() or 0
+        open_invs = (
+            await db.execute(
+                select(func.count(Investigation.id)).where(
+                    Investigation.status != "closed"
+                )
+            )
+        ).scalar_one() or 0
 
         # 2. Pending SARs
-        pending_sars = (await db.execute(
-            select(func.count(SAR.id)).where(SAR.status == "draft")
-        )).scalar_one() or 0
+        pending_sars = (
+            await db.execute(select(func.count(SAR.id)).where(SAR.status == "draft"))
+        ).scalar_one() or 0
 
         # 3. SARs Submitted
-        submitted_sars = (await db.execute(
-            select(func.count(SAR.id)).where(SAR.status == "submitted")
-        )).scalar_one() or 0
+        submitted_sars = (
+            await db.execute(
+                select(func.count(SAR.id)).where(SAR.status == "submitted")
+            )
+        ).scalar_one() or 0
 
         # 4. Total evidence files uploaded
-        total_evidence = (await db.execute(
-            select(func.count(Evidence.id))
-        )).scalar_one() or 0
+        total_evidence = (
+            await db.execute(select(func.count(Evidence.id)))
+        ).scalar_one() or 0
 
         # 5. Average investigation resolution time in hours
         # Calculation: average difference between Case.created_at and Investigation.updated_at for closed investigations
         avg_res_time = 0.0
         closed_inv_res = await db.execute(
-            select(Investigation)
-            .where(Investigation.status == "closed")
+            select(Investigation).where(Investigation.status == "closed")
         )
         closed_invs = closed_inv_res.scalars().all()
         if closed_invs:
@@ -744,22 +788,28 @@ class InvestigationService:
 
         # 7. Recently assigned cases
         recent_cases_res = await db.execute(
-            select(Investigation)
-            .order_by(Investigation.created_at.desc())
-            .limit(5)
+            select(Investigation).order_by(Investigation.created_at.desc()).limit(5)
         )
         recent_cases = recent_cases_res.scalars().all()
         recent_list = []
         for rc in recent_cases:
-            cust_res = await db.execute(select(Customer).where(Customer.id == rc.customer_id))
+            cust_res = await db.execute(
+                select(Customer).where(Customer.id == rc.customer_id)
+            )
             cust = cust_res.scalars().first()
-            recent_list.append({
-                "investigation_id": str(rc.id),
-                "customer_name": f"{cust.first_name or ''} {cust.last_name or ''}".strip() if cust else "Unknown",
-                "status": rc.status,
-                "risk_level": rc.risk_level,
-                "created_at": rc.created_at.isoformat()
-            })
+            recent_list.append(
+                {
+                    "investigation_id": str(rc.id),
+                    "customer_name": (
+                        f"{cust.first_name or ''} {cust.last_name or ''}".strip()
+                        if cust
+                        else "Unknown"
+                    ),
+                    "status": rc.status,
+                    "risk_level": rc.risk_level,
+                    "created_at": rc.created_at.isoformat(),
+                }
+            )
 
         return {
             "open_investigations": open_invs,
@@ -768,5 +818,5 @@ class InvestigationService:
             "evidence_uploaded": total_evidence,
             "average_investigation_time_hours": round(avg_res_time, 1),
             "investigator_workload": workloads,
-            "recently_assigned_cases": recent_list
+            "recently_assigned_cases": recent_list,
         }

@@ -73,14 +73,25 @@ from scenarios import (
 # ─────────────────────────────────────────────────────────────────────────────
 # Status constant aliases
 # ─────────────────────────────────────────────────────────────────────────────
-from app.agents.kyc.constants        import STATUS_COMPLETE, STATUS_INCOMPLETE, STATUS_FAILED
-from app.agents.pep.constants        import PEP_STATUS_CLEAR, PEP_STATUS_CONFIRMED, PEP_STATUS_POSSIBLE
-from app.agents.sanctions.constants  import (
-    SANCTIONS_STATUS_CLEAR, SANCTIONS_STATUS_CONFIRMED, SANCTIONS_STATUS_POSSIBLE
+from app.agents.kyc.constants import STATUS_COMPLETE, STATUS_INCOMPLETE, STATUS_FAILED
+from app.agents.pep.constants import (
+    PEP_STATUS_CLEAR,
+    PEP_STATUS_CONFIRMED,
+    PEP_STATUS_POSSIBLE,
 )
-from app.agents.country.constants    import (
-    COUNTRY_STATUS_CLEAR, COUNTRY_STATUS_WARNING, COUNTRY_STATUS_SUSPENDED,
-    RISK_HIGH, RISK_LOW, RISK_MEDIUM, RISK_PROHIBITED
+from app.agents.sanctions.constants import (
+    SANCTIONS_STATUS_CLEAR,
+    SANCTIONS_STATUS_CONFIRMED,
+    SANCTIONS_STATUS_POSSIBLE,
+)
+from app.agents.country.constants import (
+    COUNTRY_STATUS_CLEAR,
+    COUNTRY_STATUS_WARNING,
+    COUNTRY_STATUS_SUSPENDED,
+    RISK_HIGH,
+    RISK_LOW,
+    RISK_MEDIUM,
+    RISK_PROHIBITED,
 )
 
 
@@ -106,7 +117,7 @@ async def _run_pipeline(scenario: dict) -> Tuple[AgentState, dict]:
     Runs the complete five-agent pipeline and returns (state, timing_map).
     Raises AgentValidationError / AgentExecutionError on failure.
     """
-    state   = build_state(scenario)
+    state = build_state(scenario)
     timings = {}
 
     agents = [
@@ -118,7 +129,7 @@ async def _run_pipeline(scenario: dict) -> Tuple[AgentState, dict]:
     ]
 
     for agent in agents:
-        t0     = time.perf_counter()
+        t0 = time.perf_counter()
         result = await agent.execute(state)
         timings[agent.get_name()] = (time.perf_counter() - t0) * 1000
 
@@ -184,8 +195,10 @@ class TestIndividualClean:
         state, _ = pipeline
         comp_result = state.agent_results.get("company_agent", {})
         routing = comp_result.get("metadata", {}).get("routing", {})
-        assert routing.get("company_agent_executed") is False or \
-               routing.get("company_agent_status") == "SKIPPED"
+        assert (
+            routing.get("company_agent_executed") is False
+            or routing.get("company_agent_status") == "SKIPPED"
+        )
 
     def test_pep_status_clear(self, pipeline):
         state, _ = pipeline
@@ -213,7 +226,13 @@ class TestIndividualClean:
 
     def test_all_five_agents_completed(self, pipeline):
         state, _ = pipeline
-        expected = {"kyc_agent", "company_agent", "pep_agent", "sanctions_agent", "country_risk_agent"}
+        expected = {
+            "kyc_agent",
+            "company_agent",
+            "pep_agent",
+            "sanctions_agent",
+            "country_risk_agent",
+        }
         assert expected.issubset(set(state.completed_agents))
 
     def test_next_agent_set(self, pipeline):
@@ -267,7 +286,13 @@ class TestBusinessClean:
 
     def test_all_five_agents_completed(self, pipeline):
         state, _ = pipeline
-        expected = {"kyc_agent", "company_agent", "pep_agent", "sanctions_agent", "country_risk_agent"}
+        expected = {
+            "kyc_agent",
+            "company_agent",
+            "pep_agent",
+            "sanctions_agent",
+            "country_risk_agent",
+        }
         assert expected.issubset(set(state.completed_agents))
 
 
@@ -455,7 +480,13 @@ class TestBusinessPepDirector:
 
     def test_all_agents_completed(self, pipeline):
         state, _ = pipeline
-        expected = {"kyc_agent", "company_agent", "pep_agent", "sanctions_agent", "country_risk_agent"}
+        expected = {
+            "kyc_agent",
+            "company_agent",
+            "pep_agent",
+            "sanctions_agent",
+            "country_risk_agent",
+        }
         assert expected.issubset(set(state.completed_agents))
 
 
@@ -498,7 +529,13 @@ class TestBusinessSanctionedUbo:
 
     def test_all_agents_completed(self, pipeline):
         state, _ = pipeline
-        expected = {"kyc_agent", "company_agent", "pep_agent", "sanctions_agent", "country_risk_agent"}
+        expected = {
+            "kyc_agent",
+            "company_agent",
+            "pep_agent",
+            "sanctions_agent",
+            "country_risk_agent",
+        }
         assert expected.issubset(set(state.completed_agents))
 
 

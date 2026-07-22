@@ -66,7 +66,9 @@ class InvestigationAgent(BaseAgent):
 
     async def process(self, state: AgentState) -> Dict[str, Any]:
         start_time = time.perf_counter()
-        state.logs.append(f"[{self.get_name()}] Generating AI-assisted investigation summary...")
+        state.logs.append(
+            f"[{self.get_name()}] Generating AI-assisted investigation summary..."
+        )
 
         # ── Collect key facts ─────────────────────────────────────────────────
         sm = state.shared_metadata
@@ -77,17 +79,17 @@ class InvestigationAgent(BaseAgent):
         )
         customer_type = str(customer.get("customer_type") or "individual").upper()
 
-        overall_score  = state.overall_score
-        risk_level     = sm.get("risk_level") or state.risk_tier.upper()
-        pep_status     = sm.get("pep_status",      "UNKNOWN")
+        overall_score = state.overall_score
+        risk_level = sm.get("risk_level") or state.risk_tier.upper()
+        pep_status = sm.get("pep_status", "UNKNOWN")
         sanctions_status = sm.get("sanctions_status", "UNKNOWN")
-        country_status = sm.get("country_status",  "UNKNOWN")
-        fatf_status    = sm.get("fatf_status",     "UNKNOWN")
-        doc_score      = sm.get("document_score",  100)
-        violations     = sm.get("regulation_violations", [])
+        country_status = sm.get("country_status", "UNKNOWN")
+        fatf_status = sm.get("fatf_status", "UNKNOWN")
+        doc_score = sm.get("document_score", 100)
+        violations = sm.get("regulation_violations", [])
         block_triggers = sm.get("regulation_block_triggers", [])
-        edd_triggers   = sm.get("regulation_edd_triggers",   [])
-        tx_status      = sm.get("transaction_status", "CLEAR")
+        edd_triggers = sm.get("regulation_edd_triggers", [])
+        tx_status = sm.get("transaction_status", "CLEAR")
         behavior_flags = sm.get("account_behavior_flags", {})
 
         gemini_key = (
@@ -114,7 +116,9 @@ class InvestigationAgent(BaseAgent):
                     block_triggers=block_triggers,
                 )
             except Exception as exc:
-                logger.warning(f"InvestigationAgent: Gemini AI failed ({exc}). Using deterministic fallback.")
+                logger.warning(
+                    f"InvestigationAgent: Gemini AI failed ({exc}). Using deterministic fallback."
+                )
 
         if not ai_used:
             analysis_data = self._generate_deterministic_analysis(
@@ -137,9 +141,15 @@ class InvestigationAgent(BaseAgent):
         execution_duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
         # Store in shared metadata
-        state.shared_metadata["investigation_summary"] = analysis_data.get("case_summary", "")
-        state.shared_metadata["sar_explanation"] = f"AI Suspicious Behaviour Analysis: {analysis_data.get('suspicious_behaviour_analysis', '')}"
-        state.shared_metadata["compliance_narrative"] = analysis_data.get("risk_explanation", "")
+        state.shared_metadata["investigation_summary"] = analysis_data.get(
+            "case_summary", ""
+        )
+        state.shared_metadata["sar_explanation"] = (
+            f"AI Suspicious Behaviour Analysis: {analysis_data.get('suspicious_behaviour_analysis', '')}"
+        )
+        state.shared_metadata["compliance_narrative"] = analysis_data.get(
+            "risk_explanation", ""
+        )
         state.shared_metadata["investigation_ai_used"] = ai_used
         state.shared_metadata["ai_analysis_workspace"] = analysis_data
 
@@ -160,10 +170,16 @@ class InvestigationAgent(BaseAgent):
             "errors": [],
             # Detailed metadata payload for workspace
             "case_summary": analysis_data.get("case_summary"),
-            "suspicious_behaviour_analysis": analysis_data.get("suspicious_behaviour_analysis"),
+            "suspicious_behaviour_analysis": analysis_data.get(
+                "suspicious_behaviour_analysis"
+            ),
             "recommended_actions": analysis_data.get("recommended_actions"),
-            "questions_for_investigator": analysis_data.get("questions_for_investigator"),
-            "missing_evidence_suggestions": analysis_data.get("missing_evidence_suggestions"),
+            "questions_for_investigator": analysis_data.get(
+                "questions_for_investigator"
+            ),
+            "missing_evidence_suggestions": analysis_data.get(
+                "missing_evidence_suggestions"
+            ),
             "risk_explanation": analysis_data.get("risk_explanation"),
             "ai_used": ai_used,
             "execution_duration_ms": execution_duration_ms,
@@ -190,9 +206,10 @@ class InvestigationAgent(BaseAgent):
         genai.configure(api_key=gemini_key)
         model = genai.GenerativeModel("gemini-2.0-flash-exp")
 
-        violation_text = "\n".join([
-            f"  - {v['rule_name']}: {v['reason']}" for v in violations
-        ]) or "  None"
+        violation_text = (
+            "\n".join([f"  - {v['rule_name']}: {v['reason']}" for v in violations])
+            or "  None"
+        )
 
         prompt = f"""You are an expert AML/KYC compliance AI agent. Generate an investigation workspace report.
         
@@ -259,15 +276,23 @@ You MUST return a JSON object with the following keys. Do NOT wrap the JSON insi
 
         suspicious_behaviour = ""
         if block_triggers:
-            suspicious_behaviour += f"Critical compliance block triggers met: {', '.join(block_triggers)}. "
+            suspicious_behaviour += (
+                f"Critical compliance block triggers met: {', '.join(block_triggers)}. "
+            )
         if sanctions_status == "CONFIRMED":
             suspicious_behaviour += "Active sanctions list confirmation. "
         if pep_status == "CONFIRMED_PEP":
-            suspicious_behaviour += "Confirmed Politically Exposed Person (PEP) identification. "
+            suspicious_behaviour += (
+                "Confirmed Politically Exposed Person (PEP) identification. "
+            )
         if fatf_status != "CLEAR" and fatf_status != "UNKNOWN":
-            suspicious_behaviour += f"FATF high-risk jurisdiction flags detected ({fatf_status}). "
+            suspicious_behaviour += (
+                f"FATF high-risk jurisdiction flags detected ({fatf_status}). "
+            )
         if viol_count > 0:
-            suspicious_behaviour += f"Violated {viol_count} active compliance policy rules. "
+            suspicious_behaviour += (
+                f"Violated {viol_count} active compliance policy rules. "
+            )
 
         if not suspicious_behaviour:
             suspicious_behaviour = f"No suspicious patterns identified. Risk score of {overall_score:.1f}/100 matches active standard compliance baseline."
@@ -277,19 +302,19 @@ You MUST return a JSON object with the following keys. Do NOT wrap the JSON insi
             recommended_actions = [
                 "Freeze account immediately and restrict all debit/credit transactions.",
                 "Generate draft Suspicious Activity Report (SAR) for compliance review.",
-                "Escalate case to Senior Compliance Supervisor for immediate review."
+                "Escalate case to Senior Compliance Supervisor for immediate review.",
             ]
         elif edd_triggers or overall_score >= 60.0:
             recommended_actions = [
                 "Initiate Enhanced Due Diligence (EDD) procedures.",
                 "Request validated source of wealth documentation and employment verification.",
-                "Schedule review within 5 business days."
+                "Schedule review within 5 business days.",
             ]
         else:
             recommended_actions = [
                 "Proceed with standard KYC onboarding approval.",
                 "Ensure routine daily transaction monitoring limits apply.",
-                "Schedule next periodic review according to Low risk profile timelines."
+                "Schedule next periodic review according to Low risk profile timelines.",
             ]
 
         questions = [
@@ -297,18 +322,26 @@ You MUST return a JSON object with the following keys. Do NOT wrap the JSON insi
             f"Can we verify the original beneficial ownership hierarchy?",
         ]
         if pep_status == "CONFIRMED_PEP":
-            questions.append("Who is the political connection and source of funds for PEP exposure?")
+            questions.append(
+                "Who is the political connection and source of funds for PEP exposure?"
+            )
         if tx_status == "SUSPICIOUS":
-            questions.append("What is the source of funds and business justification for the large transactions?")
+            questions.append(
+                "What is the source of funds and business justification for the large transactions?"
+            )
 
         missing_evidence = ["Official government-issued ID card or Passport photo page"]
         if overall_score >= 50.0:
-            missing_evidence.extend([
-                "Certified proof of residential/business address (recent utility bill/bank statement)",
-                "Documented Source of Wealth statement with corresponding payslip/financial audits"
-            ])
+            missing_evidence.extend(
+                [
+                    "Certified proof of residential/business address (recent utility bill/bank statement)",
+                    "Documented Source of Wealth statement with corresponding payslip/financial audits",
+                ]
+            )
         else:
-            missing_evidence.append("Proof of address document (utility bill < 3 months old)")
+            missing_evidence.append(
+                "Proof of address document (utility bill < 3 months old)"
+            )
 
         risk_explanation = (
             f"Risk profile evaluation completed. The overall score of {overall_score:.1f}/100 is driven by "
@@ -322,5 +355,5 @@ You MUST return a JSON object with the following keys. Do NOT wrap the JSON insi
             "recommended_actions": recommended_actions,
             "questions_for_investigator": questions,
             "missing_evidence_suggestions": missing_evidence,
-            "risk_explanation": risk_explanation
+            "risk_explanation": risk_explanation,
         }

@@ -8,20 +8,26 @@ from app.core.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.models import User, Customer, Document
 from app.schemas.schemas import DocumentResponse
-from app.schemas.document_schemas import DocumentVerificationDetailsResponse, ReprocessResponse
+from app.schemas.document_schemas import (
+    DocumentVerificationDetailsResponse,
+    ReprocessResponse,
+)
 from app.core.celery_app import celery_app
 from app.services.upload_service import UploadService
 from app.services.document_verification import DocumentVerificationService
 
 router = APIRouter()
 
-@router.post("/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED
+)
 async def upload_document(
     customer_id: str = Form(...),
     document_type: str = Form(...),
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     try:
         cust_uuid = UUID(customer_id)
@@ -33,8 +39,13 @@ async def upload_document(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found.")
 
-    if customer.user_id != current_user.id and current_user.role not in ["compliance_officer", "admin"]:
-        raise HTTPException(status_code=403, detail="Unauthorized access for this profile.")
+    if customer.user_id != current_user.id and current_user.role not in [
+        "compliance_officer",
+        "admin",
+    ]:
+        raise HTTPException(
+            status_code=403, detail="Unauthorized access for this profile."
+        )
 
     file_path, file_size = UploadService.save_customer_document(cust_uuid, file)
 
@@ -46,7 +57,9 @@ async def upload_document(
         content_type=file.content_type,
         file_size=file_size,
         verification_status="uploaded",
-        verification_metadata={"history": [{"timestamp": "now", "event": "file_uploaded"}]}
+        verification_metadata={
+            "history": [{"timestamp": "now", "event": "file_uploaded"}]
+        },
     )
     db.add(document)
     await db.commit()
@@ -54,8 +67,7 @@ async def upload_document(
 
     # Launch OCR analysis asynchronously (Step 11 Workflow: Queue Job)
     celery_app.send_task(
-        "tasks.kyc_tasks.extract_document_ocr",
-        args=[str(document.id)]
+        "tasks.kyc_tasks.extract_document_ocr", args=[str(document.id)]
     )
 
     return document
@@ -65,18 +77,25 @@ async def upload_document(
 async def list_customer_documents(
     customer_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Customer).where(Customer.id == customer_id))
     customer = result.scalars().first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found.")
 
-    if customer.user_id != current_user.id and current_user.role not in ["compliance_officer", "admin"]:
-        raise HTTPException(status_code=403, detail="Unauthorized access for this profile.")
+    if customer.user_id != current_user.id and current_user.role not in [
+        "compliance_officer",
+        "admin",
+    ]:
+        raise HTTPException(
+            status_code=403, detail="Unauthorized access for this profile."
+        )
 
     docs_result = await db.execute(
-        select(Document).where(Document.customer_id == customer_id).order_by(Document.created_at.desc())
+        select(Document)
+        .where(Document.customer_id == customer_id)
+        .order_by(Document.created_at.desc())
     )
     return docs_result.scalars().all()
 
@@ -85,7 +104,7 @@ async def list_customer_documents(
 async def get_document_by_id(
     document_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Document).where(Document.id == document_id))
     document = result.scalars().first()
@@ -93,9 +112,15 @@ async def get_document_by_id(
         raise HTTPException(status_code=404, detail="Document not found.")
 
     # Authorization check
-    cust_result = await db.execute(select(Customer).where(Customer.id == document.customer_id))
+    cust_result = await db.execute(
+        select(Customer).where(Customer.id == document.customer_id)
+    )
     customer = cust_result.scalars().first()
-    if customer and customer.user_id != current_user.id and current_user.role not in ["compliance_officer", "admin"]:
+    if (
+        customer
+        and customer.user_id != current_user.id
+        and current_user.role not in ["compliance_officer", "admin"]
+    ):
         raise HTTPException(status_code=403, detail="Unauthorized.")
 
     metadata = document.verification_metadata or {}
@@ -112,7 +137,7 @@ async def get_document_by_id(
         matching=matching if matching else None,
         risk=risk if risk else None,
         metadata=metadata,
-        history=history
+        history=history,
     )
 
 
@@ -120,23 +145,20 @@ async def get_document_by_id(
 async def get_document_status(
     document_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Document).where(Document.id == document_id))
     document = result.scalars().first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found.")
-    return {
-        "document_id": str(document.id),
-        "status": document.verification_status
-    }
+    return {"document_id": str(document.id), "status": document.verification_status}
 
 
 @router.post("/verify", response_model=DocumentVerificationDetailsResponse)
 async def verify_ocr_results(
     payload: Dict[str, Any],
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     POST /documents/verify:
@@ -146,7 +168,9 @@ async def verify_ocr_results(
     doc_id_str = payload.get("document_id")
     confirmed_data = payload.get("ocr_data")
     if not doc_id_str or not confirmed_data:
-        raise HTTPException(status_code=400, detail="Missing document_id or ocr_data in payload.")
+        raise HTTPException(
+            status_code=400, detail="Missing document_id or ocr_data in payload."
+        )
 
     try:
         doc_id = UUID(doc_id_str)
@@ -177,7 +201,7 @@ async def verify_ocr_results(
         matching=verification_metadata.get("matching"),
         risk=verification_metadata.get("risk"),
         metadata=verification_metadata,
-        history=verification_metadata.get("history", [])
+        history=verification_metadata.get("history", []),
     )
 
 
@@ -185,7 +209,7 @@ async def verify_ocr_results(
 async def reprocess_document(
     document_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Document).where(Document.id == document_id))
     document = document.scalars().first()
@@ -197,14 +221,13 @@ async def reprocess_document(
 
     # Re-queue Celery task
     celery_app.send_task(
-        "tasks.kyc_tasks.extract_document_ocr",
-        args=[str(document.id)]
+        "tasks.kyc_tasks.extract_document_ocr", args=[str(document.id)]
     )
 
     return ReprocessResponse(
         document_id=document.id,
         status="reprocessing",
-        message="Reprocessing job submitted successfully."
+        message="Reprocessing job submitted successfully.",
     )
 
 
@@ -212,16 +235,22 @@ async def reprocess_document(
 async def delete_document(
     document_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Document).where(Document.id == document_id))
     document = result.scalars().first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found.")
 
-    cust_result = await db.execute(select(Customer).where(Customer.id == document.customer_id))
+    cust_result = await db.execute(
+        select(Customer).where(Customer.id == document.customer_id)
+    )
     customer = cust_result.scalars().first()
-    if customer and customer.user_id != current_user.id and current_user.role != "admin":
+    if (
+        customer
+        and customer.user_id != current_user.id
+        and current_user.role != "admin"
+    ):
         raise HTTPException(status_code=403, detail="Unauthorized.")
 
     await db.delete(document)

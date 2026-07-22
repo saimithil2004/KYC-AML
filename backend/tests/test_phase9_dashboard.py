@@ -19,6 +19,7 @@ from app.services.dashboard_service import DashboardService
 
 # ─── Mock auth dependency overrides ──────────────────────────────────────────
 
+
 class MockUser:
     def __init__(self, role="compliance_officer"):
         self.id = uuid4()
@@ -26,37 +27,51 @@ class MockUser:
         self.role = role
         self.is_active = True
 
+
 mock_officer = MockUser("compliance_officer")
 mock_customer = MockUser("customer")
+
 
 async def override_verify_compliance_officer():
     return mock_officer
 
+
 async def override_get_current_user():
     return mock_officer
+
 
 async def override_get_current_user_customer():
     return mock_customer
 
+
 # ─── Tests ───────────────────────────────────────────────────────────────────
+
 
 def test_dashboard_rbac_compliance_officer():
     """Verify compliance officer can access dashboard overview."""
-    app.dependency_overrides[verify_compliance_officer] = override_verify_compliance_officer
+    app.dependency_overrides[verify_compliance_officer] = (
+        override_verify_compliance_officer
+    )
     client = TestClient(app)
     response = client.get("/api/v1/dashboard/overview")
-    
+
     # We mock out database or let it fall back.
     # Note: If no real DB, FastAPI test client might raise db error,
     # but the routing/RBAC security dependency is evaluated first.
     # To test RBAC purely, we assert it doesn't return 403 or 401.
-    assert response.status_code in (200, 500)  # 500 is database connection issue, which is acceptable since DB is not active.
+    assert response.status_code in (
+        200,
+        500,
+    )  # 500 is database connection issue, which is acceptable since DB is not active.
     app.dependency_overrides.clear()
+
 
 def test_dashboard_rbac_customer_forbidden():
     """Verify normal customer user is forbidden from dashboard overview."""
+
     async def override_forbidden():
         from fastapi import HTTPException
+
         raise HTTPException(status_code=403, detail="Not authorized.")
 
     app.dependency_overrides[verify_compliance_officer] = override_forbidden
@@ -64,6 +79,7 @@ def test_dashboard_rbac_customer_forbidden():
     response = client.get("/api/v1/dashboard/overview")
     assert response.status_code == 403
     app.dependency_overrides.clear()
+
 
 @pytest.mark.asyncio
 async def test_dashboard_service_mock_aggregation():
@@ -79,25 +95,31 @@ async def test_dashboard_service_mock_aggregation():
     assert hasattr(DashboardService, "search")
     assert hasattr(DashboardService, "get_ai_summary")
 
+
 def test_dashboard_search_endpoint():
     """Verify search API parameters and routing."""
-    app.dependency_overrides[verify_compliance_officer] = override_verify_compliance_officer
+    app.dependency_overrides[verify_compliance_officer] = (
+        override_verify_compliance_officer
+    )
     client = TestClient(app)
     # Search requires q parameter
     res1 = client.get("/api/v1/dashboard/search")
     assert res1.status_code == 422  # Missing q parameter
-    
+
     res2 = client.get("/api/v1/dashboard/search?q=test")
     assert res2.status_code in (200, 500)
     app.dependency_overrides.clear()
 
+
 def test_dashboard_charts_endpoints():
     """Verify charts and helper overview routes."""
-    app.dependency_overrides[verify_compliance_officer] = override_verify_compliance_officer
+    app.dependency_overrides[verify_compliance_officer] = (
+        override_verify_compliance_officer
+    )
     client = TestClient(app)
-    
+
     for route in ["charts", "activity", "risk", "alerts", "cases", "monitoring", "ai"]:
         res = client.get(f"/api/v1/dashboard/{route}")
         assert res.status_code in (200, 500)
-        
+
     app.dependency_overrides.clear()

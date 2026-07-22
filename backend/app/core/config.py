@@ -3,6 +3,7 @@ from typing import List
 from pydantic_settings import BaseSettings
 from pydantic import model_validator
 
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AML & KYC Compliance Platform"
     API_V1_STR: str = "/api/v1"
@@ -47,7 +48,9 @@ class Settings(BaseSettings):
     ]
 
     # DB
-    DATABASE_URL: str = "postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres:5432/aml_compliance_db"
+    DATABASE_URL: str = (
+        "postgresql+asyncpg://compliance_admin:SecretSecurePassword99@postgres:5432/aml_compliance_db"
+    )
     DATABASE_REPLICA_URL: str = ""
     UPLOAD_DIR: str = "/app/shared_docs"
     MAX_UPLOAD_SIZE_MB: int = 10
@@ -55,7 +58,9 @@ class Settings(BaseSettings):
     # Redis & Celery
     REDIS_URL: str = "redis://redis:6379/0"
     REDIS_CACHE_TTL: int = 300  # 5 minutes default cache TTL
-    REDIS_SENTINELS: str = ""  # Comma separated list of sentinel addresses like 'host1:26379,host2:26379'
+    REDIS_SENTINELS: str = (
+        ""  # Comma separated list of sentinel addresses like 'host1:26379,host2:26379'
+    )
     REDIS_SENTINEL_SERVICE_NAME: str = "mymaster"
     REDIS_CLUSTER_MODE: bool = False
 
@@ -89,5 +94,6 @@ class Settings(BaseSettings):
     class Config:
         case_sensitive = True
         env_file = ".env"
+
 
 settings = Settings()

@@ -34,15 +34,22 @@ from app.agents.base.exceptions import AgentValidationError
 
 from app.agents.screening.models import ScreeningSubject, CompanyScreeningSubject
 from app.agents.screening.constants import (
-    MATCH_CONFIRMED, MATCH_POSSIBLE, RISK_LOW, RISK_MEDIUM, RISK_HIGH, RISK_CRITICAL
+    MATCH_CONFIRMED,
+    MATCH_POSSIBLE,
+    RISK_LOW,
+    RISK_MEDIUM,
+    RISK_HIGH,
+    RISK_CRITICAL,
 )
 from app.agents.sanctions.constants import (
-    SANCTIONS_STATUS_CLEAR, SANCTIONS_STATUS_POSSIBLE, SANCTIONS_STATUS_CONFIRMED,
-    NEXT_AGENT, PROVIDER_MOCK, ALL_SANCTIONS_LISTS
+    SANCTIONS_STATUS_CLEAR,
+    SANCTIONS_STATUS_POSSIBLE,
+    SANCTIONS_STATUS_CONFIRMED,
+    NEXT_AGENT,
+    PROVIDER_MOCK,
+    ALL_SANCTIONS_LISTS,
 )
-from app.agents.sanctions.models import (
-    SanctionMatchResult, SanctionsAuditTrail
-)
+from app.agents.sanctions.models import SanctionMatchResult, SanctionsAuditTrail
 from app.agents.sanctions.provider import BaseSanctionsProvider, MockSanctionsProvider
 from app.agents.sanctions.validator import SanctionsValidator
 from app.agents.sanctions.matcher import SanctionsMatcher
@@ -84,7 +91,7 @@ class SanctionsAgent(BaseAgent):
             "multi_signal_scoring",
             "manual_review_escalation",
             "langgraph_routing_output",
-            "provider_agnostic_architecture"
+            "provider_agnostic_architecture",
         ]
 
     # ── Input Validation ──────────────────────────────────────────────────────
@@ -95,7 +102,7 @@ class SanctionsAgent(BaseAgent):
         if not state.customer:
             raise AgentValidationError(
                 message="Customer profile is missing in AgentState. Cannot run Sanctions Agent.",
-                details={"customer": None}
+                details={"customer": None},
             )
         return True
 
@@ -106,12 +113,14 @@ class SanctionsAgent(BaseAgent):
         # ── Step 1: Build + validate screening subjects ───────────────────────
         individuals = SanctionsValidator.build_individual_subjects(state)
         companies = SanctionsValidator.build_company_subjects(state)
-        validation_warnings = SanctionsValidator.validate_subjects(individuals, companies)
+        validation_warnings = SanctionsValidator.validate_subjects(
+            individuals, companies
+        )
 
         if not individuals and not companies:
             raise AgentValidationError(
                 message="No valid individual or company screening subjects could be extracted.",
-                details={"customer": state.customer}
+                details={"customer": state.customer},
             )
 
         # ── Step 2: Screen individuals & companies ────────────────────────────
@@ -125,16 +134,20 @@ class SanctionsAgent(BaseAgent):
                 result = SanctionsMatcher.score_individual(subject, candidates)
                 match_results.append(result)
             except Exception as exc:
-                provider_errors.append(f"Provider failure for individual '{subject.full_name}': {exc}")
-                match_results.append(SanctionMatchResult(
-                    subject_id=subject.subject_id,
-                    subject_name=subject.full_name,
-                    subject_role=subject.role,
-                    entity_type="INDIVIDUAL",
-                    match_confidence="UNSCREENED",
-                    match_score=0.0,
-                    reason=f"Provider error: {exc}"
-                ))
+                provider_errors.append(
+                    f"Provider failure for individual '{subject.full_name}': {exc}"
+                )
+                match_results.append(
+                    SanctionMatchResult(
+                        subject_id=subject.subject_id,
+                        subject_name=subject.full_name,
+                        subject_role=subject.role,
+                        entity_type="INDIVIDUAL",
+                        match_confidence="UNSCREENED",
+                        match_score=0.0,
+                        reason=f"Provider error: {exc}",
+                    )
+                )
 
         # Company screening
         for subject in companies:
@@ -143,42 +156,47 @@ class SanctionsAgent(BaseAgent):
                 result = SanctionsMatcher.score_company(subject, candidates)
                 match_results.append(result)
             except Exception as exc:
-                provider_errors.append(f"Provider failure for company '{subject.company_name}': {exc}")
-                match_results.append(SanctionMatchResult(
-                    subject_id=subject.subject_id,
-                    subject_name=subject.company_name,
-                    subject_role=subject.role,
-                    entity_type="COMPANY",
-                    match_confidence="UNSCREENED",
-                    match_score=0.0,
-                    reason=f"Provider error: {exc}"
-                ))
+                provider_errors.append(
+                    f"Provider failure for company '{subject.company_name}': {exc}"
+                )
+                match_results.append(
+                    SanctionMatchResult(
+                        subject_id=subject.subject_id,
+                        subject_name=subject.company_name,
+                        subject_role=subject.role,
+                        entity_type="COMPANY",
+                        match_confidence="UNSCREENED",
+                        match_score=0.0,
+                        reason=f"Provider error: {exc}",
+                    )
+                )
 
         # ── Step 3: Evaluate Business Rules ──────────────────────────────────
         individual_matches = [r for r in match_results if r.entity_type == "INDIVIDUAL"]
         company_matches = [r for r in match_results if r.entity_type == "COMPANY"]
 
         eval_result = SanctionsRulesEngine.evaluate(
-            individual_results=individual_matches,
-            company_results=company_matches
+            individual_results=individual_matches, company_results=company_matches
         )
 
-        sanctions_status   = eval_result["sanctions_status"]
-        risk_level         = eval_result["risk_level"]
-        findings           = eval_result["findings"]
-        warnings           = eval_result["warnings"] + validation_warnings + provider_errors
-        recommendations    = eval_result["recommendations"]
-        all_rules          = eval_result["all_rules_triggered"]
-        matched_subjects   = eval_result["matched_subjects"]
-        matched_companies  = eval_result["matched_companies"]
-        next_agent         = eval_result["next_agent"]
+        sanctions_status = eval_result["sanctions_status"]
+        risk_level = eval_result["risk_level"]
+        findings = eval_result["findings"]
+        warnings = eval_result["warnings"] + validation_warnings + provider_errors
+        recommendations = eval_result["recommendations"]
+        all_rules = eval_result["all_rules_triggered"]
+        matched_subjects = eval_result["matched_subjects"]
+        matched_companies = eval_result["matched_companies"]
+        next_agent = eval_result["next_agent"]
 
         # ── Step 4: Compute Sanctions Score ───────────────────────────────────
         # 100 = Clear
         # 60 = Possible Match (Manual Review)
         # 10 = Confirmed High Risk Match
         # 0 = Confirmed Critical Risk Match (e.g. Terrorist financing, active freeze)
-        sanctions_score = SanctionsAgent._compute_sanctions_score(sanctions_status, risk_level)
+        sanctions_score = SanctionsAgent._compute_sanctions_score(
+            sanctions_status, risk_level
+        )
 
         execution_duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
@@ -195,21 +213,21 @@ class SanctionsAgent(BaseAgent):
             warnings=warnings,
             recommendations=recommendations,
             execution_duration_ms=execution_duration_ms,
-            validation_timestamp=datetime.utcnow().isoformat()
+            validation_timestamp=datetime.utcnow().isoformat(),
         )
 
         # ── Step 6: Update AgentState ─────────────────────────────────────────
         state.risk_breakdown["sanctions"] = sanctions_score
-        state.shared_metadata["sanctions_status"]          = sanctions_status
-        state.shared_metadata["sanctions_score"]           = sanctions_score
-        state.shared_metadata["sanctions_risk"]            = risk_level
-        state.shared_metadata["matched_subjects"]          = matched_subjects
+        state.shared_metadata["sanctions_status"] = sanctions_status
+        state.shared_metadata["sanctions_score"] = sanctions_score
+        state.shared_metadata["sanctions_risk"] = risk_level
+        state.shared_metadata["matched_subjects"] = matched_subjects
         state.shared_metadata["sanctions_matched_subjects"] = matched_subjects
-        state.shared_metadata["matched_companies"]         = matched_companies
-        state.shared_metadata["sanctions_findings"]        = findings
+        state.shared_metadata["matched_companies"] = matched_companies
+        state.shared_metadata["sanctions_findings"] = findings
         state.shared_metadata["sanctions_recommendations"] = recommendations
-        state.shared_metadata["sanctions_audit"]           = audit.model_dump()
-        state.shared_metadata["next_agent"]                = next_agent
+        state.shared_metadata["sanctions_audit"] = audit.model_dump()
+        state.shared_metadata["next_agent"] = next_agent
         state.logs.append(
             f"SanctionsAgent: {len(individuals)} individual(s), {len(companies)} company/companies "
             f"screened via {self._provider.provider_name}. Status={sanctions_status}, Risk={risk_level}. "
@@ -219,21 +237,21 @@ class SanctionsAgent(BaseAgent):
         return {
             "_status": "success",
             "_reason": f"Sanctions screening complete. Status: {sanctions_status}",
-            "confidence":        sanctions_score,
-            "risk_score":        sanctions_score,
-            "risk_level":        risk_level,
-            "findings":          findings,
-            "warnings":          warnings,
-            "recommendations":   recommendations,
-            "errors":            provider_errors,
+            "confidence": sanctions_score,
+            "risk_score": sanctions_score,
+            "risk_level": risk_level,
+            "findings": findings,
+            "warnings": warnings,
+            "recommendations": recommendations,
+            "errors": provider_errors,
             # Metadata fields
-            "sanctions_score":   sanctions_score,
-            "sanctions_status":  sanctions_status,
-            "matched_subjects":  matched_subjects,
+            "sanctions_score": sanctions_score,
+            "sanctions_status": sanctions_status,
+            "matched_subjects": matched_subjects,
             "matched_companies": matched_companies,
-            "rules_triggered":   all_rules,
-            "next_agent":        next_agent,
-            "audit_trail":       audit.model_dump()
+            "rules_triggered": all_rules,
+            "next_agent": next_agent,
+            "audit_trail": audit.model_dump(),
         }
 
     @staticmethod

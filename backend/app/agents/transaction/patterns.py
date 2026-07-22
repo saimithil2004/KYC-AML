@@ -34,21 +34,24 @@ class TransactionPatternDetectors:
     def detect_structuring(transactions: List[TransactionRecord]) -> PatternResult:
         t0 = time.perf_counter()
         triggered_ids = []
-        
+
         # Sort by timestamp
         sorted_txs = sorted(transactions, key=lambda x: x.timestamp)
-        
+
         # Find all transactions just below reporting threshold
         candidate_txs = [
-            tx for tx in sorted_txs
+            tx
+            for tx in sorted_txs
             if STRUCTURING_MIN_AMT <= tx.amount <= STRUCTURING_MAX_AMT
         ]
 
         # For each candidate, find if there are others in a 24h window
         for i, tx1 in enumerate(candidate_txs):
             window_txs = [tx1.transaction_id]
-            for tx2 in candidate_txs[i+1:]:
-                if (tx2.timestamp - tx1.timestamp) <= timedelta(hours=STRUCTURING_TIME_WINDOW_HOURS):
+            for tx2 in candidate_txs[i + 1 :]:
+                if (tx2.timestamp - tx1.timestamp) <= timedelta(
+                    hours=STRUCTURING_TIME_WINDOW_HOURS
+                ):
                     window_txs.append(tx2.transaction_id)
             if len(window_txs) >= 2:
                 for tx_id in window_txs:
@@ -57,7 +60,7 @@ class TransactionPatternDetectors:
 
         triggered = len(triggered_ids) >= 2
         confidence = 0.85 if triggered else 0.0
-        
+
         finding = None
         recomm = None
         if triggered:
@@ -73,7 +76,7 @@ class TransactionPatternDetectors:
             finding=finding,
             recommendation=recomm,
             triggered_transaction_ids=triggered_ids,
-            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2)
+            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2),
         )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -88,7 +91,7 @@ class TransactionPatternDetectors:
         # Check 24-hour moving window
         for i, tx1 in enumerate(sorted_txs):
             window = [tx1]
-            for tx2 in sorted_txs[i+1:]:
+            for tx2 in sorted_txs[i + 1 :]:
                 if (tx2.timestamp - tx1.timestamp) <= timedelta(hours=24):
                     window.append(tx2)
             if len(window) >= VELOCITY_COUNT_24H:
@@ -100,7 +103,7 @@ class TransactionPatternDetectors:
         if not triggered_ids:
             for i, tx1 in enumerate(sorted_txs):
                 window = [tx1]
-                for tx2 in sorted_txs[i+1:]:
+                for tx2 in sorted_txs[i + 1 :]:
                     if (tx2.timestamp - tx1.timestamp) <= timedelta(days=7):
                         window.append(tx2)
                 if len(window) >= VELOCITY_COUNT_7D:
@@ -110,7 +113,7 @@ class TransactionPatternDetectors:
 
         triggered = len(triggered_ids) > 0
         confidence = 0.80 if triggered else 0.0
-        
+
         finding = None
         recomm = None
         if triggered:
@@ -126,7 +129,7 @@ class TransactionPatternDetectors:
             finding=finding,
             recommendation=recomm,
             triggered_transaction_ids=triggered_ids,
-            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2)
+            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2),
         )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -136,13 +139,14 @@ class TransactionPatternDetectors:
     def detect_large_value(transactions: List[TransactionRecord]) -> PatternResult:
         t0 = time.perf_counter()
         triggered_ids = [
-            tx.transaction_id for tx in transactions
+            tx.transaction_id
+            for tx in transactions
             if tx.amount >= LARGE_VALUE_THRESHOLD
         ]
-        
+
         triggered = len(triggered_ids) > 0
         confidence = 0.95 if triggered else 0.0
-        
+
         finding = None
         recomm = None
         if triggered:
@@ -158,7 +162,7 @@ class TransactionPatternDetectors:
             finding=finding,
             recommendation=recomm,
             triggered_transaction_ids=triggered_ids,
-            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2)
+            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2),
         )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -168,12 +172,12 @@ class TransactionPatternDetectors:
     def detect_high_risk_country_transfers(
         transactions: List[TransactionRecord],
         high_risk_countries: List[str],
-        prohibited_countries: List[str]
+        prohibited_countries: List[str],
     ) -> PatternResult:
         t0 = time.perf_counter()
         triggered_ids = []
         severity = RISK_HIGH
-        
+
         hr_set = {c.lower() for c in high_risk_countries}
         pr_set = {c.lower() for c in prohibited_countries}
 
@@ -188,7 +192,7 @@ class TransactionPatternDetectors:
 
         triggered = len(triggered_ids) > 0
         confidence = 0.95 if triggered else 0.0
-        
+
         if is_prohibited:
             severity = RISK_CRITICAL
             finding = f"[{RULE_HIGH_RISK_COUNTRY}] Critical Alert: Transfer involving PROHIBITED jurisdictional exposure ({len(triggered_ids)} transaction(s))."
@@ -209,7 +213,7 @@ class TransactionPatternDetectors:
             finding=finding,
             recommendation=recomm,
             triggered_transaction_ids=triggered_ids,
-            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2)
+            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2),
         )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -219,10 +223,10 @@ class TransactionPatternDetectors:
     def detect_rapid_in_out(transactions: List[TransactionRecord]) -> PatternResult:
         t0 = time.perf_counter()
         triggered_ids = []
-        
+
         # Sort by timestamp
         sorted_txs = sorted(transactions, key=lambda x: x.timestamp)
-        
+
         # Separate inflows and outflows
         inflows = [tx for tx in sorted_txs if tx.direction == "INFLOW"]
         outflows = [tx for tx in sorted_txs if tx.direction == "OUTFLOW"]
@@ -230,14 +234,17 @@ class TransactionPatternDetectors:
         for inf in inflows:
             # Find all outflows on the same account within 48h after this inflow
             matching_outflows = [
-                outf for outf in outflows
+                outf
+                for outf in outflows
                 if outf.account_id == inf.account_id
-                and inf.timestamp <= outf.timestamp <= (inf.timestamp + timedelta(hours=RAPID_IN_OUT_WINDOW_HOURS))
+                and inf.timestamp
+                <= outf.timestamp
+                <= (inf.timestamp + timedelta(hours=RAPID_IN_OUT_WINDOW_HOURS))
             ]
-            
+
             if not matching_outflows:
                 continue
-                
+
             total_outflow = sum(o.amount for o in matching_outflows)
             if total_outflow >= inf.amount * RAPID_IN_OUT_RATIO:
                 # Flag the inflow and all participating outflows
@@ -249,7 +256,7 @@ class TransactionPatternDetectors:
 
         triggered = len(triggered_ids) >= 2
         confidence = 0.90 if triggered else 0.0
-        
+
         finding = None
         recomm = None
         if triggered:
@@ -265,7 +272,7 @@ class TransactionPatternDetectors:
             finding=finding,
             recommendation=recomm,
             triggered_transaction_ids=triggered_ids,
-            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2)
+            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2),
         )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -275,7 +282,7 @@ class TransactionPatternDetectors:
     def detect_round_amounts(transactions: List[TransactionRecord]) -> PatternResult:
         t0 = time.perf_counter()
         triggered_ids = []
-        
+
         for tx in transactions:
             # Check if amount matches the list of round values or is a clean multiple
             if tx.amount in ROUND_AMOUNTS:
@@ -285,7 +292,7 @@ class TransactionPatternDetectors:
 
         triggered = len(triggered_ids) >= ROUND_AMOUNT_COUNT_THRESHOLD
         confidence = 0.75 if triggered else 0.0
-        
+
         finding = None
         recomm = None
         if triggered:
@@ -301,29 +308,31 @@ class TransactionPatternDetectors:
             finding=finding,
             recommendation=recomm,
             triggered_transaction_ids=triggered_ids if triggered else [],
-            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2)
+            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2),
         )
 
     # ─────────────────────────────────────────────────────────────────────────
     # TX007: Dormant Account Reactivation
     # ─────────────────────────────────────────────────────────────────────────
     @staticmethod
-    def detect_dormant_reactivation(transactions: List[TransactionRecord]) -> PatternResult:
+    def detect_dormant_reactivation(
+        transactions: List[TransactionRecord],
+    ) -> PatternResult:
         t0 = time.perf_counter()
         triggered_ids = []
-        
+
         sorted_txs = sorted(transactions, key=lambda x: x.timestamp)
-        
+
         # Check gaps between consecutive transactions
         for i in range(1, len(sorted_txs)):
-            gap = sorted_txs[i].timestamp - sorted_txs[i-1].timestamp
+            gap = sorted_txs[i].timestamp - sorted_txs[i - 1].timestamp
             if gap >= timedelta(days=DORMANT_DAYS_THRESHOLD):
                 # Reactivation transaction triggers the alert
                 triggered_ids.append(sorted_txs[i].transaction_id)
 
         triggered = len(triggered_ids) > 0
         confidence = 0.85 if triggered else 0.0
-        
+
         finding = None
         recomm = None
         if triggered:
@@ -339,7 +348,7 @@ class TransactionPatternDetectors:
             finding=finding,
             recommendation=recomm,
             triggered_transaction_ids=triggered_ids,
-            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2)
+            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2),
         )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -351,7 +360,7 @@ class TransactionPatternDetectors:
         triggered_ids = []
 
         cash_txs = [tx for tx in transactions if "CASH" in tx.transaction_type.upper()]
-        
+
         # Trigger if count of cash transactions >= threshold
         if len(cash_txs) >= CASH_INTENSIVE_COUNT:
             triggered_ids = [tx.transaction_id for tx in cash_txs]
@@ -364,7 +373,7 @@ class TransactionPatternDetectors:
 
         triggered = len(triggered_ids) > 0
         confidence = 0.80 if triggered else 0.0
-        
+
         finding = None
         recomm = None
         if triggered:
@@ -380,7 +389,7 @@ class TransactionPatternDetectors:
             finding=finding,
             recommendation=recomm,
             triggered_transaction_ids=triggered_ids,
-            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2)
+            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2),
         )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -398,7 +407,7 @@ class TransactionPatternDetectors:
 
         triggered = len(triggered_ids) >= ANOMALY_COUNT_THRESHOLD
         confidence = 0.70 if triggered else 0.0
-        
+
         finding = None
         recomm = None
         if triggered:
@@ -414,5 +423,5 @@ class TransactionPatternDetectors:
             finding=finding,
             recommendation=recomm,
             triggered_transaction_ids=triggered_ids if triggered else [],
-            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2)
+            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2),
         )

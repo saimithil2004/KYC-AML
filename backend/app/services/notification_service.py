@@ -89,6 +89,7 @@ def render_template(body: str, variables: Dict[str, Any]) -> str:
 
 # ─── Channel Senders ──────────────────────────────────────────────────────────
 
+
 async def _send_email(
     to_email: str,
     subject: str,
@@ -137,6 +138,7 @@ async def _send_slack(
 
     try:
         import httpx
+
         payload = {"text": message}
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(slack_setting.base_url, json=payload)
@@ -162,12 +164,13 @@ async def _send_teams(
 
     try:
         import httpx
+
         payload = {
             "@type": "MessageCard",
             "@context": "http://schema.org/extensions",
             "themeColor": "0076D7",
             "summary": title,
-            "sections": [{"activityTitle": title, "activityText": message}]
+            "sections": [{"activityTitle": title, "activityText": message}],
         }
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(teams_setting.base_url, json=payload)
@@ -182,13 +185,18 @@ async def _send_teams(
 
 # ─── Notification Service ─────────────────────────────────────────────────────
 
+
 class NotificationService:
     """Orchestrates multi-channel notification dispatch."""
 
     @staticmethod
-    async def _load_setting(db: AsyncSession, provider_name: str) -> Optional[IntegrationSetting]:
+    async def _load_setting(
+        db: AsyncSession, provider_name: str
+    ) -> Optional[IntegrationSetting]:
         res = await db.execute(
-            select(IntegrationSetting).where(IntegrationSetting.provider_name == provider_name)
+            select(IntegrationSetting).where(
+                IntegrationSetting.provider_name == provider_name
+            )
         )
         return res.scalars().first()
 
@@ -208,12 +216,20 @@ class NotificationService:
         )
         tmpl = res.scalars().first()
         if tmpl:
-            return {"subject": tmpl.subject or "", "body": tmpl.body, "template_id": str(tmpl.id)}
+            return {
+                "subject": tmpl.subject or "",
+                "body": tmpl.body,
+                "template_id": str(tmpl.id),
+            }
 
         # Fall back to built-in templates
         fallback = DEFAULT_TEMPLATES.get(event_type)
         if fallback:
-            return {"subject": fallback["subject"], "body": fallback["body"], "template_id": None}
+            return {
+                "subject": fallback["subject"],
+                "body": fallback["body"],
+                "template_id": None,
+            }
         return None
 
     @staticmethod
@@ -240,10 +256,13 @@ class NotificationService:
             tmpl = await NotificationService.get_template(db, event_type, channel)
             if not tmpl:
                 # Fallback to email template for all channels
-                tmpl = DEFAULT_TEMPLATES.get(event_type, {
-                    "subject": f"Compliance Alert: {event_type}",
-                    "body": f"Event: {event_type}\n\nDetails: {variables}"
-                })
+                tmpl = DEFAULT_TEMPLATES.get(
+                    event_type,
+                    {
+                        "subject": f"Compliance Alert: {event_type}",
+                        "body": f"Event: {event_type}\n\nDetails: {variables}",
+                    },
+                )
                 tmpl["template_id"] = None
 
             subject = render_template(tmpl.get("subject", ""), variables)
@@ -254,7 +273,8 @@ class NotificationService:
             try:
                 if channel == "email":
                     success = await _send_email(
-                        to_email=to_email or variables.get("email", "compliance@platform.local"),
+                        to_email=to_email
+                        or variables.get("email", "compliance@platform.local"),
                         subject=subject,
                         body=body,
                         smtp_setting=smtp_setting,
@@ -278,7 +298,9 @@ class NotificationService:
             notif = Notification(
                 id=uuid4(),
                 user_id=user_id,
-                template_id=UUID(tmpl["template_id"]) if tmpl.get("template_id") else None,
+                template_id=(
+                    UUID(tmpl["template_id"]) if tmpl.get("template_id") else None
+                ),
                 channel=channel,
                 title=title,
                 message=body,
@@ -298,14 +320,20 @@ class NotificationService:
                 action=action,
                 entity_name="notification",
                 entity_id=notif.id,
-                new_values={"channel": channel, "event_type": event_type, "priority": priority},
+                new_values={
+                    "channel": channel,
+                    "event_type": event_type,
+                    "priority": priority,
+                },
             )
 
-            results.append({
-                "channel": channel,
-                "success": success,
-                "notification_id": str(notif.id),
-            })
+            results.append(
+                {
+                    "channel": channel,
+                    "success": success,
+                    "notification_id": str(notif.id),
+                }
+            )
 
         await db.commit()
         return results
@@ -352,6 +380,7 @@ class NotificationService:
     async def get_unread_count(db: AsyncSession, user_id: UUID) -> int:
         """Count unread in-app notifications for a user."""
         from sqlalchemy import func
+
         res = await db.execute(
             select(func.count(Notification.id)).where(
                 Notification.user_id == user_id,

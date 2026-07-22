@@ -23,8 +23,11 @@ from typing import List, Optional, Tuple
 
 from app.agents.pep.models import ScreeningSubject, PepRecord, PepMatchResult
 from app.agents.pep.constants import (
-    MATCH_CONFIRMED, MATCH_POSSIBLE, MATCH_NONE,
-    THRESHOLD_CONFIRMED, THRESHOLD_POSSIBLE,
+    MATCH_CONFIRMED,
+    MATCH_POSSIBLE,
+    MATCH_NONE,
+    THRESHOLD_CONFIRMED,
+    THRESHOLD_POSSIBLE,
 )
 from app.agents.screening.matcher import BaseScreeningMatcher
 
@@ -53,14 +56,14 @@ class PepMatcher:
         if not candidates:
             return PepMatcher._no_match_result(subject)
 
-        best_score  = 0.0
+        best_score = 0.0
         best_record: Optional[PepRecord] = None
         best_reason = "No match found"
 
         for record in candidates:
             score, reason = PepMatcher._compute_score(subject, record)
             if score > best_score:
-                best_score  = score
+                best_score = score
                 best_record = record
                 best_reason = reason
 
@@ -77,27 +80,28 @@ class PepMatcher:
         by delegating to the shared BaseScreeningMatcher.
         Returns (score, human_readable_reason).
         """
-        score, reasons, dob_match, nat_match, name_similarity = BaseScreeningMatcher.compute_individual_score(
-            subject_name=subject.full_name,
-            record_name=record.full_name,
-            subject_dob=subject.dob,
-            record_dob=record.dob,
-            subject_nationality=subject.nationality,
-            record_nationality=record.nationality,
-            subject_country=subject.country,
-            record_country=record.country,
-            subject_role=subject.role,
-            record_position=record.position
+        score, reasons, dob_match, nat_match, name_similarity = (
+            BaseScreeningMatcher.compute_individual_score(
+                subject_name=subject.full_name,
+                record_name=record.full_name,
+                subject_dob=subject.dob,
+                record_dob=record.dob,
+                subject_nationality=subject.nationality,
+                record_nationality=record.nationality,
+                subject_country=subject.country,
+                record_country=record.country,
+                subject_role=subject.role,
+                record_position=record.position,
+            )
         )
         score = BaseScreeningMatcher.apply_confirmed_guards(
             score=score,
             name_similarity=name_similarity,
             dob_match=dob_match,
             nat_match=nat_match,
-            reasons=reasons
+            reasons=reasons,
         )
         return round(score, 2), "; ".join(reasons)
-
 
     # ── Result Builders ───────────────────────────────────────────────────────
     @staticmethod

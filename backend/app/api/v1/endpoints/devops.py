@@ -12,6 +12,7 @@ from app.services.audit_service import AuditService
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+
 @router.get("/status", response_model=Dict[str, Any])
 async def get_devops_status(
     current_user: User = Depends(verify_admin),
@@ -112,24 +113,50 @@ async def get_kubernetes_summary(
     )
     await db.commit()
     pods = await DevOpsService.get_kubernetes_pods()
-    
+
     # Compile a status summary of core K8s objects (Deployments, HPAs, Services)
     return {
         "namespace": "aml-compliance",
         "deployments": [
-            {"name": "aml-backend-api", "replicas_configured": 2, "replicas_available": 2, "strategy": "RollingUpdate"},
-            {"name": "aml-frontend", "replicas_configured": 1, "replicas_available": 1, "strategy": "RollingUpdate"},
-            {"name": "aml-celery-worker", "replicas_configured": 1, "replicas_available": 1, "strategy": "Recreate"},
+            {
+                "name": "aml-backend-api",
+                "replicas_configured": 2,
+                "replicas_available": 2,
+                "strategy": "RollingUpdate",
+            },
+            {
+                "name": "aml-frontend",
+                "replicas_configured": 1,
+                "replicas_available": 1,
+                "strategy": "RollingUpdate",
+            },
+            {
+                "name": "aml-celery-worker",
+                "replicas_configured": 1,
+                "replicas_available": 1,
+                "strategy": "Recreate",
+            },
         ],
         "services": [
             {"name": "aml-backend-api-svc", "type": "ClusterIP", "port": 8000},
             {"name": "aml-frontend-svc", "type": "NodePort", "port": 3000},
         ],
         "hpa": [
-            {"name": "aml-backend-api-hpa", "target_deployment": "aml-backend-api", "min_replicas": 2, "max_replicas": 10, "current_cpu_percent": 12},
+            {
+                "name": "aml-backend-api-hpa",
+                "target_deployment": "aml-backend-api",
+                "min_replicas": 2,
+                "max_replicas": 10,
+                "current_cpu_percent": 12,
+            },
         ],
         "ingress": [
-            {"name": "aml-ingress", "rules": [{"host": "compliance.enterprise.com", "paths": ["/api/v1", "/"]}]},
+            {
+                "name": "aml-ingress",
+                "rules": [
+                    {"host": "compliance.enterprise.com", "paths": ["/api/v1", "/"]}
+                ],
+            },
         ],
         "pods": pods,
     }

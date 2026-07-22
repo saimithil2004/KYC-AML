@@ -16,9 +16,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.models.models import (
-    Account, AgentLog, Alert, AuditLog, Case,
-    Customer, Document, KYCProfile, MonitoringSchedule,
-    RiskScore, Transaction, User, Regulation, PolicyRule
+    Account,
+    AgentLog,
+    Alert,
+    AuditLog,
+    Case,
+    Customer,
+    Document,
+    KYCProfile,
+    MonitoringSchedule,
+    RiskScore,
+    Transaction,
+    User,
+    Regulation,
+    PolicyRule,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,6 +47,7 @@ class DashboardService:
         """Return all top-level KPI cards in a single pass."""
         # Ensure schema first
         from app.core.schema_helpers import ensure_phase10_schema
+
         await ensure_phase10_schema(db)
 
         today_start = datetime.combine(date.today(), datetime.min.time())
@@ -44,81 +56,94 @@ class DashboardService:
         # ── Customer counts ──────────────────────────────────────────────────
         cust_total = (await db.execute(select(func.count(Customer.id)))).scalar_one()
 
-        cust_by_status = (await db.execute(
-            select(Customer.status, func.count(Customer.id))
-            .group_by(Customer.status)
-        )).all()
+        cust_by_status = (
+            await db.execute(
+                select(Customer.status, func.count(Customer.id)).group_by(
+                    Customer.status
+                )
+            )
+        ).all()
         status_map = {s: c for s, c in cust_by_status}
 
         # ── KYC pending: customers without a completed KYC ───────────────────
         kyc_done_ids = select(KYCProfile.customer_id)
-        pending_kyc = (await db.execute(
-            select(func.count(Customer.id))
-            .where(Customer.id.not_in(kyc_done_ids))
-        )).scalar_one()
+        pending_kyc = (
+            await db.execute(
+                select(func.count(Customer.id)).where(Customer.id.not_in(kyc_done_ids))
+            )
+        ).scalar_one()
 
         # ── Risk scores ──────────────────────────────────────────────────────
         # Latest risk score per customer using a subquery
         latest_risk_subq = (
             select(
-                RiskScore.customer_id,
-                func.max(RiskScore.created_at).label("latest_at")
+                RiskScore.customer_id, func.max(RiskScore.created_at).label("latest_at")
             )
             .group_by(RiskScore.customer_id)
             .subquery()
         )
-        risk_rows = (await db.execute(
-            select(RiskScore.risk_tier, func.count(RiskScore.id))
-            .join(
-                latest_risk_subq,
-                and_(
-                    RiskScore.customer_id == latest_risk_subq.c.customer_id,
-                    RiskScore.created_at == latest_risk_subq.c.latest_at,
+        risk_rows = (
+            await db.execute(
+                select(RiskScore.risk_tier, func.count(RiskScore.id))
+                .join(
+                    latest_risk_subq,
+                    and_(
+                        RiskScore.customer_id == latest_risk_subq.c.customer_id,
+                        RiskScore.created_at == latest_risk_subq.c.latest_at,
+                    ),
                 )
+                .group_by(RiskScore.risk_tier)
             )
-            .group_by(RiskScore.risk_tier)
-        )).all()
+        ).all()
         risk_tier_map = {tier: cnt for tier, cnt in risk_rows}
 
-        avg_risk_row = (await db.execute(
-            select(
-                func.avg(RiskScore.overall_score).label("avg_score")
-            ).join(
-                latest_risk_subq,
-                and_(
-                    RiskScore.customer_id == latest_risk_subq.c.customer_id,
-                    RiskScore.created_at == latest_risk_subq.c.latest_at,
+        avg_risk_row = (
+            await db.execute(
+                select(func.avg(RiskScore.overall_score).label("avg_score")).join(
+                    latest_risk_subq,
+                    and_(
+                        RiskScore.customer_id == latest_risk_subq.c.customer_id,
+                        RiskScore.created_at == latest_risk_subq.c.latest_at,
+                    ),
                 )
             )
-        )).scalar_one()
+        ).scalar_one()
 
         # ── Alert counts ──────────────────────────────────────────────────────
         alert_total = (await db.execute(select(func.count(Alert.id)))).scalar_one()
-        open_alerts = (await db.execute(
-            select(func.count(Alert.id)).where(Alert.status == "open")
-        )).scalar_one()
+        open_alerts = (
+            await db.execute(select(func.count(Alert.id)).where(Alert.status == "open"))
+        ).scalar_one()
 
         # ── Case counts ───────────────────────────────────────────────────────
-        open_cases = (await db.execute(
-            select(func.count(Case.id)).where(
-                Case.status.in_(["open", "investigating", "under_review"])
+        open_cases = (
+            await db.execute(
+                select(func.count(Case.id)).where(
+                    Case.status.in_(["open", "investigating", "under_review"])
+                )
             )
-        )).scalar_one()
+        ).scalar_one()
 
         # ── Transactions today ────────────────────────────────────────────────
-        txns_today = (await db.execute(
-            select(func.count(Transaction.id))
-            .where(Transaction.created_at.between(today_start, today_end))
-        )).scalar_one()
+        txns_today = (
+            await db.execute(
+                select(func.count(Transaction.id)).where(
+                    Transaction.created_at.between(today_start, today_end)
+                )
+            )
+        ).scalar_one()
 
         # ── AI Screenings today (audit log entries) ───────────────────────────
-        screenings_today = (await db.execute(
-            select(func.count(AuditLog.id))
-            .where(
-                AuditLog.action.in_(["INITIATE_RESCREENING", "RESCREENING_COMPLETE"]),
-                AuditLog.created_at.between(today_start, today_end),
+        screenings_today = (
+            await db.execute(
+                select(func.count(AuditLog.id)).where(
+                    AuditLog.action.in_(
+                        ["INITIATE_RESCREENING", "RESCREENING_COMPLETE"]
+                    ),
+                    AuditLog.created_at.between(today_start, today_end),
+                )
             )
-        )).scalar_one()
+        ).scalar_one()
 
         # ── Phase 10 Regulations & Policy Rules Statistics ────────────────────
         reg_total = 0
@@ -126,27 +151,43 @@ class DashboardService:
         reg_pending = 0
         reg_latest_upload = None
         reg_latest_rule_update = None
-        
+
         try:
-            reg_total = (await db.execute(select(func.count(Regulation.id)))).scalar_one()
-            reg_active = (await db.execute(
-                select(func.count(Regulation.id)).where(Regulation.status == "active")
-            )).scalar_one()
-            reg_pending = (await db.execute(
-                select(func.count(Regulation.id)).where(
-                    Regulation.status.in_(["pending_review", "draft"])
+            reg_total = (
+                await db.execute(select(func.count(Regulation.id)))
+            ).scalar_one()
+            reg_active = (
+                await db.execute(
+                    select(func.count(Regulation.id)).where(
+                        Regulation.status == "active"
+                    )
                 )
-            )).scalar_one()
-            
-            latest_up_row = (await db.execute(
-                select(Regulation.created_at).order_by(Regulation.created_at.desc()).limit(1)
-            )).first()
+            ).scalar_one()
+            reg_pending = (
+                await db.execute(
+                    select(func.count(Regulation.id)).where(
+                        Regulation.status.in_(["pending_review", "draft"])
+                    )
+                )
+            ).scalar_one()
+
+            latest_up_row = (
+                await db.execute(
+                    select(Regulation.created_at)
+                    .order_by(Regulation.created_at.desc())
+                    .limit(1)
+                )
+            ).first()
             if latest_up_row:
                 reg_latest_upload = latest_up_row[0].isoformat()
 
-            latest_rule_row = (await db.execute(
-                select(PolicyRule.created_at).order_by(PolicyRule.created_at.desc()).limit(1)
-            )).first()
+            latest_rule_row = (
+                await db.execute(
+                    select(PolicyRule.created_at)
+                    .order_by(PolicyRule.created_at.desc())
+                    .limit(1)
+                )
+            ).first()
             if latest_rule_row:
                 reg_latest_rule_update = latest_rule_row[0].isoformat()
         except Exception as e:
@@ -191,7 +232,6 @@ class DashboardService:
             },
         }
 
-
     # ─────────────────────────────────────────────────────────────────────────
     # Charts
     # ─────────────────────────────────────────────────────────────────────────
@@ -206,96 +246,111 @@ class DashboardService:
         # 1. Customer Risk Distribution (pie)
         latest_risk_subq = (
             select(
-                RiskScore.customer_id,
-                func.max(RiskScore.created_at).label("latest_at")
+                RiskScore.customer_id, func.max(RiskScore.created_at).label("latest_at")
             )
             .group_by(RiskScore.customer_id)
             .subquery()
         )
-        risk_dist = (await db.execute(
-            select(RiskScore.risk_tier, func.count(RiskScore.id))
-            .join(
-                latest_risk_subq,
-                and_(
-                    RiskScore.customer_id == latest_risk_subq.c.customer_id,
-                    RiskScore.created_at == latest_risk_subq.c.latest_at,
+        risk_dist = (
+            await db.execute(
+                select(RiskScore.risk_tier, func.count(RiskScore.id))
+                .join(
+                    latest_risk_subq,
+                    and_(
+                        RiskScore.customer_id == latest_risk_subq.c.customer_id,
+                        RiskScore.created_at == latest_risk_subq.c.latest_at,
+                    ),
                 )
+                .group_by(RiskScore.risk_tier)
             )
-            .group_by(RiskScore.risk_tier)
-        )).all()
+        ).all()
 
         # 2. Alerts by type/severity (bar)
-        alert_by_type = (await db.execute(
-            select(Alert.alert_type, func.count(Alert.id))
-            .group_by(Alert.alert_type)
-            .order_by(func.count(Alert.id).desc())
-            .limit(10)
-        )).all()
+        alert_by_type = (
+            await db.execute(
+                select(Alert.alert_type, func.count(Alert.id))
+                .group_by(Alert.alert_type)
+                .order_by(func.count(Alert.id).desc())
+                .limit(10)
+            )
+        ).all()
 
         # 3. Cases by status (doughnut)
-        case_by_status = (await db.execute(
-            select(Case.status, func.count(Case.id))
-            .group_by(Case.status)
-        )).all()
+        case_by_status = (
+            await db.execute(
+                select(Case.status, func.count(Case.id)).group_by(Case.status)
+            )
+        ).all()
 
         # 4. Transactions per day — last 30 days (line)
-        txn_per_day = (await db.execute(
-            select(
-                func.date(Transaction.created_at).label("day"),
-                func.count(Transaction.id).label("count"),
-                func.sum(Transaction.amount).label("volume"),
+        txn_per_day = (
+            await db.execute(
+                select(
+                    func.date(Transaction.created_at).label("day"),
+                    func.count(Transaction.id).label("count"),
+                    func.sum(Transaction.amount).label("volume"),
+                )
+                .where(
+                    Transaction.created_at
+                    >= datetime.combine(thirty_days_ago, datetime.min.time())
+                )
+                .group_by(func.date(Transaction.created_at))
+                .order_by(func.date(Transaction.created_at))
             )
-            .where(Transaction.created_at >= datetime.combine(thirty_days_ago, datetime.min.time()))
-            .group_by(func.date(Transaction.created_at))
-            .order_by(func.date(Transaction.created_at))
-        )).all()
+        ).all()
 
         # 5. Monthly screenings — last 6 months (area)
-        screenings_monthly = (await db.execute(
-            select(
-                func.date_trunc("month", AuditLog.created_at).label("month"),
-                func.count(AuditLog.id).label("count"),
+        screenings_monthly = (
+            await db.execute(
+                select(
+                    func.date_trunc("month", AuditLog.created_at).label("month"),
+                    func.count(AuditLog.id).label("count"),
+                )
+                .where(
+                    AuditLog.action == "INITIATE_RESCREENING",
+                    AuditLog.created_at
+                    >= datetime.combine(six_months_ago, datetime.min.time()),
+                )
+                .group_by(func.date_trunc("month", AuditLog.created_at))
+                .order_by(func.date_trunc("month", AuditLog.created_at))
             )
-            .where(
-                AuditLog.action == "INITIATE_RESCREENING",
-                AuditLog.created_at >= datetime.combine(six_months_ago, datetime.min.time()),
-            )
-            .group_by(func.date_trunc("month", AuditLog.created_at))
-            .order_by(func.date_trunc("month", AuditLog.created_at))
-        )).all()
+        ).all()
 
         # 6. Risk score trend — last 30 days (line)
-        risk_trend = (await db.execute(
-            select(
-                func.date(RiskScore.created_at).label("day"),
-                func.avg(RiskScore.overall_score).label("avg_score"),
+        risk_trend = (
+            await db.execute(
+                select(
+                    func.date(RiskScore.created_at).label("day"),
+                    func.avg(RiskScore.overall_score).label("avg_score"),
+                )
+                .where(
+                    RiskScore.created_at
+                    >= datetime.combine(thirty_days_ago, datetime.min.time())
+                )
+                .group_by(func.date(RiskScore.created_at))
+                .order_by(func.date(RiskScore.created_at))
             )
-            .where(RiskScore.created_at >= datetime.combine(thirty_days_ago, datetime.min.time()))
-            .group_by(func.date(RiskScore.created_at))
-            .order_by(func.date(RiskScore.created_at))
-        )).all()
+        ).all()
 
         # 7. Country risk distribution (table — top 15)
-        country_dist = (await db.execute(
-            select(Transaction.receiver_country, func.count(Transaction.id).label("count"))
-            .group_by(Transaction.receiver_country)
-            .order_by(func.count(Transaction.id).desc())
-            .limit(15)
-        )).all()
+        country_dist = (
+            await db.execute(
+                select(
+                    Transaction.receiver_country,
+                    func.count(Transaction.id).label("count"),
+                )
+                .group_by(Transaction.receiver_country)
+                .order_by(func.count(Transaction.id).desc())
+                .limit(15)
+            )
+        ).all()
 
         return {
             "risk_distribution": [
-                {"tier": tier, "count": count}
-                for tier, count in risk_dist
+                {"tier": tier, "count": count} for tier, count in risk_dist
             ],
-            "alerts_by_type": [
-                {"type": t, "count": c}
-                for t, c in alert_by_type
-            ],
-            "cases_by_status": [
-                {"status": s, "count": c}
-                for s, c in case_by_status
-            ],
+            "alerts_by_type": [{"type": t, "count": c} for t, c in alert_by_type],
+            "cases_by_status": [{"status": s, "count": c} for s, c in case_by_status],
             "transactions_per_day": [
                 {
                     "day": str(row.day),
@@ -319,8 +374,7 @@ class DashboardService:
                 for row in risk_trend
             ],
             "country_distribution": [
-                {"country": country, "count": count}
-                for country, count in country_dist
+                {"country": country, "count": count} for country, count in country_dist
             ],
         }
 
@@ -332,9 +386,7 @@ class DashboardService:
     async def get_activity(db: AsyncSession, limit: int = 30) -> List[Dict]:
         """Recent audit log activity for the live activity panel."""
         result = await db.execute(
-            select(AuditLog)
-            .order_by(AuditLog.created_at.desc())
-            .limit(limit)
+            select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)
         )
         logs = result.scalars().all()
 
@@ -359,7 +411,9 @@ class DashboardService:
             {
                 "id": str(log.id),
                 "action": log.action,
-                "label": action_labels.get(log.action, log.action.replace("_", " ").title()),
+                "label": action_labels.get(
+                    log.action, log.action.replace("_", " ").title()
+                ),
                 "entity_name": log.entity_name,
                 "entity_id": str(log.entity_id),
                 "user_id": str(log.user_id) if log.user_id else None,
@@ -380,36 +434,37 @@ class DashboardService:
         # Latest risk score subquery
         latest_risk_subq = (
             select(
-                RiskScore.customer_id,
-                func.max(RiskScore.created_at).label("latest_at")
+                RiskScore.customer_id, func.max(RiskScore.created_at).label("latest_at")
             )
             .group_by(RiskScore.customer_id)
             .subquery()
         )
 
-        risk_rows = (await db.execute(
-            select(
-                Customer.id,
-                Customer.first_name,
-                Customer.last_name,
-                Customer.customer_type,
-                Customer.status,
-                RiskScore.overall_score,
-                RiskScore.risk_tier,
-                RiskScore.created_at.label("last_assessed"),
-            )
-            .join(RiskScore, RiskScore.customer_id == Customer.id)
-            .join(
-                latest_risk_subq,
-                and_(
-                    RiskScore.customer_id == latest_risk_subq.c.customer_id,
-                    RiskScore.created_at == latest_risk_subq.c.latest_at,
+        risk_rows = (
+            await db.execute(
+                select(
+                    Customer.id,
+                    Customer.first_name,
+                    Customer.last_name,
+                    Customer.customer_type,
+                    Customer.status,
+                    RiskScore.overall_score,
+                    RiskScore.risk_tier,
+                    RiskScore.created_at.label("last_assessed"),
                 )
+                .join(RiskScore, RiskScore.customer_id == Customer.id)
+                .join(
+                    latest_risk_subq,
+                    and_(
+                        RiskScore.customer_id == latest_risk_subq.c.customer_id,
+                        RiskScore.created_at == latest_risk_subq.c.latest_at,
+                    ),
+                )
+                .where(RiskScore.risk_tier == "high")
+                .order_by(RiskScore.overall_score.desc())
+                .limit(limit)
             )
-            .where(RiskScore.risk_tier == "high")
-            .order_by(RiskScore.overall_score.desc())
-            .limit(limit)
-        )).all()
+        ).all()
 
         results = []
         for row in risk_rows:
@@ -425,20 +480,29 @@ class DashboardService:
             )
             open_case = case_result.first()
 
-            results.append({
-                "customer_id": str(row.id),
-                "name": f"{row.first_name or ''} {row.last_name or ''}".strip() or "Unknown",
-                "customer_type": row.customer_type,
-                "status": row.status,
-                "risk_score": float(row.overall_score),
-                "risk_tier": row.risk_tier,
-                "last_assessed": row.last_assessed.isoformat() if row.last_assessed else None,
-                "open_case": {
-                    "id": str(open_case.id),
-                    "status": open_case.status,
-                    "priority": open_case.priority,
-                } if open_case else None,
-            })
+            results.append(
+                {
+                    "customer_id": str(row.id),
+                    "name": f"{row.first_name or ''} {row.last_name or ''}".strip()
+                    or "Unknown",
+                    "customer_type": row.customer_type,
+                    "status": row.status,
+                    "risk_score": float(row.overall_score),
+                    "risk_tier": row.risk_tier,
+                    "last_assessed": (
+                        row.last_assessed.isoformat() if row.last_assessed else None
+                    ),
+                    "open_case": (
+                        {
+                            "id": str(open_case.id),
+                            "status": open_case.status,
+                            "priority": open_case.priority,
+                        }
+                        if open_case
+                        else None
+                    ),
+                }
+            )
 
         return results
 
@@ -450,39 +514,49 @@ class DashboardService:
     async def get_alerts_summary(db: AsyncSession) -> Dict[str, Any]:
         """Alert dashboard — counts by risk level and status."""
         today_start = datetime.combine(date.today(), datetime.min.time())
-        week_start = datetime.combine(date.today() - timedelta(days=7), datetime.min.time())
+        week_start = datetime.combine(
+            date.today() - timedelta(days=7), datetime.min.time()
+        )
         month_start = datetime.combine(date.today().replace(day=1), datetime.min.time())
 
         # By risk score bucket
-        risk_buckets = (await db.execute(
-            select(
-                case(
-                    (Alert.risk_score >= 90, "critical"),
-                    (Alert.risk_score >= 75, "high"),
-                    (Alert.risk_score >= 50, "medium"),
-                    else_="low"
-                ).label("level"),
-                func.count(Alert.id).label("count"),
+        risk_buckets = (
+            await db.execute(
+                select(
+                    case(
+                        (Alert.risk_score >= 90, "critical"),
+                        (Alert.risk_score >= 75, "high"),
+                        (Alert.risk_score >= 50, "medium"),
+                        else_="low",
+                    ).label("level"),
+                    func.count(Alert.id).label("count"),
+                ).group_by(text("level"))
             )
-            .group_by(text("level"))
-        )).all()
+        ).all()
 
         # By status
-        by_status = (await db.execute(
-            select(Alert.status, func.count(Alert.id))
-            .group_by(Alert.status)
-        )).all()
+        by_status = (
+            await db.execute(
+                select(Alert.status, func.count(Alert.id)).group_by(Alert.status)
+            )
+        ).all()
 
         # Time-based
-        today_count = (await db.execute(
-            select(func.count(Alert.id)).where(Alert.created_at >= today_start)
-        )).scalar_one()
-        week_count = (await db.execute(
-            select(func.count(Alert.id)).where(Alert.created_at >= week_start)
-        )).scalar_one()
-        month_count = (await db.execute(
-            select(func.count(Alert.id)).where(Alert.created_at >= month_start)
-        )).scalar_one()
+        today_count = (
+            await db.execute(
+                select(func.count(Alert.id)).where(Alert.created_at >= today_start)
+            )
+        ).scalar_one()
+        week_count = (
+            await db.execute(
+                select(func.count(Alert.id)).where(Alert.created_at >= week_start)
+            )
+        ).scalar_one()
+        month_count = (
+            await db.execute(
+                select(func.count(Alert.id)).where(Alert.created_at >= month_start)
+            )
+        ).scalar_one()
 
         return {
             "by_risk_level": {b.level: b.count for b in risk_buckets},
@@ -502,37 +576,42 @@ class DashboardService:
     async def get_cases_summary(db: AsyncSession) -> Dict[str, Any]:
         """Case dashboard metrics."""
         # Counts by status
-        by_status = (await db.execute(
-            select(Case.status, func.count(Case.id))
-            .group_by(Case.status)
-        )).all()
+        by_status = (
+            await db.execute(
+                select(Case.status, func.count(Case.id)).group_by(Case.status)
+            )
+        ).all()
         status_map = {s: c for s, c in by_status}
 
         # Average resolution time (approved/rejected cases)
-        avg_resolution = (await db.execute(
-            select(
-                func.avg(
-                    func.extract("epoch", Case.updated_at - Case.created_at) / 3600
-                ).label("avg_hours")
-            ).where(Case.status.in_(["approved", "rejected"]))
-        )).scalar_one()
+        avg_resolution = (
+            await db.execute(
+                select(
+                    func.avg(
+                        func.extract("epoch", Case.updated_at - Case.created_at) / 3600
+                    ).label("avg_hours")
+                ).where(Case.status.in_(["approved", "rejected"]))
+            )
+        ).scalar_one()
 
         # SAR filed count
-        sar_filed = (await db.execute(
-            select(func.count(Case.id)).where(Case.sar_filed == True)
-        )).scalar_one()
+        sar_filed = (
+            await db.execute(select(func.count(Case.id)).where(Case.sar_filed == True))
+        ).scalar_one()
 
         # Officer workload — cases per assigned officer (top 5)
-        officer_workload = (await db.execute(
-            select(Case.assigned_to, func.count(Case.id).label("count"))
-            .where(
-                Case.assigned_to.isnot(None),
-                Case.status.in_(["open", "investigating", "under_review"])
+        officer_workload = (
+            await db.execute(
+                select(Case.assigned_to, func.count(Case.id).label("count"))
+                .where(
+                    Case.assigned_to.isnot(None),
+                    Case.status.in_(["open", "investigating", "under_review"]),
+                )
+                .group_by(Case.assigned_to)
+                .order_by(func.count(Case.id).desc())
+                .limit(5)
             )
-            .group_by(Case.assigned_to)
-            .order_by(func.count(Case.id).desc())
-            .limit(5)
-        )).all()
+        ).all()
 
         # Load officer emails
         officer_data = []
@@ -546,7 +625,8 @@ class DashboardService:
         return {
             "by_status": status_map,
             "open": status_map.get("open", 0) + status_map.get("investigating", 0),
-            "under_review": status_map.get("under_review", 0) + status_map.get("waiting_info", 0),
+            "under_review": status_map.get("under_review", 0)
+            + status_map.get("waiting_info", 0),
             "edd_required": status_map.get("edd_required", 0),
             "approved": status_map.get("approved", 0),
             "rejected": status_map.get("rejected", 0),
@@ -566,62 +646,75 @@ class DashboardService:
         week_end = today + timedelta(days=7)
         month_end = today + timedelta(days=30)
 
-        overdue = (await db.execute(
-            select(func.count(MonitoringSchedule.id))
-            .where(
-                MonitoringSchedule.next_review_date < today,
-                MonitoringSchedule.status == "scheduled",
+        overdue = (
+            await db.execute(
+                select(func.count(MonitoringSchedule.id)).where(
+                    MonitoringSchedule.next_review_date < today,
+                    MonitoringSchedule.status == "scheduled",
+                )
             )
-        )).scalar_one()
+        ).scalar_one()
 
-        due_this_week = (await db.execute(
-            select(func.count(MonitoringSchedule.id))
-            .where(
-                MonitoringSchedule.next_review_date.between(today, week_end),
-                MonitoringSchedule.status == "scheduled",
+        due_this_week = (
+            await db.execute(
+                select(func.count(MonitoringSchedule.id)).where(
+                    MonitoringSchedule.next_review_date.between(today, week_end),
+                    MonitoringSchedule.status == "scheduled",
+                )
             )
-        )).scalar_one()
+        ).scalar_one()
 
-        due_this_month = (await db.execute(
-            select(func.count(MonitoringSchedule.id))
-            .where(
-                MonitoringSchedule.next_review_date.between(today, month_end),
-                MonitoringSchedule.status == "scheduled",
+        due_this_month = (
+            await db.execute(
+                select(func.count(MonitoringSchedule.id)).where(
+                    MonitoringSchedule.next_review_date.between(today, month_end),
+                    MonitoringSchedule.status == "scheduled",
+                )
             )
-        )).scalar_one()
+        ).scalar_one()
 
         # Next 10 upcoming reviews
-        upcoming = (await db.execute(
-            select(MonitoringSchedule, Customer)
-            .join(Customer, Customer.id == MonitoringSchedule.customer_id)
-            .where(
-                MonitoringSchedule.next_review_date >= today,
-                MonitoringSchedule.status == "scheduled",
+        upcoming = (
+            await db.execute(
+                select(MonitoringSchedule, Customer)
+                .join(Customer, Customer.id == MonitoringSchedule.customer_id)
+                .where(
+                    MonitoringSchedule.next_review_date >= today,
+                    MonitoringSchedule.status == "scheduled",
+                )
+                .order_by(MonitoringSchedule.next_review_date.asc())
+                .limit(10)
             )
-            .order_by(MonitoringSchedule.next_review_date.asc())
-            .limit(10)
-        )).all()
+        ).all()
 
         upcoming_list = []
         for sched, cust in upcoming:
-            upcoming_list.append({
-                "schedule_id": str(sched.id),
-                "customer_id": str(cust.id),
-                "customer_name": f"{cust.first_name or ''} {cust.last_name or ''}".strip() or "Unknown",
-                "next_review_date": str(sched.next_review_date),
-                "frequency_months": sched.review_frequency_months,
-                "last_review_date": str(sched.last_review_date) if sched.last_review_date else None,
-                "status": sched.status,
-            })
+            upcoming_list.append(
+                {
+                    "schedule_id": str(sched.id),
+                    "customer_id": str(cust.id),
+                    "customer_name": f"{cust.first_name or ''} {cust.last_name or ''}".strip()
+                    or "Unknown",
+                    "next_review_date": str(sched.next_review_date),
+                    "frequency_months": sched.review_frequency_months,
+                    "last_review_date": (
+                        str(sched.last_review_date) if sched.last_review_date else None
+                    ),
+                    "status": sched.status,
+                }
+            )
 
         return {
             "overdue": overdue,
             "due_this_week": due_this_week,
             "due_this_month": due_this_month,
-            "total_scheduled": (await db.execute(
-                select(func.count(MonitoringSchedule.id))
-                .where(MonitoringSchedule.status == "scheduled")
-            )).scalar_one(),
+            "total_scheduled": (
+                await db.execute(
+                    select(func.count(MonitoringSchedule.id)).where(
+                        MonitoringSchedule.status == "scheduled"
+                    )
+                )
+            ).scalar_one(),
             "upcoming": upcoming_list,
         }
 
@@ -644,7 +737,9 @@ class DashboardService:
                 or_(
                     Customer.first_name.ilike(f"%{q}%"),
                     Customer.last_name.ilike(f"%{q}%"),
-                    func.concat(Customer.first_name, " ", Customer.last_name).ilike(f"%{q}%"),
+                    func.concat(Customer.first_name, " ", Customer.last_name).ilike(
+                        f"%{q}%"
+                    ),
                     Customer.id.cast(text("text")).ilike(f"{q}%"),
                     Customer.phone_number.ilike(f"%{q}%"),
                 )
@@ -655,9 +750,7 @@ class DashboardService:
 
         # Cases — by ID prefix
         cases_result = await db.execute(
-            select(Case)
-            .where(Case.id.cast(text("text")).ilike(f"{q}%"))
-            .limit(limit)
+            select(Case).where(Case.id.cast(text("text")).ilike(f"{q}%")).limit(limit)
         )
         cases = cases_result.scalars().all()
 
@@ -693,7 +786,8 @@ class DashboardService:
             "customers": [
                 {
                     "id": str(c.id),
-                    "name": f"{c.first_name or ''} {c.last_name or ''}".strip() or "Unknown",
+                    "name": f"{c.first_name or ''} {c.last_name or ''}".strip()
+                    or "Unknown",
                     "type": c.customer_type,
                     "status": c.status,
                     "url": f"/admin/cases?customer_id={c.id}",
@@ -758,9 +852,15 @@ class DashboardService:
             investigation_notes = latest_case.investigation_notes
 
         # Recent risk scores (last 5)
-        recent_scores = (await db.execute(
-            select(RiskScore).order_by(RiskScore.created_at.desc()).limit(5)
-        )).scalars().all()
+        recent_scores = (
+            (
+                await db.execute(
+                    select(RiskScore).order_by(RiskScore.created_at.desc()).limit(5)
+                )
+            )
+            .scalars()
+            .all()
+        )
 
         # Agent execution stats from logs
         total_agents = len(agent_logs)
@@ -768,12 +868,15 @@ class DashboardService:
         failed = sum(1 for l in agent_logs if l.output_state is None)
         avg_exec_ms = (
             sum(l.execution_time_ms or 0 for l in agent_logs) / total_agents
-            if total_agents else 0
+            if total_agents
+            else 0
         )
 
         return {
             "latest_case_id": str(latest_case.id) if latest_case else None,
-            "investigation_summary": (investigation_notes or "")[:500] if investigation_notes else None,
+            "investigation_summary": (
+                (investigation_notes or "")[:500] if investigation_notes else None
+            ),
             "agent_execution": {
                 "total": total_agents,
                 "completed": completed,

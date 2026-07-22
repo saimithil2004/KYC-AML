@@ -21,19 +21,44 @@ logger = logging.getLogger(__name__)
 
 FATF_BLACK_LIST: set = {
     # High-Risk Jurisdictions subject to a Call for Action (Black List)
-    "democratic people's republic of korea", "north korea", "dprk",
+    "democratic people's republic of korea",
+    "north korea",
+    "dprk",
     "iran",
-    "myanmar", "burma",
+    "myanmar",
+    "burma",
 }
 
 FATF_GREY_LIST: set = {
     # Jurisdictions under Increased Monitoring (Grey List)
-    "bulgaria", "burkina faso", "cameroon", "croatia", "democratic republic of the congo",
-    "haiti", "kenya", "mali", "monaco", "mozambique", "namibia", "nigeria", "philippines",
-    "senegal", "south africa", "south sudan", "syria", "tanzania", "venezuela",
-    "vietnam", "yemen",
+    "bulgaria",
+    "burkina faso",
+    "cameroon",
+    "croatia",
+    "democratic republic of the congo",
+    "haiti",
+    "kenya",
+    "mali",
+    "monaco",
+    "mozambique",
+    "namibia",
+    "nigeria",
+    "philippines",
+    "senegal",
+    "south africa",
+    "south sudan",
+    "syria",
+    "tanzania",
+    "venezuela",
+    "vietnam",
+    "yemen",
     # Added periodically — maintain this list
-    "algeria", "angola", "ivory coast", "liberia", "somalia", "sudan",
+    "algeria",
+    "angola",
+    "ivory coast",
+    "liberia",
+    "somalia",
+    "sudan",
 }
 
 
@@ -79,12 +104,12 @@ class FATFAgent(BaseAgent):
         # Collect all countries from state
         countries: List[str] = self._collect_countries(state)
 
-        findings:        List[str] = []
-        warnings:        List[str] = []
+        findings: List[str] = []
+        warnings: List[str] = []
         recommendations: List[str] = []
 
         black_listed: List[str] = []
-        grey_listed:  List[str] = []
+        grey_listed: List[str] = []
 
         for country in countries:
             country_lower = country.strip().lower()
@@ -102,30 +127,36 @@ class FATFAgent(BaseAgent):
         # ── Determine status and score ────────────────────────────────────────
         if black_listed:
             fatf_status = "BLACK_LISTED"
-            fatf_score  = 0.0
-            risk_level  = "critical"
-            recommendations.append("REJECT or SUSPEND — customer has connection to FATF black-listed jurisdiction.")
-            recommendations.append("File Suspicious Activity Report (SAR) as required by regulation.")
+            fatf_score = 0.0
+            risk_level = "critical"
+            recommendations.append(
+                "REJECT or SUSPEND — customer has connection to FATF black-listed jurisdiction."
+            )
+            recommendations.append(
+                "File Suspicious Activity Report (SAR) as required by regulation."
+            )
         elif grey_listed:
             fatf_status = "GREY_LISTED"
-            fatf_score  = max(30.0, 100.0 - len(grey_listed) * 20.0)
-            risk_level  = "high"
-            recommendations.append("Apply Enhanced Due Diligence (EDD) for FATF grey-list exposure.")
+            fatf_score = max(30.0, 100.0 - len(grey_listed) * 20.0)
+            risk_level = "high"
+            recommendations.append(
+                "Apply Enhanced Due Diligence (EDD) for FATF grey-list exposure."
+            )
             recommendations.append("Increase transaction monitoring frequency.")
         else:
             fatf_status = "CLEAR"
-            fatf_score  = 100.0
-            risk_level  = "low"
+            fatf_score = 100.0
+            risk_level = "low"
             findings.append("No FATF grey-list or black-list jurisdictions identified.")
 
         execution_duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
         # Update AgentState
         state.risk_breakdown["fatf"] = fatf_score
-        state.shared_metadata["fatf_status"]          = fatf_status
-        state.shared_metadata["fatf_score"]           = fatf_score
-        state.shared_metadata["fatf_black_listed"]    = black_listed
-        state.shared_metadata["fatf_grey_listed"]     = grey_listed
+        state.shared_metadata["fatf_status"] = fatf_status
+        state.shared_metadata["fatf_score"] = fatf_score
+        state.shared_metadata["fatf_black_listed"] = black_listed
+        state.shared_metadata["fatf_grey_listed"] = grey_listed
         state.shared_metadata["fatf_countries_checked"] = countries
 
         state.logs.append(
@@ -139,15 +170,15 @@ class FATFAgent(BaseAgent):
             "confidence": fatf_score / 100.0,
             "risk_score": fatf_score,
             "risk_level": risk_level,
-            "findings":   findings,
-            "warnings":   warnings,
+            "findings": findings,
+            "warnings": warnings,
             "recommendations": recommendations,
-            "errors":     [],
+            "errors": [],
             # Metadata
-            "fatf_status":    fatf_status,
-            "fatf_score":     fatf_score,
-            "black_listed":   black_listed,
-            "grey_listed":    grey_listed,
+            "fatf_status": fatf_status,
+            "fatf_score": fatf_score,
+            "black_listed": black_listed,
+            "grey_listed": grey_listed,
             "countries_checked": countries,
             "execution_duration_ms": execution_duration_ms,
         }
@@ -178,7 +209,7 @@ class FATFAgent(BaseAgent):
                 countries.add(c.strip())
 
         # From companies
-        for company in (state.companies or []):
+        for company in state.companies or []:
             val = company.get("country_of_incorporation")
             if val and isinstance(val, str):
                 countries.add(val.strip())

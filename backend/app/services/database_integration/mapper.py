@@ -6,6 +6,7 @@ from app.models.models import Customer, Account, Transaction, Company, Director,
 
 logger = logging.getLogger(__name__)
 
+
 class DataMapper:
     @staticmethod
     def normalize_phone(phone: Optional[str]) -> Optional[str]:
@@ -74,7 +75,9 @@ class DataMapper:
         return None
 
     @classmethod
-    def map_external_customer(cls, ext_data: Dict[str, Any], user_id: Optional[UUID] = None) -> Customer:
+    def map_external_customer(
+        cls, ext_data: Dict[str, Any], user_id: Optional[UUID] = None
+    ) -> Customer:
         """Maps external customer record to internal SQLAlchemy model."""
         cust = Customer(
             id=uuid4(),
@@ -89,12 +92,14 @@ class DataMapper:
             city=ext_data.get("city"),
             postal_code=ext_data.get("postcode"),
             country=cls.normalize_country(ext_data.get("country")),
-            status="pending_verification"
+            status="pending_verification",
         )
         return cust
 
     @classmethod
-    def map_external_account(cls, ext_data: Dict[str, Any], customer_id: UUID) -> Account:
+    def map_external_account(
+        cls, ext_data: Dict[str, Any], customer_id: UUID
+    ) -> Account:
         """Maps external bank account to internal SQLAlchemy model."""
         acc = Account(
             id=uuid4(),
@@ -103,18 +108,22 @@ class DataMapper:
             sort_code=ext_data.get("sort_code", "").replace("-", "").strip(),
             currency=cls.normalize_currency(ext_data.get("currency")),
             balance=float(ext_data.get("balance") or 0.0),
-            status="active"
+            status="active",
         )
         return acc
 
     @classmethod
-    def map_external_transaction(cls, ext_data: Dict[str, Any], sender_account_id: UUID) -> Transaction:
+    def map_external_transaction(
+        cls, ext_data: Dict[str, Any], sender_account_id: UUID
+    ) -> Transaction:
         """Maps external bank transactions to internal SQLAlchemy model."""
         tx = Transaction(
             id=uuid4(),
             sender_account_id=sender_account_id,
             receiver_account_number=ext_data.get("receiver_account_number", "").strip(),
-            receiver_sort_code=ext_data.get("receiver_sort_code", "").replace("-", "").strip(),
+            receiver_sort_code=ext_data.get("receiver_sort_code", "")
+            .replace("-", "")
+            .strip(),
             receiver_name=ext_data.get("receiver_name", "Unknown").strip(),
             receiver_country=cls.normalize_country(ext_data.get("receiver_country")),
             amount=float(ext_data.get("amount") or 0.0),
@@ -122,12 +131,14 @@ class DataMapper:
             transaction_type=ext_data.get("tx_type", "transfer").strip(),
             status="completed",
             reference=ext_data.get("reference"),
-            completed_at=cls.parse_datetime(ext_data.get("completed_at"))
+            completed_at=cls.parse_datetime(ext_data.get("completed_at")),
         )
         return tx
 
     @classmethod
-    def map_external_company(cls, ext_data: Dict[str, Any], customer_id: UUID) -> Company:
+    def map_external_company(
+        cls, ext_data: Dict[str, Any], customer_id: UUID
+    ) -> Company:
         """Maps external company records to internal SQLAlchemy model."""
         comp = Company(
             id=uuid4(),
@@ -136,15 +147,19 @@ class DataMapper:
             registration_number=ext_data.get("registration_number", "").strip(),
             registered_address=ext_data.get("registered_address", "").strip(),
             trading_address=ext_data.get("trading_address"),
-            country_of_incorporation=cls.normalize_country(ext_data.get("country_of_incorporation")),
+            country_of_incorporation=cls.normalize_country(
+                ext_data.get("country_of_incorporation")
+            ),
             incorporation_date=cls.parse_date(ext_data.get("incorporation_date")),
             sic_code=ext_data.get("sic_code"),
-            status="active"
+            status="active",
         )
         return comp
 
     @classmethod
-    def map_external_director(cls, ext_data: Dict[str, Any], company_id: UUID) -> Director:
+    def map_external_director(
+        cls, ext_data: Dict[str, Any], company_id: UUID
+    ) -> Director:
         """Maps external director records to internal SQLAlchemy model."""
         d = Director(
             id=uuid4(),
@@ -155,7 +170,7 @@ class DataMapper:
             nationality=cls.normalize_country(ext_data.get("nationality")),
             appointment_date=cls.parse_date(ext_data.get("appointment_date")),
             is_active=True,
-            verification_status="unverified"
+            verification_status="unverified",
         )
         return d
 
@@ -171,6 +186,6 @@ class DataMapper:
             nationality=cls.normalize_country(ext_data.get("nationality")),
             ownership_percentage=float(ext_data.get("ownership_percentage") or 0.0),
             control_type=ext_data.get("control_type", "ownership").strip(),
-            verification_status="unverified"
+            verification_status="unverified",
         )
         return u

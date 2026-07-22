@@ -22,11 +22,21 @@ from sqlalchemy.future import select
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user, verify_compliance_officer
 from app.models.models import (
-    AgentLog, Alert, Case, Customer, Document, KYCProfile,
-    RiskScore, User,
+    AgentLog,
+    Alert,
+    Case,
+    Customer,
+    Document,
+    KYCProfile,
+    RiskScore,
+    User,
 )
 from app.schemas.schemas import (
-    CaseCreate, CaseDecision, CaseResponse, CaseUpdate, PaginatedCases,
+    CaseCreate,
+    CaseDecision,
+    CaseResponse,
+    CaseUpdate,
+    PaginatedCases,
 )
 from app.services.audit_service import AuditService
 
@@ -34,18 +44,30 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 VALID_STATUSES = {
-    "open", "under_review", "waiting_info", "escalated",
-    "approved", "rejected", "closed", "investigating", "new",
+    "open",
+    "under_review",
+    "waiting_info",
+    "escalated",
+    "approved",
+    "rejected",
+    "closed",
+    "investigating",
+    "new",
 }
 VALID_DECISIONS = {"APPROVE", "REJECT", "EDD_REQUIRED", "MANUAL_REVIEW"}
 
 
 def _get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
-    return forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+    return (
+        forwarded.split(",")[0].strip()
+        if forwarded
+        else (request.client.host if request.client else "unknown")
+    )
 
 
 # ── GET /cases ────────────────────────────────────────────────────────────────
+
 
 @router.get("/", response_model=PaginatedCases)
 async def list_cases(
@@ -80,7 +102,9 @@ async def list_cases(
     if date_to:
         q = q.where(Case.created_at <= datetime.combine(date_to, datetime.max.time()))
 
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
+    total = (
+        await db.execute(select(func.count()).select_from(q.subquery()))
+    ).scalar_one()
 
     sort_col = getattr(Case, sort_by, Case.created_at)
     q = q.order_by(sort_col.asc() if sort_dir == "asc" else sort_col.desc())
@@ -91,6 +115,7 @@ async def list_cases(
 
 
 # ── GET /cases/{id} ───────────────────────────────────────────────────────────
+
 
 @router.get("/{case_id}", response_model=CaseResponse)
 async def get_case(
@@ -106,6 +131,7 @@ async def get_case(
 
 
 # ── GET /cases/{id}/full ──────────────────────────────────────────────────────
+
 
 @router.get("/{case_id}/full")
 async def get_case_full(
@@ -129,15 +155,21 @@ async def get_case_full(
         raise HTTPException(status_code=404, detail="Case not found.")
 
     # Customer
-    cust_result = await db.execute(select(Customer).where(Customer.id == case.customer_id))
+    cust_result = await db.execute(
+        select(Customer).where(Customer.id == case.customer_id)
+    )
     customer = cust_result.scalars().first()
 
     # KYC
-    kyc_result = await db.execute(select(KYCProfile).where(KYCProfile.customer_id == case.customer_id))
+    kyc_result = await db.execute(
+        select(KYCProfile).where(KYCProfile.customer_id == case.customer_id)
+    )
     kyc = kyc_result.scalars().first()
 
     # Documents
-    doc_result = await db.execute(select(Document).where(Document.customer_id == case.customer_id))
+    doc_result = await db.execute(
+        select(Document).where(Document.customer_id == case.customer_id)
+    )
     documents = doc_result.scalars().all()
 
     # Risk Scores (latest 3)
@@ -178,27 +210,37 @@ async def get_case_full(
             "created_at": case.created_at.isoformat(),
             "updated_at": case.updated_at.isoformat(),
         },
-        "customer": {
-            "id": str(customer.id),
-            "customer_type": customer.customer_type,
-            "first_name": customer.first_name,
-            "last_name": customer.last_name,
-            "nationality": customer.nationality,
-            "country": customer.country,
-            "status": customer.status,
-        } if customer else None,
-        "kyc_profile": {
-            "full_name": kyc.full_name,
-            "date_of_birth": kyc.date_of_birth.isoformat() if kyc.date_of_birth else None,
-            "nationality": kyc.nationality,
-            "address": kyc.address,
-            "source_of_funds": kyc.source_of_funds,
-            "source_of_wealth": kyc.source_of_wealth,
-            "occupation": kyc.occupation,
-            "risk_category": kyc.risk_category,
-            "annual_income_range": kyc.annual_income_range,
-            "tax_residency": kyc.tax_residency,
-        } if kyc else None,
+        "customer": (
+            {
+                "id": str(customer.id),
+                "customer_type": customer.customer_type,
+                "first_name": customer.first_name,
+                "last_name": customer.last_name,
+                "nationality": customer.nationality,
+                "country": customer.country,
+                "status": customer.status,
+            }
+            if customer
+            else None
+        ),
+        "kyc_profile": (
+            {
+                "full_name": kyc.full_name,
+                "date_of_birth": (
+                    kyc.date_of_birth.isoformat() if kyc.date_of_birth else None
+                ),
+                "nationality": kyc.nationality,
+                "address": kyc.address,
+                "source_of_funds": kyc.source_of_funds,
+                "source_of_wealth": kyc.source_of_wealth,
+                "occupation": kyc.occupation,
+                "risk_category": kyc.risk_category,
+                "annual_income_range": kyc.annual_income_range,
+                "tax_residency": kyc.tax_residency,
+            }
+            if kyc
+            else None
+        ),
         "documents": [
             {
                 "id": str(d.id),
@@ -245,6 +287,7 @@ async def get_case_full(
 
 # ── POST /cases ───────────────────────────────────────────────────────────────
 
+
 @router.post("/", response_model=CaseResponse, status_code=201)
 async def create_case(
     case_in: CaseCreate,
@@ -253,7 +296,9 @@ async def create_case(
     db: AsyncSession = Depends(get_db),
 ):
     # Verify customer exists
-    result = await db.execute(select(Customer).where(Customer.id == case_in.customer_id))
+    result = await db.execute(
+        select(Customer).where(Customer.id == case_in.customer_id)
+    )
     if not result.scalars().first():
         raise HTTPException(status_code=404, detail="Customer not found.")
 
@@ -288,6 +333,7 @@ async def create_case(
 
 
 # ── PUT /cases/{id} ───────────────────────────────────────────────────────────
+
 
 @router.put("/{case_id}", response_model=CaseResponse)
 async def update_case(
@@ -333,6 +379,7 @@ async def update_case(
 
 
 # ── POST /cases/{id}/decision ─────────────────────────────────────────────────
+
 
 @router.post("/{case_id}/decision", response_model=CaseResponse)
 async def record_case_decision(
@@ -388,7 +435,9 @@ async def record_case_decision(
     case.updated_at = datetime.utcnow()
 
     # Update customer status based on decision
-    cust_result = await db.execute(select(Customer).where(Customer.id == case.customer_id))
+    cust_result = await db.execute(
+        select(Customer).where(Customer.id == case.customer_id)
+    )
     customer = cust_result.scalars().first()
     if customer:
         if decision_in.decision == "APPROVE":
@@ -421,6 +470,7 @@ async def record_case_decision(
 
 
 # ── DELETE /cases/{id} ────────────────────────────────────────────────────────
+
 
 @router.delete("/{case_id}", status_code=204)
 async def delete_case(

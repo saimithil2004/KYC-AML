@@ -25,30 +25,41 @@ from sqlalchemy.future import select
 
 from app.core.database import SessionLocalSync
 from app.models.models import (
-    Customer, KYCProfile, Document, Case, Alert, RiskScore, AgentLog,
-    Account, Transaction, Company, Director, UBO, PolicyRule,
+    Customer,
+    KYCProfile,
+    Document,
+    Case,
+    Alert,
+    RiskScore,
+    AgentLog,
+    Account,
+    Transaction,
+    Company,
+    Director,
+    UBO,
+    PolicyRule,
 )
 from app.agents.base.agent_state import AgentState as PydanticAgentState
 from app.agents.base.agent_context import AgentContext
 from app.agents.orchestrator.agent import OrchestratorAgent
 
 # ── Import all agents to ensure they self-register via @AgentRegistry.register ──
-from app.agents.kyc.agent import KycAgent                                    # noqa: F401
-from app.agents.pep.agent import PepAgent                                    # noqa: F401
-from app.agents.sanctions.agent import SanctionsAgent                        # noqa: F401
-from app.agents.country.agent import CountryRiskAgent                        # noqa: F401
-from app.agents.transaction.agent import TransactionAgent                    # noqa: F401
-from app.agents.company.agent import CompanyAgent                            # noqa: F401
-from app.agents.document.agent import DocumentVerificationAgent              # noqa: F401
-from app.agents.fatf.agent import FATFAgent                                  # noqa: F401
-from app.agents.ubo.agent import UBOVerificationAgent                        # noqa: F401
-from app.agents.director.agent import DirectorVerificationAgent              # noqa: F401
-from app.agents.account.agent import AccountBehaviorAgent                    # noqa: F401
-from app.agents.regulation.agent import RegulationAgent                      # noqa: F401
-from app.agents.risk.agent import RiskScoringAgent                           # noqa: F401
-from app.agents.investigation.agent import InvestigationAgent                # noqa: F401
-from app.agents.decision.agent import DecisionAgent                          # noqa: F401
-from app.agents.monitoring.agent import MonitoringAgent                      # noqa: F401
+from app.agents.kyc.agent import KycAgent  # noqa: F401
+from app.agents.pep.agent import PepAgent  # noqa: F401
+from app.agents.sanctions.agent import SanctionsAgent  # noqa: F401
+from app.agents.country.agent import CountryRiskAgent  # noqa: F401
+from app.agents.transaction.agent import TransactionAgent  # noqa: F401
+from app.agents.company.agent import CompanyAgent  # noqa: F401
+from app.agents.document.agent import DocumentVerificationAgent  # noqa: F401
+from app.agents.fatf.agent import FATFAgent  # noqa: F401
+from app.agents.ubo.agent import UBOVerificationAgent  # noqa: F401
+from app.agents.director.agent import DirectorVerificationAgent  # noqa: F401
+from app.agents.account.agent import AccountBehaviorAgent  # noqa: F401
+from app.agents.regulation.agent import RegulationAgent  # noqa: F401
+from app.agents.risk.agent import RiskScoringAgent  # noqa: F401
+from app.agents.investigation.agent import InvestigationAgent  # noqa: F401
+from app.agents.decision.agent import DecisionAgent  # noqa: F401
+from app.agents.monitoring.agent import MonitoringAgent  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +67,7 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────────────────────
 # Primary Screening Service
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class ScreeningService:
     """
@@ -74,8 +86,11 @@ class ScreeningService:
             if loop.is_running():
                 # We are inside an async context (e.g. FastAPI) — use thread pool
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor() as pool:
-                    future = pool.submit(asyncio.run, ScreeningService._run_async(customer_id))
+                    future = pool.submit(
+                        asyncio.run, ScreeningService._run_async(customer_id)
+                    )
                     return future.result()
             else:
                 return loop.run_until_complete(ScreeningService._run_async(customer_id))
@@ -98,7 +113,9 @@ class ScreeningService:
         4. Persist results
         5. Return response
         """
-        logger.info(f"ScreeningService: Starting compliance screening for customer {customer_id}.")
+        logger.info(
+            f"ScreeningService: Starting compliance screening for customer {customer_id}."
+        )
 
         db = SessionLocalSync()
         try:
@@ -109,7 +126,9 @@ class ScreeningService:
             if not customer:
                 raise ValueError(f"Customer {customer_id} not found.")
 
-            kyc = db.query(KYCProfile).filter(KYCProfile.customer_id == cust_uuid).first()
+            kyc = (
+                db.query(KYCProfile).filter(KYCProfile.customer_id == cust_uuid).first()
+            )
             if not kyc:
                 raise ValueError(f"KYC profile missing for customer {customer_id}.")
 
@@ -126,16 +145,18 @@ class ScreeningService:
             db.refresh(case)
 
             # ── Load Related Data ─────────────────────────────────────────────
-            documents = db.query(Document).filter(Document.customer_id == cust_uuid).all()
-            accounts  = db.query(Account).filter(Account.customer_id == cust_uuid).all()
+            documents = (
+                db.query(Document).filter(Document.customer_id == cust_uuid).all()
+            )
+            accounts = db.query(Account).filter(Account.customer_id == cust_uuid).all()
             companies = db.query(Company).filter(Company.customer_id == cust_uuid).all()
 
             company_ids = [c.id for c in companies]
             directors: List[Director] = []
-            ubos:      List[UBO]      = []
+            ubos: List[UBO] = []
             for cid in company_ids:
                 directors += db.query(Director).filter(Director.company_id == cid).all()
-                ubos      += db.query(UBO).filter(UBO.company_id == cid).all()
+                ubos += db.query(UBO).filter(UBO.company_id == cid).all()
 
             account_ids = [a.id for a in accounts]
             transactions: List[Transaction] = []
@@ -152,45 +173,47 @@ class ScreeningService:
 
             # ── Build AgentState ──────────────────────────────────────────────
             customer_dict = {
-                "id":            str(customer.id),
+                "id": str(customer.id),
                 "customer_type": customer.customer_type,
-                "first_name":    customer.first_name,
-                "last_name":     customer.last_name,
-                "dob":           customer.dob.isoformat() if customer.dob else None,
-                "nationality":   customer.nationality,
-                "phone_number":  customer.phone_number,
+                "first_name": customer.first_name,
+                "last_name": customer.last_name,
+                "dob": customer.dob.isoformat() if customer.dob else None,
+                "nationality": customer.nationality,
+                "phone_number": customer.phone_number,
                 "street_address": customer.street_address,
-                "city":          customer.city,
-                "postal_code":   customer.postal_code,
-                "country":       customer.country,
-                "status":        customer.status,
-                "name":          f"{customer.first_name or ''} {customer.last_name or ''}".strip(),
+                "city": customer.city,
+                "postal_code": customer.postal_code,
+                "country": customer.country,
+                "status": customer.status,
+                "name": f"{customer.first_name or ''} {customer.last_name or ''}".strip(),
             }
 
             kyc_dict = {
-                "full_name":             kyc.full_name,
-                "date_of_birth":         kyc.date_of_birth.isoformat() if kyc.date_of_birth else None,
-                "nationality":           kyc.nationality,
-                "address":               kyc.address,
-                "source_of_funds":       kyc.source_of_funds,
-                "source_of_wealth":      kyc.source_of_wealth,
-                "occupation":            kyc.occupation,
-                "risk_category":         kyc.risk_category,
-                "annual_income_range":   kyc.annual_income_range,
-                "tax_residency":         kyc.tax_residency,
+                "full_name": kyc.full_name,
+                "date_of_birth": (
+                    kyc.date_of_birth.isoformat() if kyc.date_of_birth else None
+                ),
+                "nationality": kyc.nationality,
+                "address": kyc.address,
+                "source_of_funds": kyc.source_of_funds,
+                "source_of_wealth": kyc.source_of_wealth,
+                "occupation": kyc.occupation,
+                "risk_category": kyc.risk_category,
+                "annual_income_range": kyc.annual_income_range,
+                "tax_residency": kyc.tax_residency,
                 "expected_activity_desc": kyc.expected_activity_desc,
-                "notes":                 kyc.notes,
+                "notes": kyc.notes,
             }
 
             docs_list = [
                 {
-                    "id":                  str(d.id),
-                    "document_type":       d.document_type,
-                    "file_name":           d.file_name,
-                    "file_path":           d.file_path,
-                    "content_type":        d.content_type,
-                    "file_size":           d.file_size,
-                    "ocr_data":            d.ocr_data or {},
+                    "id": str(d.id),
+                    "document_type": d.document_type,
+                    "file_name": d.file_name,
+                    "file_path": d.file_path,
+                    "content_type": d.content_type,
+                    "file_size": d.file_size,
+                    "ocr_data": d.ocr_data or {},
                     "verification_status": d.verification_status,
                     "verification_metadata": d.verification_metadata or {},
                 }
@@ -199,59 +222,65 @@ class ScreeningService:
 
             accounts_list = [
                 {
-                    "id":             str(a.id),
+                    "id": str(a.id),
                     "account_number": a.account_number,
-                    "sort_code":      a.sort_code,
-                    "currency":       a.currency,
-                    "balance":        float(a.balance),
-                    "status":         a.status,
-                    "created_at":     a.created_at.isoformat(),
+                    "sort_code": a.sort_code,
+                    "currency": a.currency,
+                    "balance": float(a.balance),
+                    "status": a.status,
+                    "created_at": a.created_at.isoformat(),
                 }
                 for a in accounts
             ]
 
             transactions_list = [
                 {
-                    "id":                     str(t.id),
-                    "sender_account_id":      str(t.sender_account_id),
+                    "id": str(t.id),
+                    "sender_account_id": str(t.sender_account_id),
                     "receiver_account_number": t.receiver_account_number,
-                    "receiver_sort_code":     t.receiver_sort_code,
-                    "receiver_name":          t.receiver_name,
-                    "receiver_country":       t.receiver_country,
-                    "amount":                 float(t.amount),
-                    "currency":               t.currency,
-                    "transaction_type":       t.transaction_type,
-                    "status":                 t.status,
-                    "reference":              t.reference,
-                    "created_at":             t.created_at.isoformat(),
+                    "receiver_sort_code": t.receiver_sort_code,
+                    "receiver_name": t.receiver_name,
+                    "receiver_country": t.receiver_country,
+                    "amount": float(t.amount),
+                    "currency": t.currency,
+                    "transaction_type": t.transaction_type,
+                    "status": t.status,
+                    "reference": t.reference,
+                    "created_at": t.created_at.isoformat(),
                 }
                 for t in transactions
             ]
 
             companies_list = [
                 {
-                    "id":                     str(c.id),
-                    "company_name":           c.company_name,
-                    "registration_number":    c.registration_number,
-                    "registered_address":     c.registered_address,
-                    "trading_address":        c.trading_address,
+                    "id": str(c.id),
+                    "company_name": c.company_name,
+                    "registration_number": c.registration_number,
+                    "registered_address": c.registered_address,
+                    "trading_address": c.trading_address,
                     "country_of_incorporation": c.country_of_incorporation,
-                    "incorporation_date":     c.incorporation_date.isoformat() if c.incorporation_date else None,
-                    "sic_code":              c.sic_code,
-                    "status":               c.status,
+                    "incorporation_date": (
+                        c.incorporation_date.isoformat()
+                        if c.incorporation_date
+                        else None
+                    ),
+                    "sic_code": c.sic_code,
+                    "status": c.status,
                 }
                 for c in companies
             ]
 
             directors_list = [
                 {
-                    "id":                 str(d.id),
-                    "first_name":         d.first_name,
-                    "last_name":          d.last_name,
-                    "dob":               d.dob.isoformat() if d.dob else None,
-                    "nationality":        d.nationality,
-                    "appointment_date":   d.appointment_date.isoformat() if d.appointment_date else None,
-                    "is_active":          d.is_active,
+                    "id": str(d.id),
+                    "first_name": d.first_name,
+                    "last_name": d.last_name,
+                    "dob": d.dob.isoformat() if d.dob else None,
+                    "nationality": d.nationality,
+                    "appointment_date": (
+                        d.appointment_date.isoformat() if d.appointment_date else None
+                    ),
+                    "is_active": d.is_active,
                     "verification_status": d.verification_status,
                 }
                 for d in directors
@@ -259,24 +288,24 @@ class ScreeningService:
 
             ubos_list = [
                 {
-                    "id":                   str(u.id),
-                    "first_name":           u.first_name,
-                    "last_name":            u.last_name,
-                    "dob":                 u.dob.isoformat() if u.dob else None,
-                    "nationality":          u.nationality,
+                    "id": str(u.id),
+                    "first_name": u.first_name,
+                    "last_name": u.last_name,
+                    "dob": u.dob.isoformat() if u.dob else None,
+                    "nationality": u.nationality,
                     "ownership_percentage": float(u.ownership_percentage),
-                    "control_type":         u.control_type,
-                    "verification_status":  u.verification_status,
+                    "control_type": u.control_type,
+                    "verification_status": u.verification_status,
                 }
                 for u in ubos
             ]
 
             policies_list = [
                 {
-                    "rule_name":  p.rule_name,
-                    "rule_type":  p.rule_type,
+                    "rule_name": p.rule_name,
+                    "rule_type": p.rule_type,
                     "conditions": p.conditions,
-                    "is_active":  p.is_active,
+                    "is_active": p.is_active,
                 }
                 for p in policies
             ]
@@ -295,7 +324,9 @@ class ScreeningService:
                 directors=directors_list,
                 ubos=ubos_list,
                 policies=policies_list,
-                logs=["AgentState initialized. Compliance screening workflow starting."],
+                logs=[
+                    "AgentState initialized. Compliance screening workflow starting."
+                ],
             )
 
             # ── Run OrchestratorAgent ─────────────────────────────────────────
@@ -304,7 +335,7 @@ class ScreeningService:
                 config={"case_id": str(case.id)},
             )
             orchestrator = OrchestratorAgent(db_session=db, context=context)
-            final_state  = await orchestrator.run(initial_state)
+            final_state = await orchestrator.run(initial_state)
 
             # ── Persist Agent Logs to DB ──────────────────────────────────────
             for hist_entry in final_state.execution_history:
@@ -315,15 +346,17 @@ class ScreeningService:
                         step_name=hist_entry.get("version", "execute"),
                         input_state={},
                         output_state={
-                            "status":  hist_entry.get("status"),
-                            "reason":  hist_entry.get("reason"),
-                            "timing":  hist_entry.get("execution_time_ms"),
+                            "status": hist_entry.get("status"),
+                            "reason": hist_entry.get("reason"),
+                            "timing": hist_entry.get("execution_time_ms"),
                         },
                         execution_time_ms=int(hist_entry.get("execution_time_ms") or 0),
                     )
                     db.add(log_record)
                 except Exception as log_err:
-                    logger.warning(f"ScreeningService: Could not write agent log: {log_err}")
+                    logger.warning(
+                        f"ScreeningService: Could not write agent log: {log_err}"
+                    )
 
             # ── Update Case ───────────────────────────────────────────────────
             final_case = db.query(Case).filter(Case.id == case.id).first()
@@ -331,8 +364,8 @@ class ScreeningService:
                 sm = final_state.shared_metadata
                 summary = sm.get("investigation_summary", "")
                 final_case.investigation_notes = (
-                    (final_case.investigation_notes or "") +
-                    f"\nScreening complete. Score={final_state.overall_score:.1f}, "
+                    (final_case.investigation_notes or "")
+                    + f"\nScreening complete. Score={final_state.overall_score:.1f}, "
                     f"Decision={final_state.final_decision}, "
                     f"Risk={final_state.risk_tier.upper()}.\n{summary[:500]}"
                 )
@@ -350,20 +383,26 @@ class ScreeningService:
             )
 
             return {
-                "status":    "success",
+                "status": "success",
                 "customer_id": customer_id,
-                "case_id":   str(case.id),
-                "score":     final_state.overall_score,
-                "tier":      final_state.risk_tier,
-                "decision":  final_state.final_decision,
+                "case_id": str(case.id),
+                "score": final_state.overall_score,
+                "tier": final_state.risk_tier,
+                "decision": final_state.final_decision,
                 "decision_reason": final_state.decision_reason,
-                "referred":  final_state.final_decision != "APPROVE",
+                "referred": final_state.final_decision != "APPROVE",
                 "monitoring_schedule": final_state.monitoring_schedule,
-                "investigation_summary": final_state.shared_metadata.get("investigation_summary", ""),
-                "sar_explanation":       final_state.shared_metadata.get("sar_explanation", ""),
-                "contributing_factors":  final_state.shared_metadata.get("contributing_factors", []),
-                "agents_completed":      final_state.completed_agents,
-                "execution_logs":        final_state.logs[-20:],  # Last 20 log entries
+                "investigation_summary": final_state.shared_metadata.get(
+                    "investigation_summary", ""
+                ),
+                "sar_explanation": final_state.shared_metadata.get(
+                    "sar_explanation", ""
+                ),
+                "contributing_factors": final_state.shared_metadata.get(
+                    "contributing_factors", []
+                ),
+                "agents_completed": final_state.completed_agents,
+                "execution_logs": final_state.logs[-20:],  # Last 20 log entries
             }
 
         except Exception as exc:
@@ -381,8 +420,10 @@ class ScreeningService:
 # Legacy Compatibility — kept for backward-compatibility, NOT removed
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class AgentState(TypedDict):
     """Legacy TypedDict AgentState — preserved for backward-compatibility."""
+
     customer_id: str
     case_id: str
     full_name: str
@@ -408,7 +449,14 @@ class AgentState(TypedDict):
     logs: List[str]
 
 
-def log_agent_step(db, case_id: str, agent_name: str, step_name: str, input_state: dict, output_state: dict):
+def log_agent_step(
+    db,
+    case_id: str,
+    agent_name: str,
+    step_name: str,
+    input_state: dict,
+    output_state: dict,
+):
     """Legacy utility to write execution logs into the agent_logs table."""
     try:
         log_record = AgentLog(

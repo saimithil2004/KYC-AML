@@ -23,10 +23,10 @@ from app.services.backup_service import BackupService
 
 router = APIRouter()
 
+
 @router.get("/backups", response_model=List[BackupRecordResponse])
 async def list_backups(
-    current_user: User = Depends(verify_admin),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(verify_admin), db: AsyncSession = Depends(get_db)
 ):
     """Retrieve history of backups (Admin only)."""
     result = await db.execute(
@@ -34,44 +34,51 @@ async def list_backups(
     )
     return result.scalars().all()
 
-@router.post("/backups", response_model=BackupRecordResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/backups", response_model=BackupRecordResponse, status_code=status.HTTP_201_CREATED
+)
 async def trigger_backup(
     background_tasks: BackgroundTasks,
     backup_type: str = "database",
     current_user: User = Depends(verify_admin),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Creates a new compressed backup archive (Admin only)."""
     if backup_type not in ("database", "documents", "config", "full"):
         raise HTTPException(
             status_code=400,
-            detail="Invalid backup type. Choose from: database, documents, config, full"
+            detail="Invalid backup type. Choose from: database, documents, config, full",
         )
-    
+
     # Run the backup creation
-    record = await BackupService.create_backup(db, backup_type=backup_type, triggered_by="manual")
+    record = await BackupService.create_backup(
+        db, backup_type=backup_type, triggered_by="manual"
+    )
     return record
+
 
 @router.post("/backups/{backup_id}/verify")
 async def verify_backup(
     backup_id: UUID,
     current_user: User = Depends(verify_admin),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Verify SHA-256 integrity checksum for a backup (Admin only)."""
     success = await BackupService.verify_backup_integrity(backup_id, db)
     if not success:
         raise HTTPException(
             status_code=400,
-            detail="Backup verification failed. Checksum mismatch or file missing."
+            detail="Backup verification failed. Checksum mismatch or file missing.",
         )
     return {"status": "verified", "message": "Backup integrity verified successfully."}
+
 
 @router.delete("/backups/{backup_id}")
 async def delete_backup(
     backup_id: UUID,
     current_user: User = Depends(verify_admin),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Permanently delete a backup archive from storage and database (Admin only)."""
     record = await db.get(BackupRecord, backup_id)
@@ -80,6 +87,7 @@ async def delete_backup(
 
     try:
         from app.services.backup_service import _storage
+
         # Delete file from storage
         _storage.delete(record.file_path)
         # Delete row from db
@@ -89,12 +97,13 @@ async def delete_backup(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to delete backup: {exc}")
 
+
 @router.get("/metrics/history", response_model=List[SystemMetricResponse])
 async def get_metrics_history(
     metric_name: str = "cpu_percent",
     limit: int = 100,
     current_user: User = Depends(verify_admin),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get time-series historical logs for a given metric (Admin only)."""
     result = await db.execute(

@@ -21,16 +21,23 @@ from app.agents.pep.agent import PepAgent
 from app.agents.pep.models import ScreeningSubject, PepRecord
 from app.agents.pep.provider import BasePepProvider
 from app.agents.pep.constants import (
-    PEP_STATUS_CLEAR, PEP_STATUS_POSSIBLE, PEP_STATUS_CONFIRMED,
-    RISK_LOW, RISK_MEDIUM, RISK_HIGH, RISK_CRITICAL,
-    PEP_CATEGORY_DOMESTIC, PEP_CATEGORY_FOREIGN,
-    PEP_CATEGORY_FAMILY_MEMBER, PEP_CATEGORY_FORMER_PEP,
+    PEP_STATUS_CLEAR,
+    PEP_STATUS_POSSIBLE,
+    PEP_STATUS_CONFIRMED,
+    RISK_LOW,
+    RISK_MEDIUM,
+    RISK_HIGH,
+    RISK_CRITICAL,
+    PEP_CATEGORY_DOMESTIC,
+    PEP_CATEGORY_FOREIGN,
+    PEP_CATEGORY_FAMILY_MEMBER,
+    PEP_CATEGORY_FORMER_PEP,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Test providers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class EmptyProvider(BasePepProvider):
     @property
@@ -66,6 +73,7 @@ class ExactMatchProvider(BasePepProvider):
 # Helpers — single canonical definition
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def individual_customer(name: str = "Alice Smith") -> Dict[str, Any]:
     first, *rest = name.split()
     return {
@@ -93,8 +101,10 @@ def make_state(
     use_empty_customer=True passes {} as customer, bypassing the `or` fallback,
     for validation-error test paths.
     """
-    resolved = {} if use_empty_customer else (
-        customer if customer is not None else individual_customer()
+    resolved = (
+        {}
+        if use_empty_customer
+        else (customer if customer is not None else individual_customer())
     )
     return AgentState(
         customer_id="test-001",
@@ -130,6 +140,7 @@ def uk_pep_record(
 # Group A — Individual customer
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.anyio
 async def test_individual_no_match_is_clear():
     agent = PepAgent(provider=EmptyProvider())
@@ -155,6 +166,7 @@ async def test_individual_subject_extracted():
 # ─────────────────────────────────────────────────────────────────────────────
 # Group B — Business customer
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_business_multiple_subjects_extracted():
@@ -184,6 +196,7 @@ async def test_deduplication_same_person_two_roles():
 # ─────────────────────────────────────────────────────────────────────────────
 # Group C — Match scenarios
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_exact_match_confirmed_edd_required():
@@ -233,6 +246,7 @@ async def test_completely_different_name_is_clear():
 # Group D — PEP category rules
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.anyio
 async def test_foreign_pep_triggers_pep004():
     record = PepRecord(
@@ -256,8 +270,12 @@ async def test_foreign_pep_triggers_pep004():
 @pytest.mark.anyio
 async def test_domestic_current_pep_triggers_pep006_critical():
     """Current domestic PEP → PEP003 + PEP006 → CRITICAL, pep_score stored in metadata = 0."""
-    record = uk_pep_record("Alice Smith", PEP_CATEGORY_DOMESTIC, is_current=True,
-                           position="Secretary of State")
+    record = uk_pep_record(
+        "Alice Smith",
+        PEP_CATEGORY_DOMESTIC,
+        is_current=True,
+        position="Secretary of State",
+    )
     result = await PepAgent(provider=ExactMatchProvider(record)).execute(make_state())
 
     assert "PEP006" in result.metadata["rules_triggered"]
@@ -267,8 +285,9 @@ async def test_domestic_current_pep_triggers_pep006_critical():
 
 @pytest.mark.anyio
 async def test_family_member_triggers_pep005():
-    record = uk_pep_record("Alice Smith", PEP_CATEGORY_FAMILY_MEMBER,
-                           position="Spouse of Minister")
+    record = uk_pep_record(
+        "Alice Smith", PEP_CATEGORY_FAMILY_MEMBER, position="Spouse of Minister"
+    )
     result = await PepAgent(provider=ExactMatchProvider(record)).execute(make_state())
 
     assert "PEP005" in result.metadata["rules_triggered"]
@@ -277,8 +296,12 @@ async def test_family_member_triggers_pep005():
 
 @pytest.mark.anyio
 async def test_former_pep_triggers_pep007_monitoring_recommendation():
-    record = uk_pep_record("Alice Smith", PEP_CATEGORY_FORMER_PEP,
-                           is_current=False, position="Former Minister")
+    record = uk_pep_record(
+        "Alice Smith",
+        PEP_CATEGORY_FORMER_PEP,
+        is_current=False,
+        position="Former Minister",
+    )
     result = await PepAgent(provider=ExactMatchProvider(record)).execute(make_state())
 
     assert "PEP007" in result.metadata["rules_triggered"]
@@ -289,14 +312,17 @@ async def test_former_pep_triggers_pep007_monitoring_recommendation():
 # Group E — Edge cases
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.anyio
 async def test_provider_failure_graceful_degradation():
     result = await PepAgent(provider=FailingProvider()).execute(make_state())
 
     assert result.success is True
     all_issues = result.warnings + result.errors
-    assert any("provider" in w.lower() or "timeout" in w.lower() or "error" in w.lower()
-               for w in all_issues)
+    assert any(
+        "provider" in w.lower() or "timeout" in w.lower() or "error" in w.lower()
+        for w in all_issues
+    )
 
 
 @pytest.mark.anyio
@@ -329,11 +355,17 @@ async def test_agent_state_has_all_required_keys():
     await PepAgent(provider=EmptyProvider()).execute(state)
 
     for key in [
-        "pep_status", "pep_score", "pep_risk",
-        "screened_subjects", "matched_subjects",
-        "pep_findings", "pep_recommendations",
-        "pep_audit_trail", "next_agent",
-        "edd_required", "manual_review_required",
+        "pep_status",
+        "pep_score",
+        "pep_risk",
+        "screened_subjects",
+        "matched_subjects",
+        "pep_findings",
+        "pep_recommendations",
+        "pep_audit_trail",
+        "next_agent",
+        "edd_required",
+        "manual_review_required",
     ]:
         assert key in state.shared_metadata, f"Missing key: {key}"
 

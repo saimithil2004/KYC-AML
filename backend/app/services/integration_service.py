@@ -35,34 +35,137 @@ logger = logging.getLogger(__name__)
 # ─── Mock data pools ─────────────────────────────────────────────────────────
 
 _MOCK_SANCTIONS_ENTITIES = [
-    {"id": "s001", "name": "Sanctioned Corp Ltd", "country": "KP", "type": "entity", "reason": "Proliferation financing"},
-    {"id": "s002", "name": "Ivan Blacklisted", "country": "RU", "type": "individual", "reason": "Sanctions evasion"},
-    {"id": "s003", "name": "AlShady Trading LLC", "country": "SY", "type": "entity", "reason": "Terrorism financing"},
-    {"id": "s004", "name": "North Star Minerals", "country": "IR", "type": "entity", "reason": "Nuclear proliferation"},
-    {"id": "s005", "name": "General Corrupt", "country": "MM", "type": "individual", "reason": "Human rights violations"},
+    {
+        "id": "s001",
+        "name": "Sanctioned Corp Ltd",
+        "country": "KP",
+        "type": "entity",
+        "reason": "Proliferation financing",
+    },
+    {
+        "id": "s002",
+        "name": "Ivan Blacklisted",
+        "country": "RU",
+        "type": "individual",
+        "reason": "Sanctions evasion",
+    },
+    {
+        "id": "s003",
+        "name": "AlShady Trading LLC",
+        "country": "SY",
+        "type": "entity",
+        "reason": "Terrorism financing",
+    },
+    {
+        "id": "s004",
+        "name": "North Star Minerals",
+        "country": "IR",
+        "type": "entity",
+        "reason": "Nuclear proliferation",
+    },
+    {
+        "id": "s005",
+        "name": "General Corrupt",
+        "country": "MM",
+        "type": "individual",
+        "reason": "Human rights violations",
+    },
 ]
 
 _MOCK_PEP_ENTITIES = [
-    {"id": "p001", "name": "Prime Minister Alpha", "country": "NG", "role": "Head of Government", "risk": "high"},
-    {"id": "p002", "name": "Senator Beta", "country": "VE", "role": "Legislator", "risk": "medium"},
-    {"id": "p003", "name": "Minister Gamma", "country": "ZA", "role": "Cabinet Minister", "risk": "medium"},
-    {"id": "p004", "name": "Ambassador Delta", "country": "UA", "role": "Diplomat", "risk": "low"},
-    {"id": "p005", "name": "Central Bank Governor", "country": "BR", "role": "Financial Authority", "risk": "high"},
+    {
+        "id": "p001",
+        "name": "Prime Minister Alpha",
+        "country": "NG",
+        "role": "Head of Government",
+        "risk": "high",
+    },
+    {
+        "id": "p002",
+        "name": "Senator Beta",
+        "country": "VE",
+        "role": "Legislator",
+        "risk": "medium",
+    },
+    {
+        "id": "p003",
+        "name": "Minister Gamma",
+        "country": "ZA",
+        "role": "Cabinet Minister",
+        "risk": "medium",
+    },
+    {
+        "id": "p004",
+        "name": "Ambassador Delta",
+        "country": "UA",
+        "role": "Diplomat",
+        "risk": "low",
+    },
+    {
+        "id": "p005",
+        "name": "Central Bank Governor",
+        "country": "BR",
+        "role": "Financial Authority",
+        "risk": "high",
+    },
 ]
 
 _MOCK_FATF_COUNTRIES = {
     "blacklisted": ["KP", "IR", "MM"],
-    "greylisted": ["AF", "AL", "BB", "BF", "CM", "CF", "CG", "HT", "JO", "ML", "MA", "MZ", "NI", "PK", "PH", "SN", "SS", "SY", "TZ", "TT", "UG", "VU", "YE"],
-    "version": "June 2025"
+    "greylisted": [
+        "AF",
+        "AL",
+        "BB",
+        "BF",
+        "CM",
+        "CF",
+        "CG",
+        "HT",
+        "JO",
+        "ML",
+        "MA",
+        "MZ",
+        "NI",
+        "PK",
+        "PH",
+        "SN",
+        "SS",
+        "SY",
+        "TZ",
+        "TT",
+        "UG",
+        "VU",
+        "YE",
+    ],
+    "version": "June 2025",
 }
 
 _MOCK_COMPANIES_HOUSE = [
-    {"number": "12345678", "name": "Acme Technologies Ltd", "status": "active", "country": "GB", "directors": 2},
-    {"number": "87654321", "name": "Global Trade Finance PLC", "status": "active", "country": "GB", "directors": 4},
-    {"number": "11223344", "name": "Sunrise Investments Ltd", "status": "dissolved", "country": "GB", "directors": 1},
+    {
+        "number": "12345678",
+        "name": "Acme Technologies Ltd",
+        "status": "active",
+        "country": "GB",
+        "directors": 2,
+    },
+    {
+        "number": "87654321",
+        "name": "Global Trade Finance PLC",
+        "status": "active",
+        "country": "GB",
+        "directors": 4,
+    },
+    {
+        "number": "11223344",
+        "name": "Sunrise Investments Ltd",
+        "status": "dissolved",
+        "country": "GB",
+        "directors": 1,
+    },
 ]
 
 # ─── Base Provider ─────────────────────────────────────────────────────────────
+
 
 class BaseProvider:
     """Abstract base for all compliance data connectors."""
@@ -73,34 +176,49 @@ class BaseProvider:
     def __init__(self, setting: Optional[IntegrationSetting] = None):
         self.setting = setting
         self.mock_mode = (
-            setting is None
-            or not setting.api_key
-            or setting.api_key.strip() == ""
+            setting is None or not setting.api_key or setting.api_key.strip() == ""
         )
         if self.mock_mode:
-            logger.info(f"[{self.provider_name}] Running in MOCK MODE — no API credentials configured.")
+            logger.info(
+                f"[{self.provider_name}] Running in MOCK MODE — no API credentials configured."
+            )
 
     def health(self) -> Dict[str, Any]:
         """Return provider health status."""
         if self.mock_mode:
-            return {"provider": self.provider_name, "status": "mock", "latency_ms": 0, "mock_mode": True}
-        return {"provider": self.provider_name, "status": "healthy", "latency_ms": 42, "mock_mode": False}
+            return {
+                "provider": self.provider_name,
+                "status": "mock",
+                "latency_ms": 0,
+                "mock_mode": True,
+            }
+        return {
+            "provider": self.provider_name,
+            "status": "healthy",
+            "latency_ms": 42,
+            "mock_mode": False,
+        }
 
     def version(self) -> str:
         """Return current data version or date."""
         return datetime.utcnow().strftime("%Y-%m-%d")
 
-    async def sync(self, db: AsyncSession, sync_type: str = "scheduled") -> Dict[str, Any]:
+    async def sync(
+        self, db: AsyncSession, sync_type: str = "scheduled"
+    ) -> Dict[str, Any]:
         raise NotImplementedError
 
 
 # ─── OpenSanctions Provider ───────────────────────────────────────────────────
 
+
 class OpenSanctionsProvider(BaseProvider):
     provider_name = "opensanctions"
     provider_type = "sanctions"
 
-    async def sync(self, db: AsyncSession, sync_type: str = "scheduled") -> Dict[str, Any]:
+    async def sync(
+        self, db: AsyncSession, sync_type: str = "scheduled"
+    ) -> Dict[str, Any]:
         hist = SyncHistory(
             id=uuid4(),
             provider=self.provider_name,
@@ -122,10 +240,11 @@ class OpenSanctionsProvider(BaseProvider):
             else:
                 # Real API call (stub — replace with actual requests when key provided)
                 import httpx
+
                 async with httpx.AsyncClient(timeout=self.setting.timeout) as client:
                     resp = await client.get(
                         f"{self.setting.base_url}/api/2/entities",
-                        headers={"Authorization": f"ApiKey {self.setting.api_key}"}
+                        headers={"Authorization": f"ApiKey {self.setting.api_key}"},
                     )
                     data = resp.json()
                     records = data.get("results", [])
@@ -152,16 +271,23 @@ class OpenSanctionsProvider(BaseProvider):
             hist.completed_at = datetime.utcnow()
             await db.commit()
             logger.error(f"[{self.provider_name}] Sync failed: {exc}")
-            return {"provider": self.provider_name, "status": "failed", "error": str(exc)}
+            return {
+                "provider": self.provider_name,
+                "status": "failed",
+                "error": str(exc),
+            }
 
 
 # ─── Companies House Provider ─────────────────────────────────────────────────
+
 
 class CompaniesHouseProvider(BaseProvider):
     provider_name = "companies_house"
     provider_type = "company"
 
-    async def sync(self, db: AsyncSession, sync_type: str = "scheduled") -> Dict[str, Any]:
+    async def sync(
+        self, db: AsyncSession, sync_type: str = "scheduled"
+    ) -> Dict[str, Any]:
         hist = SyncHistory(
             id=uuid4(),
             provider=self.provider_name,
@@ -181,10 +307,11 @@ class CompaniesHouseProvider(BaseProvider):
                 hist.records_failed = 0
             else:
                 import httpx
+
                 async with httpx.AsyncClient(timeout=self.setting.timeout) as client:
                     resp = await client.get(
                         f"{self.setting.base_url}/companies",
-                        auth=(self.setting.api_key, "")
+                        auth=(self.setting.api_key, ""),
                     )
                     data = resp.json()
                     records = data.get("items", [])
@@ -207,10 +334,15 @@ class CompaniesHouseProvider(BaseProvider):
             hist.error_message = str(exc)
             hist.completed_at = datetime.utcnow()
             await db.commit()
-            return {"provider": self.provider_name, "status": "failed", "error": str(exc)}
+            return {
+                "provider": self.provider_name,
+                "status": "failed",
+                "error": str(exc),
+            }
 
 
 # ─── FATF Provider ────────────────────────────────────────────────────────────
+
 
 class FATFProvider(BaseProvider):
     provider_name = "fatf"
@@ -219,7 +351,9 @@ class FATFProvider(BaseProvider):
     def version(self) -> str:
         return _MOCK_FATF_COUNTRIES.get("version", super().version())
 
-    async def sync(self, db: AsyncSession, sync_type: str = "scheduled") -> Dict[str, Any]:
+    async def sync(
+        self, db: AsyncSession, sync_type: str = "scheduled"
+    ) -> Dict[str, Any]:
         hist = SyncHistory(
             id=uuid4(),
             provider=self.provider_name,
@@ -253,16 +387,23 @@ class FATFProvider(BaseProvider):
             hist.error_message = str(exc)
             hist.completed_at = datetime.utcnow()
             await db.commit()
-            return {"provider": self.provider_name, "status": "failed", "error": str(exc)}
+            return {
+                "provider": self.provider_name,
+                "status": "failed",
+                "error": str(exc),
+            }
 
 
 # ─── PEP Provider ─────────────────────────────────────────────────────────────
+
 
 class PEPProvider(BaseProvider):
     provider_name = "pep_list"
     provider_type = "pep"
 
-    async def sync(self, db: AsyncSession, sync_type: str = "scheduled") -> Dict[str, Any]:
+    async def sync(
+        self, db: AsyncSession, sync_type: str = "scheduled"
+    ) -> Dict[str, Any]:
         hist = SyncHistory(
             id=uuid4(),
             provider=self.provider_name,
@@ -282,10 +423,11 @@ class PEPProvider(BaseProvider):
                 hist.records_failed = 0
             else:
                 import httpx
+
                 async with httpx.AsyncClient(timeout=self.setting.timeout) as client:
                     resp = await client.get(
                         self.setting.base_url,
-                        headers={"Authorization": f"Bearer {self.setting.api_key}"}
+                        headers={"Authorization": f"Bearer {self.setting.api_key}"},
                     )
                     records = resp.json().get("data", [])
                     hist.records_processed = len(records)
@@ -307,17 +449,25 @@ class PEPProvider(BaseProvider):
             hist.error_message = str(exc)
             hist.completed_at = datetime.utcnow()
             await db.commit()
-            return {"provider": self.provider_name, "status": "failed", "error": str(exc)}
+            return {
+                "provider": self.provider_name,
+                "status": "failed",
+                "error": str(exc),
+            }
 
 
 # ─── Sanctions List Provider ──────────────────────────────────────────────────
 
+
 class SanctionsListProvider(BaseProvider):
     """Generic sanctions list connector (UN, OFAC, EU combined)."""
+
     provider_name = "sanctions_list"
     provider_type = "sanctions"
 
-    async def sync(self, db: AsyncSession, sync_type: str = "scheduled") -> Dict[str, Any]:
+    async def sync(
+        self, db: AsyncSession, sync_type: str = "scheduled"
+    ) -> Dict[str, Any]:
         hist = SyncHistory(
             id=uuid4(),
             provider=self.provider_name,
@@ -350,7 +500,11 @@ class SanctionsListProvider(BaseProvider):
             hist.error_message = str(exc)
             hist.completed_at = datetime.utcnow()
             await db.commit()
-            return {"provider": self.provider_name, "status": "failed", "error": str(exc)}
+            return {
+                "provider": self.provider_name,
+                "status": "failed",
+                "error": str(exc),
+            }
 
 
 # ─── Integration Service ──────────────────────────────────────────────────────
@@ -373,7 +527,9 @@ class IntegrationService:
     async def get_provider(db: AsyncSession, provider_name: str) -> BaseProvider:
         """Load integration setting from DB and construct provider instance."""
         res = await db.execute(
-            select(IntegrationSetting).where(IntegrationSetting.provider_name == provider_name)
+            select(IntegrationSetting).where(
+                IntegrationSetting.provider_name == provider_name
+            )
         )
         setting = res.scalars().first()
         cls = PROVIDER_MAP.get(provider_name, BaseProvider)
@@ -412,11 +568,15 @@ class IntegrationService:
         results = []
         for name in ALL_PROVIDER_NAMES:
             try:
-                r = await IntegrationService.run_sync(db, name, sync_type=sync_type, user_id=user_id)
+                r = await IntegrationService.run_sync(
+                    db, name, sync_type=sync_type, user_id=user_id
+                )
                 results.append(r)
             except Exception as exc:
                 logger.error(f"Sync failed for provider {name}: {exc}")
-                results.append({"provider": name, "status": "failed", "error": str(exc)})
+                results.append(
+                    {"provider": name, "status": "failed", "error": str(exc)}
+                )
         return results
 
     @staticmethod
@@ -425,7 +585,9 @@ class IntegrationService:
         health_results = []
         for name, cls in PROVIDER_MAP.items():
             res = await db.execute(
-                select(IntegrationSetting).where(IntegrationSetting.provider_name == name)
+                select(IntegrationSetting).where(
+                    IntegrationSetting.provider_name == name
+                )
             )
             setting = res.scalars().first()
             provider = cls(setting=setting)

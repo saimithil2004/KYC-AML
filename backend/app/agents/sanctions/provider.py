@@ -18,11 +18,18 @@ from app.agents.screening.models import ScreeningSubject, CompanyScreeningSubjec
 from app.agents.sanctions.models import SanctionRecord
 from app.agents.screening.constants import ENTITY_INDIVIDUAL, ENTITY_COMPANY
 from app.agents.sanctions.constants import (
-    LIST_OFAC, LIST_UK_SANCTIONS, LIST_UN, LIST_EU, LIST_INTERNAL,
-    SANCTION_CATEGORY_INDIVIDUAL, SANCTION_CATEGORY_COMPANY,
-    SANCTION_CATEGORY_ASSET_FREEZE, SANCTION_CATEGORY_TRAVEL_BAN,
-    SANCTION_CATEGORY_FINANCIAL, SANCTION_CATEGORY_TERRORIST,
-    PROVIDER_MOCK
+    LIST_OFAC,
+    LIST_UK_SANCTIONS,
+    LIST_UN,
+    LIST_EU,
+    LIST_INTERNAL,
+    SANCTION_CATEGORY_INDIVIDUAL,
+    SANCTION_CATEGORY_COMPANY,
+    SANCTION_CATEGORY_ASSET_FREEZE,
+    SANCTION_CATEGORY_TRAVEL_BAN,
+    SANCTION_CATEGORY_FINANCIAL,
+    SANCTION_CATEGORY_TERRORIST,
+    PROVIDER_MOCK,
 )
 
 
@@ -37,11 +44,15 @@ class BaseSanctionsProvider(abc.ABC):
         """Name of the sanctions provider."""
 
     @abc.abstractmethod
-    async def search_individuals(self, subject: ScreeningSubject) -> List[SanctionRecord]:
+    async def search_individuals(
+        self, subject: ScreeningSubject
+    ) -> List[SanctionRecord]:
         """Search sanctions database for candidate individual records."""
 
     @abc.abstractmethod
-    async def search_companies(self, subject: CompanyScreeningSubject) -> List[SanctionRecord]:
+    async def search_companies(
+        self, subject: CompanyScreeningSubject
+    ) -> List[SanctionRecord]:
         """Search sanctions database for candidate company records."""
 
 
@@ -59,9 +70,8 @@ _MOCK_SANCTIONS_DATABASE: List[SanctionRecord] = [
         sanction_category=SANCTION_CATEGORY_TERRORIST,
         sanction_list=LIST_UN,
         is_active=True,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
-    
     # 2. Asset Freeze Individual Match
     SanctionRecord(
         record_id="SANC-IND-002",
@@ -73,9 +83,8 @@ _MOCK_SANCTIONS_DATABASE: List[SanctionRecord] = [
         sanction_category=SANCTION_CATEGORY_ASSET_FREEZE,
         sanction_list=LIST_EU,
         is_active=True,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
-
     # 3. Travel Ban Individual Match
     SanctionRecord(
         record_id="SANC-IND-003",
@@ -86,9 +95,8 @@ _MOCK_SANCTIONS_DATABASE: List[SanctionRecord] = [
         sanction_category=SANCTION_CATEGORY_TRAVEL_BAN,
         sanction_list=LIST_UK_SANCTIONS,
         is_active=True,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
-
     # 4. Confirmed Company Sanction (Registration Number Match + Asset Freeze)
     SanctionRecord(
         record_id="SANC-COM-001",
@@ -100,9 +108,8 @@ _MOCK_SANCTIONS_DATABASE: List[SanctionRecord] = [
         sanction_category=SANCTION_CATEGORY_ASSET_FREEZE,
         sanction_list=LIST_OFAC,
         is_active=True,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
-
     # 5. Fuzzy Match Candidate (Individual)
     SanctionRecord(
         record_id="SANC-IND-004",
@@ -113,9 +120,8 @@ _MOCK_SANCTIONS_DATABASE: List[SanctionRecord] = [
         sanction_category=SANCTION_CATEGORY_FINANCIAL,
         sanction_list=LIST_UK_SANCTIONS,
         is_active=True,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
-
     # 6. Sanctioned Company (by Name match)
     SanctionRecord(
         record_id="SANC-COM-002",
@@ -125,8 +131,8 @@ _MOCK_SANCTIONS_DATABASE: List[SanctionRecord] = [
         sanction_category=SANCTION_CATEGORY_COMPANY,
         sanction_list=LIST_INTERNAL,
         is_active=True,
-        source=PROVIDER_MOCK
-    )
+        source=PROVIDER_MOCK,
+    ),
 ]
 
 
@@ -139,10 +145,16 @@ class MockSanctionsProvider(BaseSanctionsProvider):
     def provider_name(self) -> str:
         return PROVIDER_MOCK
 
-    async def search_individuals(self, subject: ScreeningSubject) -> List[SanctionRecord]:
+    async def search_individuals(
+        self, subject: ScreeningSubject
+    ) -> List[SanctionRecord]:
         """Returns all individual records in the mock database."""
-        return [r for r in _MOCK_SANCTIONS_DATABASE if r.entity_type == ENTITY_INDIVIDUAL]
+        return [
+            r for r in _MOCK_SANCTIONS_DATABASE if r.entity_type == ENTITY_INDIVIDUAL
+        ]
 
-    async def search_companies(self, subject: CompanyScreeningSubject) -> List[SanctionRecord]:
+    async def search_companies(
+        self, subject: CompanyScreeningSubject
+    ) -> List[SanctionRecord]:
         """Returns all company records in the mock database."""
         return [r for r in _MOCK_SANCTIONS_DATABASE if r.entity_type == ENTITY_COMPANY]

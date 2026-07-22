@@ -10,9 +10,15 @@ from typing import List, Optional, Tuple
 from rapidfuzz import fuzz
 
 from app.agents.screening.constants import (
-    WEIGHT_NAME, WEIGHT_DOB, WEIGHT_NATIONALITY, WEIGHT_COUNTRY, WEIGHT_ROLE,
-    THRESHOLD_CONFIRMED, THRESHOLD_POSSIBLE
+    WEIGHT_NAME,
+    WEIGHT_DOB,
+    WEIGHT_NATIONALITY,
+    WEIGHT_COUNTRY,
+    WEIGHT_ROLE,
+    THRESHOLD_CONFIRMED,
+    THRESHOLD_POSSIBLE,
 )
+
 
 class BaseScreeningMatcher:
     """
@@ -68,7 +74,10 @@ class BaseScreeningMatcher:
         # ── Signal 3: Nationality (15 %) ─────────────────────────────────────
         nat_match = False
         if subject_nationality and record_nationality:
-            if subject_nationality.strip().lower() == record_nationality.strip().lower():
+            if (
+                subject_nationality.strip().lower()
+                == record_nationality.strip().lower()
+            ):
                 score += 100 * WEIGHT_NATIONALITY
                 nat_match = True
                 reasons.append("Nationality match")
@@ -83,8 +92,17 @@ class BaseScreeningMatcher:
         if record_position and subject_role:
             role_lower = subject_role.lower()
             pos_lower = record_position.lower()
-            if any(kw in pos_lower for kw in [role_lower, "director", "minister",
-                                               "governor", "official", "senator"]):
+            if any(
+                kw in pos_lower
+                for kw in [
+                    role_lower,
+                    "director",
+                    "minister",
+                    "governor",
+                    "official",
+                    "senator",
+                ]
+            ):
                 score += 100 * WEIGHT_ROLE
                 reasons.append("Role keyword match")
 
@@ -96,7 +114,7 @@ class BaseScreeningMatcher:
         name_similarity: float,
         dob_match: bool,
         nat_match: bool,
-        reasons: List[str]
+        reasons: List[str],
     ) -> float:
         """
         Applies standard anti-false-positive and confirmed overrides/guards.

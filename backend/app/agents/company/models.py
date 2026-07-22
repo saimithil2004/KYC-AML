@@ -8,9 +8,12 @@ class CompanyAuditTrail(BaseModel):
     Immutable audit record produced after each Company Agent execution.
     Stored inside AgentResult.metadata and AgentState.shared_metadata.
     """
+
     passed_rules: List[str] = Field(default_factory=list)
     failed_rules: List[str] = Field(default_factory=list)
-    validation_timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    validation_timestamp: str = Field(
+        default_factory=lambda: datetime.utcnow().isoformat()
+    )
     execution_duration_ms: float = 0.0
     company_score: float = 0.0
     company_status: str = "FAILED"
@@ -27,6 +30,7 @@ class AgentRoutingInfo(BaseModel):
     runs next. Agents NEVER invoke each other directly — they only
     populate this routing object and update AgentState.
     """
+
     customer_type: str
     current_agent: str
     next_agent: str

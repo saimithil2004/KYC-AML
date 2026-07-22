@@ -48,12 +48,22 @@ async def list_audit_logs(
     if entity_id:
         q = q.where(AuditLog.entity_id == entity_id)
     if date_from:
-        q = q.where(AuditLog.created_at >= datetime.combine(date_from, datetime.min.time()))
+        q = q.where(
+            AuditLog.created_at >= datetime.combine(date_from, datetime.min.time())
+        )
     if date_to:
-        q = q.where(AuditLog.created_at <= datetime.combine(date_to, datetime.max.time()))
+        q = q.where(
+            AuditLog.created_at <= datetime.combine(date_to, datetime.max.time())
+        )
 
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
-    q = q.order_by(AuditLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    total = (
+        await db.execute(select(func.count()).select_from(q.subquery()))
+    ).scalar_one()
+    q = (
+        q.order_by(AuditLog.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
     items = (await db.execute(q)).scalars().all()
 
     return PaginatedAuditLogs(total=total, page=page, page_size=page_size, items=items)
@@ -73,9 +83,19 @@ async def get_entity_audit_trail(
         AuditLog.entity_name == entity_name,
         AuditLog.entity_id == entity_id,
     )
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
-    items = (await db.execute(
-        q.order_by(AuditLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
-    )).scalars().all()
+    total = (
+        await db.execute(select(func.count()).select_from(q.subquery()))
+    ).scalar_one()
+    items = (
+        (
+            await db.execute(
+                q.order_by(AuditLog.created_at.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     return PaginatedAuditLogs(total=total, page=page, page_size=page_size, items=items)

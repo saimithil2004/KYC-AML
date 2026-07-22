@@ -21,19 +21,33 @@ from typing import Dict, Any, List, Set
 from app.agents.pep.models import PepMatchResult
 from app.agents.pep.constants import (
     # Rule IDs
-    RULE_NO_MATCH, RULE_POSSIBLE_MATCH, RULE_CONFIRMED_PEP,
-    RULE_FOREIGN_PEP, RULE_FAMILY_MEMBER, RULE_CURRENT_OFFICE,
+    RULE_NO_MATCH,
+    RULE_POSSIBLE_MATCH,
+    RULE_CONFIRMED_PEP,
+    RULE_FOREIGN_PEP,
+    RULE_FAMILY_MEMBER,
+    RULE_CURRENT_OFFICE,
     RULE_FORMER_PEP,
     # Match levels
-    MATCH_CONFIRMED, MATCH_POSSIBLE, MATCH_NONE,
+    MATCH_CONFIRMED,
+    MATCH_POSSIBLE,
+    MATCH_NONE,
     # PEP categories
-    PEP_CATEGORY_FOREIGN, PEP_CATEGORY_FAMILY_MEMBER,
-    PEP_CATEGORY_CLOSE_ASSOCIATE, PEP_CATEGORY_FORMER_PEP,
-    PEP_CATEGORY_CURRENT_PEP, PEP_CATEGORY_DOMESTIC,
+    PEP_CATEGORY_FOREIGN,
+    PEP_CATEGORY_FAMILY_MEMBER,
+    PEP_CATEGORY_CLOSE_ASSOCIATE,
+    PEP_CATEGORY_FORMER_PEP,
+    PEP_CATEGORY_CURRENT_PEP,
+    PEP_CATEGORY_DOMESTIC,
     PEP_CATEGORY_INTERNATIONAL_ORG,
     # Statuses & risk
-    PEP_STATUS_CLEAR, PEP_STATUS_POSSIBLE, PEP_STATUS_CONFIRMED,
-    RISK_LOW, RISK_MEDIUM, RISK_HIGH, RISK_CRITICAL,
+    PEP_STATUS_CLEAR,
+    PEP_STATUS_POSSIBLE,
+    PEP_STATUS_CONFIRMED,
+    RISK_LOW,
+    RISK_MEDIUM,
+    RISK_HIGH,
+    RISK_CRITICAL,
     # Next agent
     NEXT_AGENT,
 )
@@ -60,14 +74,14 @@ class PepRulesEngine:
             all_rules_triggered, edd_required, manual_review_required,
             matched_subjects, next_agent
         """
-        findings:         List[str] = []
-        warnings:         List[str] = []
-        recommendations:  List[str] = []
-        all_rules:        Set[str]  = set()
-        risk_influences:  Set[str]  = set()
+        findings: List[str] = []
+        warnings: List[str] = []
+        recommendations: List[str] = []
+        all_rules: Set[str] = set()
+        risk_influences: Set[str] = set()
         matched_subjects: List[Dict[str, Any]] = []
 
-        edd_required          = False
+        edd_required = False
         manual_review_required = False
 
         # ── Per-subject rule evaluation ───────────────────────────────────────
@@ -122,7 +136,7 @@ class PepRulesEngine:
 
             # ── Category-specific rules (applied after match level rules) ─────
             category = result.pep_category or ""
-            record   = result.matched_record
+            record = result.matched_record
 
             # ── PEP004: Foreign PEP ───────────────────────────────────────────
             if category == PEP_CATEGORY_FOREIGN:
@@ -154,8 +168,15 @@ class PepRulesEngine:
                 risk_influences.add(RISK_MEDIUM)
 
             # ── PEP006: Current Office Holder ─────────────────────────────────
-            if record and record.is_current and category in (
-                PEP_CATEGORY_DOMESTIC, PEP_CATEGORY_FOREIGN, PEP_CATEGORY_INTERNATIONAL_ORG
+            if (
+                record
+                and record.is_current
+                and category
+                in (
+                    PEP_CATEGORY_DOMESTIC,
+                    PEP_CATEGORY_FOREIGN,
+                    PEP_CATEGORY_INTERNATIONAL_ORG,
+                )
             ):
                 all_rules.add(RULE_CURRENT_OFFICE)
                 result.rules_triggered.append(RULE_CURRENT_OFFICE)
@@ -166,7 +187,9 @@ class PepRulesEngine:
                 risk_influences.add(RISK_CRITICAL)
 
             # ── PEP007: Former PEP ────────────────────────────────────────────
-            if category == PEP_CATEGORY_FORMER_PEP or (record and not record.is_current):
+            if category == PEP_CATEGORY_FORMER_PEP or (
+                record and not record.is_current
+            ):
                 all_rules.add(RULE_FORMER_PEP)
                 result.rules_triggered.append(RULE_FORMER_PEP)
                 warnings.append(
@@ -204,14 +227,14 @@ class PepRulesEngine:
             )
 
         return {
-            "pep_status":             pep_status,
-            "risk_level":             risk_level,
-            "findings":               findings,
-            "warnings":               warnings,
-            "recommendations":        recommendations,
-            "all_rules_triggered":    sorted(all_rules),
-            "edd_required":           edd_required,
+            "pep_status": pep_status,
+            "risk_level": risk_level,
+            "findings": findings,
+            "warnings": warnings,
+            "recommendations": recommendations,
+            "all_rules_triggered": sorted(all_rules),
+            "edd_required": edd_required,
             "manual_review_required": manual_review_required,
-            "matched_subjects":       matched_subjects,
-            "next_agent":             NEXT_AGENT,
+            "matched_subjects": matched_subjects,
+            "next_agent": NEXT_AGENT,
         }

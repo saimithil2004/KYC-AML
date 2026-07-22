@@ -24,9 +24,14 @@ from app.agents.base.registry import AgentRegistry
 from app.agents.base.exceptions import AgentValidationError
 
 from app.agents.company.constants import (
-    CUSTOMER_TYPE_INDIVIDUAL, CUSTOMER_TYPE_BUSINESS,
-    STATUS_COMPLETE, STATUS_INCOMPLETE, STATUS_FAILED, STATUS_SKIPPED,
-    SCORE_COMPLETE_THRESHOLD, SCORE_INCOMPLETE_THRESHOLD,
+    CUSTOMER_TYPE_INDIVIDUAL,
+    CUSTOMER_TYPE_BUSINESS,
+    STATUS_COMPLETE,
+    STATUS_INCOMPLETE,
+    STATUS_FAILED,
+    STATUS_SKIPPED,
+    SCORE_COMPLETE_THRESHOLD,
+    SCORE_INCOMPLETE_THRESHOLD,
     RISK_LOW,
 )
 from app.agents.company.models import CompanyAuditTrail, AgentRoutingInfo
@@ -81,13 +86,13 @@ class CompanyAgent(BaseAgent):
         if not state.customer:
             raise AgentValidationError(
                 message="Customer profile is missing in AgentState. Cannot run Company Agent.",
-                details={"customer": None}
+                details={"customer": None},
             )
         customer_type = str(state.customer.get("customer_type") or "").strip().lower()
         if not customer_type:
             raise AgentValidationError(
                 message="customer_type is missing from the customer profile.",
-                details={"customer_type": None}
+                details={"customer_type": None},
             )
         return True
 
@@ -145,10 +150,10 @@ class CompanyAgent(BaseAgent):
         )
 
         # Write routing into shared state
-        state.shared_metadata["company_agent_status"]  = STATUS_SKIPPED
+        state.shared_metadata["company_agent_status"] = STATUS_SKIPPED
         state.shared_metadata["company_agent_routing"] = routing.to_dict()
-        state.shared_metadata["company_audit_trail"]   = audit.model_dump()
-        state.shared_metadata["next_agent"]            = "pep_agent"
+        state.shared_metadata["company_audit_trail"] = audit.model_dump()
+        state.shared_metadata["next_agent"] = "pep_agent"
         state.logs.append(
             f"CompanyAgent: SKIPPED — {skip_reason} Routing to: pep_agent"
         )
@@ -156,18 +161,18 @@ class CompanyAgent(BaseAgent):
         return {
             "_status": "success",
             "_reason": f"Company Agent skipped: {skip_reason}",
-            "confidence":       100.0,
-            "risk_score":       0.0,
-            "risk_level":       RISK_LOW,
-            "findings":         [f"Company Agent intentionally skipped. {skip_reason}"],
-            "warnings":         [],
-            "recommendations":  [],
-            "errors":           [],
-            "company_status":   STATUS_SKIPPED,
-            "company_score":    0.0,
-            "next_agent":       "pep_agent",
-            "routing":          routing.to_dict(),
-            "audit_trail":      audit.model_dump(),
+            "confidence": 100.0,
+            "risk_score": 0.0,
+            "risk_level": RISK_LOW,
+            "findings": [f"Company Agent intentionally skipped. {skip_reason}"],
+            "warnings": [],
+            "recommendations": [],
+            "errors": [],
+            "company_status": STATUS_SKIPPED,
+            "company_score": 0.0,
+            "next_agent": "pep_agent",
+            "routing": routing.to_dict(),
+            "audit_trail": audit.model_dump(),
         }
 
     # ── Business Verification Path ────────────────────────────
@@ -183,10 +188,10 @@ class CompanyAgent(BaseAgent):
         """
 
         # Pull company data from AgentState
-        companies  = state.companies   or []
-        directors  = state.directors   or []
-        ubos       = state.ubos        or []
-        docs       = state.uploaded_documents or []
+        companies = state.companies or []
+        directors = state.directors or []
+        ubos = state.ubos or []
+        docs = state.uploaded_documents or []
 
         # Use first company entry as the primary record for flat-field checks.
         # AgentState.companies is a list; take index 0 if present.
@@ -195,34 +200,64 @@ class CompanyAgent(BaseAgent):
         # Extract shareholders from the company dict or a dedicated list
         # (some schemas store them nested; support both conventions).
         shareholders = (
-            state.customer_profile.get("shareholders") or
-            company.get("shareholders") or
-            []
+            state.customer_profile.get("shareholders")
+            or company.get("shareholders")
+            or []
         )
 
         # ── Field-level scoring ──────────────────────────────
-        score_reg,   missing_reg,   passed_reg   = CompanyValidator.validate_registration(company)
-        score_stat,  missing_stat,  passed_stat  = CompanyValidator.validate_status(company)
-        score_addr,  missing_addr,  passed_addr  = CompanyValidator.validate_address(company)
-        score_ind,   missing_ind,   passed_ind   = CompanyValidator.validate_industry(company)
-        score_dir,   missing_dir,   passed_dir   = CompanyValidator.validate_directors(directors)
-        score_shr,   missing_shr,   passed_shr   = CompanyValidator.validate_shareholders(shareholders)
-        score_ubo,   missing_ubo,   passed_ubo   = CompanyValidator.validate_ubos(ubos)
-        score_docs,  missing_docs,  passed_docs  = CompanyValidator.validate_company_documents(docs)
+        score_reg, missing_reg, passed_reg = CompanyValidator.validate_registration(
+            company
+        )
+        score_stat, missing_stat, passed_stat = CompanyValidator.validate_status(
+            company
+        )
+        score_addr, missing_addr, passed_addr = CompanyValidator.validate_address(
+            company
+        )
+        score_ind, missing_ind, passed_ind = CompanyValidator.validate_industry(company)
+        score_dir, missing_dir, passed_dir = CompanyValidator.validate_directors(
+            directors
+        )
+        score_shr, missing_shr, passed_shr = CompanyValidator.validate_shareholders(
+            shareholders
+        )
+        score_ubo, missing_ubo, passed_ubo = CompanyValidator.validate_ubos(ubos)
+        score_docs, missing_docs, passed_docs = (
+            CompanyValidator.validate_company_documents(docs)
+        )
 
         company_score = (
-            score_reg + score_stat + score_addr + score_ind +
-            score_dir + score_shr + score_ubo + score_docs
+            score_reg
+            + score_stat
+            + score_addr
+            + score_ind
+            + score_dir
+            + score_shr
+            + score_ubo
+            + score_docs
         )
 
         missing_fields = (
-            missing_reg + missing_stat + missing_addr + missing_ind +
-            missing_dir + missing_shr + missing_ubo + missing_docs
+            missing_reg
+            + missing_stat
+            + missing_addr
+            + missing_ind
+            + missing_dir
+            + missing_shr
+            + missing_ubo
+            + missing_docs
         )
 
         findings = (
-            passed_reg + passed_stat + passed_addr + passed_ind +
-            passed_dir + passed_shr + passed_ubo + passed_docs
+            passed_reg
+            + passed_stat
+            + passed_addr
+            + passed_ind
+            + passed_dir
+            + passed_shr
+            + passed_ubo
+            + passed_docs
         )
 
         # ── Business rules engine ────────────────────────────
@@ -234,12 +269,12 @@ class CompanyAgent(BaseAgent):
             ubos=ubos,
         )
 
-        passed_rules    = eval_result["passed_rules"]
-        failed_rules    = eval_result["failed_rules"]
-        warnings        = eval_result["warnings"]
+        passed_rules = eval_result["passed_rules"]
+        failed_rules = eval_result["failed_rules"]
+        warnings = eval_result["warnings"]
         recommendations = eval_result["recommendations"]
-        risk_level      = eval_result["risk_level"]
-        next_agent      = eval_result["next_agent"]   # always "pep_agent"
+        risk_level = eval_result["risk_level"]
+        next_agent = eval_result["next_agent"]  # always "pep_agent"
 
         # ── Status determination ─────────────────────────────
         if company_score >= SCORE_COMPLETE_THRESHOLD and not warnings:
@@ -275,12 +310,12 @@ class CompanyAgent(BaseAgent):
 
         # ── Update AgentState ────────────────────────────────
         state.risk_breakdown["company"] = company_score
-        state.shared_metadata["company_status"]        = company_status
-        state.shared_metadata["company_score"]         = company_score
+        state.shared_metadata["company_status"] = company_status
+        state.shared_metadata["company_score"] = company_score
         state.shared_metadata["company_missing_fields"] = missing_fields
-        state.shared_metadata["company_audit_trail"]   = audit.model_dump()
+        state.shared_metadata["company_audit_trail"] = audit.model_dump()
         state.shared_metadata["company_agent_routing"] = routing.to_dict()
-        state.shared_metadata["next_agent"]            = next_agent
+        state.shared_metadata["next_agent"] = next_agent
         state.logs.append(
             f"CompanyAgent: Score={company_score}, Status={company_status}, "
             f"Risk={risk_level}, Routing to: {next_agent}"
@@ -289,17 +324,17 @@ class CompanyAgent(BaseAgent):
         return {
             "_status": "success",
             "_reason": f"Company verification complete. Status: {company_status}",
-            "confidence":         company_score,
-            "risk_score":         company_score,
-            "risk_level":         risk_level,
-            "findings":           findings,
-            "warnings":           warnings,
-            "recommendations":    recommendations,
-            "errors":             [],
-            "missing_fields":     missing_fields,
-            "company_status":     company_status,
-            "company_score":      company_score,
-            "next_agent":         next_agent,
-            "routing":            routing.to_dict(),
-            "audit_trail":        audit.model_dump(),
+            "confidence": company_score,
+            "risk_score": company_score,
+            "risk_level": risk_level,
+            "findings": findings,
+            "warnings": warnings,
+            "recommendations": recommendations,
+            "errors": [],
+            "missing_fields": missing_fields,
+            "company_status": company_status,
+            "company_score": company_score,
+            "next_agent": next_agent,
+            "routing": routing.to_dict(),
+            "audit_trail": audit.model_dump(),
         }

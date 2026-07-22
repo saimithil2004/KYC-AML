@@ -6,11 +6,13 @@ try:
 except ImportError:
     psutil = None
 
+
 class AgentMetricsCollector:
     """
     Collects execution metrics: execution times, memory, CPU, retry count, rates, etc.
     Exposes metrics in a Prometheus-ready format.
     """
+
     _usage_counts: Dict[str, int] = {}
     _execution_times: Dict[str, List[float]] = {}
     _retry_counts: Dict[str, int] = {}
@@ -27,7 +29,9 @@ class AgentMetricsCollector:
         cls._failure_counts = {}
 
     @classmethod
-    def record_run(cls, agent_name: str, execution_time_ms: float, success: bool, retries: int = 0):
+    def record_run(
+        cls, agent_name: str, execution_time_ms: float, success: bool, retries: int = 0
+    ):
         if agent_name not in cls._usage_counts:
             cls._usage_counts[agent_name] = 0
             cls._execution_times[agent_name] = []
@@ -54,23 +58,23 @@ class AgentMetricsCollector:
                 return {
                     "cpu_usage_percent": float(cpu_pct),
                     "memory_rss_bytes": float(mem_info.rss),
-                    "memory_vms_bytes": float(mem_info.vms)
+                    "memory_vms_bytes": float(mem_info.vms),
                 }
             except Exception:
                 pass
-        
+
         # Fallbacks
         return {
             "cpu_usage_percent": 0.0,
             "memory_rss_bytes": 0.0,
-            "memory_vms_bytes": 0.0
+            "memory_vms_bytes": 0.0,
         }
 
     @classmethod
     def get_agent_metrics(cls, agent_name: str) -> Dict[str, Any]:
         if agent_name not in cls._usage_counts:
             return {}
-        
+
         times = cls._execution_times[agent_name]
         avg_time = sum(times) / len(times) if times else 0.0
         successes = cls._success_counts[agent_name]
@@ -84,7 +88,7 @@ class AgentMetricsCollector:
             "average_execution_time_ms": round(avg_time, 2),
             "retry_count": cls._retry_counts[agent_name],
             "success_rate": round(success_rate, 4),
-            "failure_rate": round(failure_rate, 4)
+            "failure_rate": round(failure_rate, 4),
         }
 
     @classmethod
@@ -92,27 +96,37 @@ class AgentMetricsCollector:
         """Outputs collected metrics in standard Prometheus exposition format."""
         lines = []
         # Expose agent usage count
-        lines.append("# HELP agent_usage_total Total number of times an agent has executed")
+        lines.append(
+            "# HELP agent_usage_total Total number of times an agent has executed"
+        )
         lines.append("# TYPE agent_usage_total counter")
         for agent, count in cls._usage_counts.items():
             lines.append(f'agent_usage_total{{agent="{agent}"}} {count}')
 
         # Expose average execution times
-        lines.append("# HELP agent_execution_time_average_ms Average response time in milliseconds")
+        lines.append(
+            "# HELP agent_execution_time_average_ms Average response time in milliseconds"
+        )
         lines.append("# TYPE agent_execution_time_average_ms gauge")
         for agent, times in cls._execution_times.items():
             avg = sum(times) / len(times) if times else 0.0
-            lines.append(f'agent_execution_time_average_ms{{agent="{agent}"}} {round(avg, 2)}')
+            lines.append(
+                f'agent_execution_time_average_ms{{agent="{agent}"}} {round(avg, 2)}'
+            )
 
         # Expose retry count
-        lines.append("# HELP agent_retries_total Total retry counts for agent executions")
+        lines.append(
+            "# HELP agent_retries_total Total retry counts for agent executions"
+        )
         lines.append("# TYPE agent_retries_total counter")
         for agent, retries in cls._retry_counts.items():
             lines.append(f'agent_retries_total{{agent="{agent}"}} {retries}')
 
         # Expose process metrics
         sys = cls.get_system_metrics()
-        lines.append("# HELP process_cpu_usage_ratio CPU usage ratio of the agent process")
+        lines.append(
+            "# HELP process_cpu_usage_ratio CPU usage ratio of the agent process"
+        )
         lines.append("# TYPE process_cpu_usage_ratio gauge")
         lines.append(f"process_cpu_usage_ratio {sys['cpu_usage_percent'] / 100.0}")
 

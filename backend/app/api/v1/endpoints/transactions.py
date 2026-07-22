@@ -13,7 +13,16 @@ from datetime import datetime, date
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Request, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    UploadFile,
+    File,
+    Request,
+    status,
+)
 from sqlalchemy import func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -22,7 +31,9 @@ from app.core.database import get_db
 from app.dependencies.auth import get_current_user, verify_compliance_officer
 from app.models.models import Account, Alert, Customer, Transaction, User
 from app.schemas.schemas import (
-    TransactionCreate, TransactionResponse, TransactionUpdate,
+    TransactionCreate,
+    TransactionResponse,
+    TransactionUpdate,
     PaginatedTransactions,
 )
 from app.services.audit_service import AuditService
@@ -34,10 +45,15 @@ router = APIRouter()
 
 def _get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
-    return forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+    return (
+        forwarded.split(",")[0].strip()
+        if forwarded
+        else (request.client.host if request.client else "unknown")
+    )
 
 
 # ── GET /transactions ─────────────────────────────────────────────────────────
+
 
 @router.get("/", response_model=PaginatedTransactions)
 async def list_transactions(
@@ -52,7 +68,9 @@ async def list_transactions(
     max_amount: Optional[float] = Query(None),
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
-    search: Optional[str] = Query(None, description="Search receiver name or reference"),
+    search: Optional[str] = Query(
+        None, description="Search receiver name or reference"
+    ),
     sort_by: str = Query("created_at", description="Field to sort by"),
     sort_dir: str = Query("desc", description="asc or desc"),
     current_user: User = Depends(verify_compliance_officer),
@@ -68,7 +86,9 @@ async def list_transactions(
         )
         acc_ids = [r[0] for r in account_ids_result.fetchall()]
         if not acc_ids:
-            return PaginatedTransactions(total=0, page=page, page_size=page_size, items=[])
+            return PaginatedTransactions(
+                total=0, page=page, page_size=page_size, items=[]
+            )
         q = q.where(Transaction.sender_account_id.in_(acc_ids))
 
     if account_id:
@@ -84,9 +104,13 @@ async def list_transactions(
     if max_amount is not None:
         q = q.where(Transaction.amount <= max_amount)
     if date_from:
-        q = q.where(Transaction.created_at >= datetime.combine(date_from, datetime.min.time()))
+        q = q.where(
+            Transaction.created_at >= datetime.combine(date_from, datetime.min.time())
+        )
     if date_to:
-        q = q.where(Transaction.created_at <= datetime.combine(date_to, datetime.max.time()))
+        q = q.where(
+            Transaction.created_at <= datetime.combine(date_to, datetime.max.time())
+        )
     if search:
         q = q.where(
             or_(
@@ -111,10 +135,13 @@ async def list_transactions(
     q = q.offset((page - 1) * page_size).limit(page_size)
     items = (await db.execute(q)).scalars().all()
 
-    return PaginatedTransactions(total=total, page=page, page_size=page_size, items=items)
+    return PaginatedTransactions(
+        total=total, page=page, page_size=page_size, items=items
+    )
 
 
 # ── GET /transactions/{id} ────────────────────────────────────────────────────
+
 
 @router.get("/{transaction_id}", response_model=TransactionResponse)
 async def get_transaction(
@@ -122,18 +149,24 @@ async def get_transaction(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Transaction).where(Transaction.id == transaction_id))
+    result = await db.execute(
+        select(Transaction).where(Transaction.id == transaction_id)
+    )
     tx = result.scalars().first()
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found.")
 
     # RBAC: customers can only see their own transactions
     if current_user.role == "customer":
-        result2 = await db.execute(select(Account).where(Account.id == tx.sender_account_id))
+        result2 = await db.execute(
+            select(Account).where(Account.id == tx.sender_account_id)
+        )
         account = result2.scalars().first()
         if not account:
             raise HTTPException(status_code=404, detail="Transaction not found.")
-        result3 = await db.execute(select(Customer).where(Customer.id == account.customer_id))
+        result3 = await db.execute(
+            select(Customer).where(Customer.id == account.customer_id)
+        )
         customer = result3.scalars().first()
         if not customer or customer.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not authorized.")
@@ -142,6 +175,7 @@ async def get_transaction(
 
 
 # ── POST /transactions ────────────────────────────────────────────────────────
+
 
 @router.post("/", response_model=TransactionResponse, status_code=201)
 async def create_transaction(
@@ -160,14 +194,22 @@ async def create_transaction(
     )
     account = result.scalars().first()
     if not account:
-        raise HTTPException(status_code=404, detail=f"Sender account {tx_in.sender_account_number} not found.")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Sender account {tx_in.sender_account_number} not found.",
+        )
 
     # RBAC: customers can only create tx for their own account
     if current_user.role == "customer":
-        result2 = await db.execute(select(Customer).where(Customer.id == account.customer_id))
+        result2 = await db.execute(
+            select(Customer).where(Customer.id == account.customer_id)
+        )
         customer = result2.scalars().first()
         if not customer or customer.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized to create transactions for this account.")
+            raise HTTPException(
+                status_code=403,
+                detail="Not authorized to create transactions for this account.",
+            )
 
     tx = Transaction(
         sender_account_id=account.id,
@@ -216,6 +258,7 @@ async def create_transaction(
 
 # ── POST /transactions/import ─────────────────────────────────────────────────
 
+
 @router.post("/import", status_code=202)
 async def import_transactions_csv(
     file: UploadFile = File(...),
@@ -241,10 +284,15 @@ async def import_transactions_csv(
 
     reader = csv.DictReader(io.StringIO(text))
     required_cols = {
-        "sender_account_number", "sender_sort_code",
-        "receiver_account_number", "receiver_sort_code",
-        "receiver_name", "receiver_country", "amount",
-        "currency", "transaction_type",
+        "sender_account_number",
+        "sender_sort_code",
+        "receiver_account_number",
+        "receiver_sort_code",
+        "receiver_name",
+        "receiver_country",
+        "amount",
+        "currency",
+        "transaction_type",
     }
 
     imported = 0
@@ -275,7 +323,9 @@ async def import_transactions_csv(
             )
             account = account_result.scalars().first()
             if not account:
-                errors.append(f"Row {row_num}: Account {row['sender_account_number']} not found — skipped")
+                errors.append(
+                    f"Row {row_num}: Account {row['sender_account_number']} not found — skipped"
+                )
                 continue
 
             amount_val = float(row["amount"].strip().replace(",", ""))
@@ -305,7 +355,11 @@ async def import_transactions_csv(
                 action="CSV_IMPORT_TRANSACTION",
                 entity_name="transaction",
                 entity_id=tx.id,
-                new_values={"row": row_num, "amount": amount_val, "file": file.filename},
+                new_values={
+                    "row": row_num,
+                    "amount": amount_val,
+                    "file": file.filename,
+                },
                 ip_address=_get_client_ip(request) if request else None,
             )
 
@@ -339,6 +393,7 @@ async def import_transactions_csv(
 
 # ── PUT /transactions/{id} ────────────────────────────────────────────────────
 
+
 @router.put("/{transaction_id}", response_model=TransactionResponse)
 async def update_transaction(
     transaction_id: UUID,
@@ -347,7 +402,9 @@ async def update_transaction(
     current_user: User = Depends(verify_compliance_officer),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Transaction).where(Transaction.id == transaction_id))
+    result = await db.execute(
+        select(Transaction).where(Transaction.id == transaction_id)
+    )
     tx = result.scalars().first()
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found.")
@@ -379,6 +436,7 @@ async def update_transaction(
 
 # ── DELETE /transactions/{id} ─────────────────────────────────────────────────
 
+
 @router.delete("/{transaction_id}", status_code=204)
 async def delete_transaction(
     transaction_id: UUID,
@@ -386,7 +444,9 @@ async def delete_transaction(
     current_user: User = Depends(verify_compliance_officer),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Transaction).where(Transaction.id == transaction_id))
+    result = await db.execute(
+        select(Transaction).where(Transaction.id == transaction_id)
+    )
     tx = result.scalars().first()
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found.")
@@ -407,6 +467,7 @@ async def delete_transaction(
 
 
 # ── GET /transactions/customer/{customer_id} ──────────────────────────────────
+
 
 @router.get("/customer/{customer_id}", response_model=PaginatedTransactions)
 async def get_customer_transactions(
@@ -432,10 +493,21 @@ async def get_customer_transactions(
         return PaginatedTransactions(total=0, page=page, page_size=page_size, items=[])
 
     q = select(Transaction).where(Transaction.sender_account_id.in_(acc_ids))
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
-    items = (await db.execute(
-        q.order_by(Transaction.created_at.desc())
-        .offset((page - 1) * page_size).limit(page_size)
-    )).scalars().all()
+    total = (
+        await db.execute(select(func.count()).select_from(q.subquery()))
+    ).scalar_one()
+    items = (
+        (
+            await db.execute(
+                q.order_by(Transaction.created_at.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
-    return PaginatedTransactions(total=total, page=page, page_size=page_size, items=items)
+    return PaginatedTransactions(
+        total=total, page=page, page_size=page_size, items=items
+    )

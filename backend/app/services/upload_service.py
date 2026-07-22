@@ -7,7 +7,6 @@ from fastapi import HTTPException, UploadFile, status
 
 from app.core.config import settings
 
-
 ALLOWED_CONTENT_TYPES = {
     "application/pdf": ".pdf",
     "image/png": ".png",

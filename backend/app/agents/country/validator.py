@@ -29,31 +29,35 @@ class CountryValidator:
         # Dictionary of standard source -> list of raw values
         raw_sources: Dict[str, List[Optional[str]]] = {
             "customer_nationality": [],
-            "customer_residence":   [],
+            "customer_residence": [],
             "company_registration": [],
-            "operating_country":    [],
+            "operating_country": [],
             "director_nationality": [],
-            "ubo_nationality":       [],
+            "ubo_nationality": [],
             "shareholder_nationality": [],
             "signatory_nationality": [],
-            "transaction_origin":   [],
+            "transaction_origin": [],
             "transaction_destination": [],
-            "bank_country":         [],
+            "bank_country": [],
         }
 
         # ── 1. Customer ───────────────────────────────────────────────────────
         if state.customer:
-            raw_sources["customer_nationality"].append(state.customer.get("nationality"))
+            raw_sources["customer_nationality"].append(
+                state.customer.get("nationality")
+            )
             raw_sources["customer_residence"].append(
-                state.customer.get("country") or
-                state.customer.get("registered_country") or
-                state.customer.get("country_of_residence")
+                state.customer.get("country")
+                or state.customer.get("registered_country")
+                or state.customer.get("country_of_residence")
             )
 
         # ── 2. Companies ──────────────────────────────────────────────────────
         for comp in state.companies or []:
-            raw_sources["company_registration"].append(comp.get("country") or comp.get("registered_country"))
-            
+            raw_sources["company_registration"].append(
+                comp.get("country") or comp.get("registered_country")
+            )
+
             # Operating countries (supports list, comma-separated string, or single string)
             ops = comp.get("operating_countries")
             if isinstance(ops, list):
@@ -64,37 +68,47 @@ class CountryValidator:
 
         # ── 3. Directors ──────────────────────────────────────────────────────
         for d in state.directors or []:
-            raw_sources["director_nationality"].append(d.get("nationality") or d.get("country"))
+            raw_sources["director_nationality"].append(
+                d.get("nationality") or d.get("country")
+            )
 
         # ── 4. UBOs ───────────────────────────────────────────────────────────
         for u in state.ubos or []:
-            raw_sources["ubo_nationality"].append(u.get("nationality") or u.get("country"))
+            raw_sources["ubo_nationality"].append(
+                u.get("nationality") or u.get("country")
+            )
 
         # ── 5. Shareholders & Signatories in Customer Profile ──────────────────
         profile = state.customer_profile or {}
-        
+
         shareholders = profile.get("shareholders") or []
         for s in shareholders:
-            raw_sources["shareholder_nationality"].append(s.get("nationality") or s.get("country"))
+            raw_sources["shareholder_nationality"].append(
+                s.get("nationality") or s.get("country")
+            )
 
         signatories = profile.get("authorised_signatories") or []
         for s in signatories:
-            raw_sources["signatory_nationality"].append(s.get("nationality") or s.get("country"))
+            raw_sources["signatory_nationality"].append(
+                s.get("nationality") or s.get("country")
+            )
 
         # ── 6. Transactions ───────────────────────────────────────────────────
         for tx in state.transactions or []:
             raw_sources["transaction_origin"].append(tx.get("origin_country"))
             raw_sources["transaction_destination"].append(tx.get("destination_country"))
-            raw_sources["bank_country"].append(tx.get("bank_country") or tx.get("country"))
+            raw_sources["bank_country"].append(
+                tx.get("bank_country") or tx.get("country")
+            )
 
         # ─── Normalise and Group ──────────────────────────────────────────────
         normalized_results: Dict[str, Set[str]] = {}
-        
+
         for source_name, country_list in raw_sources.items():
             for raw_country in country_list:
                 if not raw_country:
                     continue
-                
+
                 normalized = normalize_country(raw_country)
                 if normalized:
                     if normalized not in normalized_results:

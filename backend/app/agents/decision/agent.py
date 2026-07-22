@@ -25,14 +25,14 @@ from app.agents.base.exceptions import AgentValidationError
 logger = logging.getLogger(__name__)
 
 # Decision constants
-DECISION_APPROVE       = "APPROVE"
+DECISION_APPROVE = "APPROVE"
 DECISION_MANUAL_REVIEW = "MANUAL_REVIEW"
-DECISION_EDD_REQUIRED  = "EDD_REQUIRED"
-DECISION_REJECT        = "REJECT"
+DECISION_EDD_REQUIRED = "EDD_REQUIRED"
+DECISION_REJECT = "REJECT"
 
 # Thresholds
-APPROVE_MAX_SCORE  = 30.0
-MEDIUM_MAX_SCORE   = 70.0
+APPROVE_MAX_SCORE = 30.0
+MEDIUM_MAX_SCORE = 70.0
 
 
 @AgentRegistry.register("decision_agent")
@@ -79,23 +79,23 @@ class DecisionAgent(BaseAgent):
         sm = state.shared_metadata
 
         # ── Collect decision signals ──────────────────────────────────────────
-        overall_score      = state.overall_score
-        risk_level         = sm.get("risk_level") or state.risk_tier.upper()
-        sanctions_status   = sm.get("sanctions_status",  "CLEAR")
-        pep_status         = sm.get("pep_status",        "CLEAR")
-        fatf_black_listed  = sm.get("fatf_black_listed", [])
-        block_triggers     = sm.get("regulation_block_triggers", [])
-        edd_triggers       = sm.get("regulation_edd_triggers",   [])
-        violations         = sm.get("regulation_violations",     [])
-        tx_status          = sm.get("transaction_status",        "CLEAR")
-        behavior_flags     = sm.get("account_behavior_flags",    {})
+        overall_score = state.overall_score
+        risk_level = sm.get("risk_level") or state.risk_tier.upper()
+        sanctions_status = sm.get("sanctions_status", "CLEAR")
+        pep_status = sm.get("pep_status", "CLEAR")
+        fatf_black_listed = sm.get("fatf_black_listed", [])
+        block_triggers = sm.get("regulation_block_triggers", [])
+        edd_triggers = sm.get("regulation_edd_triggers", [])
+        violations = sm.get("regulation_violations", [])
+        tx_status = sm.get("transaction_status", "CLEAR")
+        behavior_flags = sm.get("account_behavior_flags", {})
 
         is_confirmed_sanctions = str(sanctions_status).upper() == "CONFIRMED"
-        is_confirmed_pep       = str(pep_status).upper() == "CONFIRMED_PEP"
-        has_block_triggers     = len(block_triggers) > 0
-        has_edd_triggers       = len(edd_triggers) > 0
-        has_mule_indicators    = behavior_flags.get("mule_indicators", False)
-        has_fatf_blacklist     = len(fatf_black_listed) > 0
+        is_confirmed_pep = str(pep_status).upper() == "CONFIRMED_PEP"
+        has_block_triggers = len(block_triggers) > 0
+        has_edd_triggers = len(edd_triggers) > 0
+        has_mule_indicators = behavior_flags.get("mule_indicators", False)
+        has_fatf_blacklist = len(fatf_black_listed) > 0
 
         # ── Decision logic (priority order) ──────────────────────────────────
         decision = DECISION_APPROVE
@@ -109,19 +109,25 @@ class DecisionAgent(BaseAgent):
             if has_block_triggers:
                 reasons.append(f"Block policy triggers: {', '.join(block_triggers)}.")
             if has_fatf_blacklist:
-                reasons.append(f"FATF black-listed jurisdiction: {', '.join(fatf_black_listed)}.")
+                reasons.append(
+                    f"FATF black-listed jurisdiction: {', '.join(fatf_black_listed)}."
+                )
 
         # 2. EDD REQUIRED
         elif has_edd_triggers or (overall_score > MEDIUM_MAX_SCORE):
             decision = DECISION_EDD_REQUIRED
             if overall_score > MEDIUM_MAX_SCORE:
-                reasons.append(f"Overall risk score {overall_score:.1f}/100 exceeds HIGH threshold.")
+                reasons.append(
+                    f"Overall risk score {overall_score:.1f}/100 exceeds HIGH threshold."
+                )
             if has_edd_triggers:
                 reasons.append(f"EDD triggers: {', '.join(edd_triggers)}.")
             if is_confirmed_pep:
                 reasons.append("Confirmed PEP status requires Enhanced Due Diligence.")
             if has_mule_indicators:
-                reasons.append("Mule account indicators detected in transaction behaviour.")
+                reasons.append(
+                    "Mule account indicators detected in transaction behaviour."
+                )
 
         # 3. MANUAL REVIEW
         elif (
@@ -132,13 +138,17 @@ class DecisionAgent(BaseAgent):
         ):
             decision = DECISION_MANUAL_REVIEW
             if overall_score > APPROVE_MAX_SCORE:
-                reasons.append(f"Risk score {overall_score:.1f}/100 in MEDIUM range — manual review required.")
+                reasons.append(
+                    f"Risk score {overall_score:.1f}/100 in MEDIUM range — manual review required."
+                )
             if pep_status not in ("CLEAR", "UNKNOWN"):
                 reasons.append(f"PEP status: {pep_status} — requires human review.")
             if sanctions_status == "POSSIBLE_MATCH":
                 reasons.append("Possible sanctions match — human review required.")
             if len(violations) > 0:
-                reasons.append(f"{len(violations)} policy violation(s) require compliance officer review.")
+                reasons.append(
+                    f"{len(violations)} policy violation(s) require compliance officer review."
+                )
 
         # 4. APPROVE
         else:
@@ -152,21 +162,21 @@ class DecisionAgent(BaseAgent):
 
         # ── Determine customer status ─────────────────────────────────────────
         customer_status_map = {
-            DECISION_APPROVE:       "approved",
+            DECISION_APPROVE: "approved",
             DECISION_MANUAL_REVIEW: "referred",
-            DECISION_EDD_REQUIRED:  "under_review",
-            DECISION_REJECT:        "rejected",
+            DECISION_EDD_REQUIRED: "under_review",
+            DECISION_REJECT: "rejected",
         }
         new_customer_status = customer_status_map.get(decision, "referred")
 
         execution_duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
         # ── Update AgentState ─────────────────────────────────────────────────
-        state.final_decision  = decision
+        state.final_decision = decision
         state.decision_reason = decision_reason
-        state.shared_metadata["final_decision"]     = decision
-        state.shared_metadata["decision_reason"]    = decision_reason
-        state.shared_metadata["customer_status"]    = new_customer_status
+        state.shared_metadata["final_decision"] = decision
+        state.shared_metadata["decision_reason"] = decision_reason
+        state.shared_metadata["customer_status"] = new_customer_status
 
         # ── Persist to DB ─────────────────────────────────────────────────────
         self._persist_decision(state, decision, new_customer_status, decision_reason)
@@ -184,21 +194,23 @@ class DecisionAgent(BaseAgent):
             "risk_level": risk_level.lower(),
             "findings": [f"Final decision: {decision}. {decision_reason}"],
             "warnings": [],
-            "recommendations": self._decision_recommendations(decision, edd_triggers, block_triggers),
+            "recommendations": self._decision_recommendations(
+                decision, edd_triggers, block_triggers
+            ),
             "errors": [],
             # Metadata
-            "final_decision":      decision,
-            "decision_reason":     decision_reason,
-            "customer_status":     new_customer_status,
+            "final_decision": decision,
+            "decision_reason": decision_reason,
+            "customer_status": new_customer_status,
             "signals_evaluated": {
-                "overall_score":     overall_score,
-                "sanctions_status":  sanctions_status,
-                "pep_status":        pep_status,
-                "block_triggers":    block_triggers,
-                "edd_triggers":      edd_triggers,
-                "violations_count":  len(violations),
-                "mule_indicators":   has_mule_indicators,
-                "fatf_blacklisted":  has_fatf_blacklist,
+                "overall_score": overall_score,
+                "sanctions_status": sanctions_status,
+                "pep_status": pep_status,
+                "block_triggers": block_triggers,
+                "edd_triggers": edd_triggers,
+                "violations_count": len(violations),
+                "mule_indicators": has_mule_indicators,
+                "fatf_blacklisted": has_fatf_blacklist,
             },
             "execution_duration_ms": execution_duration_ms,
         }
@@ -212,6 +224,7 @@ class DecisionAgent(BaseAgent):
         try:
             from uuid import UUID
             from app.models.models import Customer, Case, Alert
+
             cust_uuid = UUID(state.customer_id)
 
             # Update customer status
@@ -222,12 +235,18 @@ class DecisionAgent(BaseAgent):
             # Update case status and notes
             case_id_raw = state.shared_metadata.get("case_id") or state.case_id
             if case_id_raw:
-                case = self.db.query(Case).filter(Case.id == UUID(str(case_id_raw))).first()
+                case = (
+                    self.db.query(Case)
+                    .filter(Case.id == UUID(str(case_id_raw)))
+                    .first()
+                )
                 if case:
-                    case.status = "resolved_auto" if decision == DECISION_APPROVE else "open"
+                    case.status = (
+                        "resolved_auto" if decision == DECISION_APPROVE else "open"
+                    )
                     case.investigation_notes = (
-                        (case.investigation_notes or "") +
-                        f"\n[Decision Agent] {datetime.utcnow().isoformat()}: {decision} — {reason}"
+                        (case.investigation_notes or "")
+                        + f"\n[Decision Agent] {datetime.utcnow().isoformat()}: {decision} — {reason}"
                     )
 
             # Create alert for non-approve decisions
@@ -262,7 +281,11 @@ class DecisionAgent(BaseAgent):
                 "Freeze account immediately.",
                 "Escalate to senior compliance officer.",
                 "File SAR if required by regulation.",
-                f"Block triggers: {', '.join(block_triggers)}." if block_triggers else "",
+                (
+                    f"Block triggers: {', '.join(block_triggers)}."
+                    if block_triggers
+                    else ""
+                ),
             ]
         if decision == DECISION_EDD_REQUIRED:
             return [

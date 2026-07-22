@@ -54,7 +54,9 @@ class AuditService:
         reason:       Human-readable reason (for decisions, escalations, etc.)
         """
         try:
-            entity_uuid = entity_id if isinstance(entity_id, UUID) else UUID(str(entity_id))
+            entity_uuid = (
+                entity_id if isinstance(entity_id, UUID) else UUID(str(entity_id))
+            )
 
             # Merge reason into new_values if provided
             if reason and new_values is not None:
@@ -95,7 +97,9 @@ class AuditService:
     ) -> Optional[AuditLog]:
         """Create an audit log entry (synchronous)."""
         try:
-            entity_uuid = entity_id if isinstance(entity_id, UUID) else UUID(str(entity_id))
+            entity_uuid = (
+                entity_id if isinstance(entity_id, UUID) else UUID(str(entity_id))
+            )
             if reason and new_values is not None:
                 new_values = {**new_values, "_reason": reason}
             elif reason:

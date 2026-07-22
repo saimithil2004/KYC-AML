@@ -10,19 +10,37 @@ from typing import Dict, Any, List, Set
 
 from app.agents.sanctions.models import SanctionMatchResult
 from app.agents.screening.constants import (
-    MATCH_CONFIRMED, MATCH_POSSIBLE, MATCH_NONE,
-    RISK_LOW, RISK_MEDIUM, RISK_HIGH, RISK_CRITICAL
+    MATCH_CONFIRMED,
+    MATCH_POSSIBLE,
+    MATCH_NONE,
+    RISK_LOW,
+    RISK_MEDIUM,
+    RISK_HIGH,
+    RISK_CRITICAL,
 )
 from app.agents.sanctions.constants import (
-    RULE_NO_MATCH, RULE_POSSIBLE_MATCH, RULE_CONFIRMED_INDIVIDUAL,
-    RULE_CONFIRMED_COMPANY, RULE_TERRORIST_FINANCING, RULE_ASSET_FREEZE,
-    RULE_TRAVEL_BAN, RULE_MULTIPLE_MATCHES, RULE_PASSPORT_MATCH,
+    RULE_NO_MATCH,
+    RULE_POSSIBLE_MATCH,
+    RULE_CONFIRMED_INDIVIDUAL,
+    RULE_CONFIRMED_COMPANY,
+    RULE_TERRORIST_FINANCING,
+    RULE_ASSET_FREEZE,
+    RULE_TRAVEL_BAN,
+    RULE_MULTIPLE_MATCHES,
+    RULE_PASSPORT_MATCH,
     RULE_REGISTRATION_MATCH,
-    SANCTION_CATEGORY_TERRORIST, SANCTION_CATEGORY_ASSET_FREEZE,
+    SANCTION_CATEGORY_TERRORIST,
+    SANCTION_CATEGORY_ASSET_FREEZE,
     SANCTION_CATEGORY_TRAVEL_BAN,
-    REC_CONTINUE, REC_MANUAL_REVIEW, REC_EDD, REC_ESCALATE, REC_SAR_REVIEW,
-    SANCTIONS_STATUS_CLEAR, SANCTIONS_STATUS_POSSIBLE, SANCTIONS_STATUS_CONFIRMED,
-    NEXT_AGENT
+    REC_CONTINUE,
+    REC_MANUAL_REVIEW,
+    REC_EDD,
+    REC_ESCALATE,
+    REC_SAR_REVIEW,
+    SANCTIONS_STATUS_CLEAR,
+    SANCTIONS_STATUS_POSSIBLE,
+    SANCTIONS_STATUS_CONFIRMED,
+    NEXT_AGENT,
 )
 
 
@@ -34,7 +52,7 @@ class SanctionsRulesEngine:
     @staticmethod
     def evaluate(
         individual_results: List[SanctionMatchResult],
-        company_results: List[SanctionMatchResult]
+        company_results: List[SanctionMatchResult],
     ) -> Dict[str, Any]:
         """
         Aggregates results and triggers compliance rules.
@@ -107,19 +125,26 @@ class SanctionsRulesEngine:
                 if not is_company and "passport" in result.matched_fields:
                     all_rules.add(RULE_PASSPORT_MATCH)
                     result.rules_triggered.append(RULE_PASSPORT_MATCH)
-                    findings.append(f"[{RULE_PASSPORT_MATCH}] Match confirmed via exact Passport Number.")
+                    findings.append(
+                        f"[{RULE_PASSPORT_MATCH}] Match confirmed via exact Passport Number."
+                    )
 
                 # SAN010: Registration Number Match
                 if is_company and "registration_number" in result.matched_fields:
                     all_rules.add(RULE_REGISTRATION_MATCH)
                     result.rules_triggered.append(RULE_REGISTRATION_MATCH)
-                    findings.append(f"[{RULE_REGISTRATION_MATCH}] Company match confirmed via exact Registration Number.")
+                    findings.append(
+                        f"[{RULE_REGISTRATION_MATCH}] Company match confirmed via exact Registration Number."
+                    )
 
             # ─── Category-specific Rules ─────────────────────────────────────
             category = result.sanction_category
-            
+
             # SAN005: Terrorist Financing Match -> Immediate Escalation
-            if category == SANCTION_CATEGORY_TERRORIST and result.match_confidence == MATCH_CONFIRMED:
+            if (
+                category == SANCTION_CATEGORY_TERRORIST
+                and result.match_confidence == MATCH_CONFIRMED
+            ):
                 all_rules.add(RULE_TERRORIST_FINANCING)
                 result.rules_triggered.append(RULE_TERRORIST_FINANCING)
                 result.requires_escalation = True
@@ -185,7 +210,9 @@ class SanctionsRulesEngine:
             risk_level = RISK_LOW
 
         if sanctions_status == SANCTIONS_STATUS_CLEAR:
-            findings.append(f"Sanctions screening complete. No active matches found for {len(all_results)} entities.")
+            findings.append(
+                f"Sanctions screening complete. No active matches found for {len(all_results)} entities."
+            )
             recommendations.append(REC_CONTINUE)
 
         # Remove duplicate recommendations while preserving order
@@ -195,13 +222,13 @@ class SanctionsRulesEngine:
                 unique_recs.append(r)
 
         return {
-            "sanctions_status":       sanctions_status,
-            "risk_level":             risk_level,
-            "findings":               findings,
-            "warnings":               warnings,
-            "recommendations":        unique_recs,
-            "all_rules_triggered":    sorted(all_rules),
-            "matched_subjects":       matched_subjects,
-            "matched_companies":      matched_companies,
-            "next_agent":             NEXT_AGENT,
+            "sanctions_status": sanctions_status,
+            "risk_level": risk_level,
+            "findings": findings,
+            "warnings": warnings,
+            "recommendations": unique_recs,
+            "all_rules_triggered": sorted(all_rules),
+            "matched_subjects": matched_subjects,
+            "matched_companies": matched_companies,
+            "next_agent": NEXT_AGENT,
         }

@@ -15,15 +15,20 @@ client = TestClient(app)
 
 # ─── Mock DB Helper ───────────────────────────────────────────────────────────
 
+
 class _ScalarResult:
     def __init__(self, items):
         self._items = items
+
     def first(self):
         return self._items[0] if self._items else None
+
     def all(self):
         return list(self._items)
+
     def scalars(self):
         return self
+
 
 def make_mock_db(rows=None):
     db = MagicMock(spec=AsyncSession)
@@ -34,7 +39,9 @@ def make_mock_db(rows=None):
     db.refresh = AsyncMock()
     return db
 
+
 # ─── TESTS ────────────────────────────────────────────────────────────────────
+
 
 def test_config_variables_exist():
     """Verify that settings exposes new replica, sentinel, and cluster properties."""
@@ -119,15 +126,24 @@ def test_kubernetes_manifests_exist_and_valid():
     if not os.path.exists(manifest_dir):
         # Fallback to direct directory path check
         manifest_dir = os.path.join("deployment", "kubernetes")
-    
-    assert os.path.exists(manifest_dir), f"Kubernetes manifests folder missing at {manifest_dir}"
-    
+
+    assert os.path.exists(
+        manifest_dir
+    ), f"Kubernetes manifests folder missing at {manifest_dir}"
+
     yaml_files = [
-        "namespace.yaml", "configmap.yaml", "secrets.yaml", "postgres.yaml",
-        "redis.yaml", "backend.yaml", "celery.yaml", "frontend.yaml",
-        "ingress.yaml", "network-policy.yaml"
+        "namespace.yaml",
+        "configmap.yaml",
+        "secrets.yaml",
+        "postgres.yaml",
+        "redis.yaml",
+        "backend.yaml",
+        "celery.yaml",
+        "frontend.yaml",
+        "ingress.yaml",
+        "network-policy.yaml",
     ]
-    
+
     for f_name in yaml_files:
         f_path = os.path.join(manifest_dir, f_name)
         assert os.path.exists(f_path), f"K8s manifest file missing: {f_path}"
@@ -144,13 +160,13 @@ def test_docker_compose_files_exist_and_valid():
     compose_files = [
         "docker-compose.prod.yml",
         "docker-compose.monitoring.yml",
-        "docker-compose.scaling.yml"
+        "docker-compose.scaling.yml",
     ]
     for c_file in compose_files:
         c_path = os.path.join("..", c_file)
         if not os.path.exists(c_path):
             c_path = c_file
-        
+
         assert os.path.exists(c_path), f"Docker compose file missing: {c_path}"
         with open(c_path, "r", encoding="utf-8") as stream:
             try:
@@ -164,7 +180,7 @@ def test_nginx_and_traefik_configs_exist():
     nginx_path = os.path.join("..", "deployment", "nginx", "nginx.conf")
     if not os.path.exists(nginx_path):
         nginx_path = os.path.join("deployment", "nginx", "nginx.conf")
-    
+
     traefik_path = os.path.join("..", "deployment", "traefik", "traefik.yml")
     if not os.path.exists(traefik_path):
         traefik_path = os.path.join("deployment", "traefik", "traefik.yml")
@@ -180,7 +196,13 @@ def test_github_workflows_exist_and_valid():
         workflow_dir = os.path.join(".github", "workflows")
 
     assert os.path.exists(workflow_dir)
-    workflows = ["backend.yml", "frontend.yml", "docker.yml", "security.yml", "deploy.yml"]
+    workflows = [
+        "backend.yml",
+        "frontend.yml",
+        "docker.yml",
+        "security.yml",
+        "deploy.yml",
+    ]
     for wf in workflows:
         w_path = os.path.join(workflow_dir, wf)
         assert os.path.exists(w_path), f"Workflow file missing: {w_path}"

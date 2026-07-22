@@ -44,6 +44,7 @@ try:
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.backends import default_backend
+
     _CRYPTO_AVAILABLE = True
 except ImportError:
     _CRYPTO_AVAILABLE = False
@@ -56,6 +57,7 @@ except ImportError:
 
 try:
     import pyotp
+
     _PYOTP_AVAILABLE = True
 except ImportError:
     _PYOTP_AVAILABLE = False
@@ -64,6 +66,7 @@ except ImportError:
 try:
     import qrcode
     import io
+
     _QRCODE_AVAILABLE = True
 except ImportError:
     _QRCODE_AVAILABLE = False
@@ -71,6 +74,7 @@ except ImportError:
 
 
 # ─── Key Derivation ───────────────────────────────────────────────────────────
+
 
 def _derive_key(raw_key: str) -> bytes:
     """
@@ -93,10 +97,12 @@ def _derive_key(raw_key: str) -> bytes:
 def _get_key() -> bytes:
     """Load and cache the encryption key."""
     from app.core.config import settings
+
     return _derive_key(settings.ENCRYPTION_KEY)
 
 
 # ─── Core Encryption Functions ────────────────────────────────────────────────
+
 
 def encrypt(plaintext: str) -> str:
     """
@@ -116,7 +122,9 @@ def encrypt(plaintext: str) -> str:
         nonce = os.urandom(12)  # 96-bit nonce for GCM
         aesgcm = AESGCM(key)
         ciphertext = aesgcm.encrypt(nonce, plaintext.encode("utf-8"), None)
-        combined = nonce + ciphertext  # nonce + ciphertext+tag (AESGCM appends 16-byte tag)
+        combined = (
+            nonce + ciphertext
+        )  # nonce + ciphertext+tag (AESGCM appends 16-byte tag)
         return "enc:" + base64.urlsafe_b64encode(combined).decode()
     except Exception as exc:
         logger.error(f"Encryption failed: {exc}")
@@ -160,6 +168,7 @@ def hash_value(value: str) -> str:
     of encrypted fields. Uses the encryption key as HMAC secret.
     """
     from app.core.config import settings
+
     key = settings.ENCRYPTION_KEY.encode()
     return hmac.new(key, value.encode(), hashlib.sha256).hexdigest()
 
@@ -176,10 +185,13 @@ def generate_encryption_key() -> str:
 
 def is_encrypted(value: str) -> bool:
     """Check if a value was encrypted by this module."""
-    return isinstance(value, str) and (value.startswith("enc:") or value.startswith("plain:"))
+    return isinstance(value, str) and (
+        value.startswith("enc:") or value.startswith("plain:")
+    )
 
 
 # ─── TOTP MFA Functions ───────────────────────────────────────────────────────
+
 
 def generate_totp_secret() -> str:
     """Generate a new TOTP secret key (base32 encoded)."""
@@ -191,6 +203,7 @@ def generate_totp_secret() -> str:
 def generate_totp_uri(secret: str, email: str) -> str:
     """Generate an otpauth:// URI for QR code generation."""
     from app.core.config import settings
+
     if _PYOTP_AVAILABLE:
         totp = pyotp.TOTP(secret)
         return totp.provisioning_uri(name=email, issuer_name=settings.MFA_ISSUER)

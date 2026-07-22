@@ -25,18 +25,18 @@ from typing import Dict
 # ── Risk Signal Weights ───────────────────────────────────────────────────────
 # Must sum to 100 for a normalised score.
 RISK_WEIGHTS: Dict[str, float] = {
-    "pep":         30.0,   # PEP screening signal
-    "sanctions":   40.0,   # Sanctions screening signal (highest weight)
-    "country":     10.0,   # Country / jurisdiction risk
-    "document":    10.0,   # Document verification signal
-    "transaction": 10.0,   # Transaction behaviour signal
+    "pep": 30.0,  # PEP screening signal
+    "sanctions": 40.0,  # Sanctions screening signal (highest weight)
+    "country": 10.0,  # Country / jurisdiction risk
+    "document": 10.0,  # Document verification signal
+    "transaction": 10.0,  # Transaction behaviour signal
 }
 
 # ── Risk Level Thresholds ─────────────────────────────────────────────────────
 RISK_THRESHOLDS: Dict[str, float] = {
-    "LOW":    30.0,   # overall_score <= 30 → LOW
-    "MEDIUM": 70.0,   # 31 <= overall_score <= 70 → MEDIUM
-    "HIGH":   100.0,  # overall_score > 70 → HIGH
+    "LOW": 30.0,  # overall_score <= 30 → LOW
+    "MEDIUM": 70.0,  # 31 <= overall_score <= 70 → MEDIUM
+    "HIGH": 100.0,  # overall_score > 70 → HIGH
 }
 
 # ── Individual Agent Default Scores ──────────────────────────────────────────
@@ -45,9 +45,9 @@ RISK_THRESHOLDS: Dict[str, float] = {
 DEFAULT_AGENT_SCORE: float = 50.0
 
 # ── Score Interpretation Labels ───────────────────────────────────────────────
-RISK_LEVEL_LOW    = "LOW"
+RISK_LEVEL_LOW = "LOW"
 RISK_LEVEL_MEDIUM = "MEDIUM"
-RISK_LEVEL_HIGH   = "HIGH"
+RISK_LEVEL_HIGH = "HIGH"
 
 
 def get_risk_level(score: float) -> str:

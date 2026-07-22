@@ -26,10 +26,10 @@ logger = logging.getLogger(__name__)
 
 # Monitoring schedule rules (risk_tier → frequency in months)
 MONITORING_FREQUENCY: Dict[str, int] = {
-    "low":      60,   # 5 years
-    "medium":   36,   # 3 years
-    "high":     12,   # 1 year
-    "critical": 6,    # 6 months (extra caution)
+    "low": 60,  # 5 years
+    "medium": 36,  # 3 years
+    "high": 12,  # 1 year
+    "critical": 6,  # 6 months (extra caution)
 }
 
 
@@ -72,20 +72,20 @@ class MonitoringAgent(BaseAgent):
         start_time = time.perf_counter()
         state.logs.append(f"[{self.get_name()}] Creating monitoring schedule...")
 
-        risk_tier  = str(state.risk_tier or "low").lower()
-        frequency  = MONITORING_FREQUENCY.get(risk_tier, MONITORING_FREQUENCY["medium"])
-        today      = date.today()
+        risk_tier = str(state.risk_tier or "low").lower()
+        frequency = MONITORING_FREQUENCY.get(risk_tier, MONITORING_FREQUENCY["medium"])
+        today = date.today()
         # Calculate next review date by adding months
         next_review_date = self._add_months(today, frequency)
 
         schedule = {
-            "customer_id":             state.customer_id,
-            "risk_tier":               risk_tier,
+            "customer_id": state.customer_id,
+            "risk_tier": risk_tier,
             "review_frequency_months": frequency,
-            "last_review_date":        today.isoformat(),
-            "next_review_date":        next_review_date.isoformat(),
-            "status":                  "scheduled",
-            "created_at":              datetime.utcnow().isoformat(),
+            "last_review_date": today.isoformat(),
+            "next_review_date": next_review_date.isoformat(),
+            "status": "scheduled",
+            "created_at": datetime.utcnow().isoformat(),
         }
 
         # ── Persist to DB ─────────────────────────────────────────────────────
@@ -93,9 +93,9 @@ class MonitoringAgent(BaseAgent):
 
         # ── Update state ──────────────────────────────────────────────────────
         state.monitoring_schedule = schedule
-        state.shared_metadata["monitoring_schedule"]      = schedule
-        state.shared_metadata["next_review_date"]         = next_review_date.isoformat()
-        state.shared_metadata["review_frequency_months"]  = frequency
+        state.shared_metadata["monitoring_schedule"] = schedule
+        state.shared_metadata["next_review_date"] = next_review_date.isoformat()
+        state.shared_metadata["review_frequency_months"] = frequency
 
         execution_duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
@@ -120,11 +120,11 @@ class MonitoringAgent(BaseAgent):
             ],
             "errors": [],
             # Metadata
-            "monitoring_schedule":        schedule,
-            "next_review_date":           next_review_date.isoformat(),
-            "review_frequency_months":    frequency,
-            "last_review_date":           today.isoformat(),
-            "execution_duration_ms":      execution_duration_ms,
+            "monitoring_schedule": schedule,
+            "next_review_date": next_review_date.isoformat(),
+            "review_frequency_months": frequency,
+            "last_review_date": today.isoformat(),
+            "execution_duration_ms": execution_duration_ms,
         }
 
     def _persist_schedule(
@@ -136,22 +136,27 @@ class MonitoringAgent(BaseAgent):
     ) -> None:
         """Persists MonitoringSchedule to the database."""
         if not self.db:
-            logger.warning("MonitoringAgent: No DB session — skipping schedule persistence.")
+            logger.warning(
+                "MonitoringAgent: No DB session — skipping schedule persistence."
+            )
             return
         try:
             from app.models.models import MonitoringSchedule
+
             cust_uuid = UUID(state.customer_id)
 
             # Check for existing schedule
-            existing = self.db.query(MonitoringSchedule).filter(
-                MonitoringSchedule.customer_id == cust_uuid
-            ).first()
+            existing = (
+                self.db.query(MonitoringSchedule)
+                .filter(MonitoringSchedule.customer_id == cust_uuid)
+                .first()
+            )
 
             if existing:
                 existing.review_frequency_months = frequency
-                existing.next_review_date        = next_review
-                existing.last_review_date        = last_review
-                existing.status                  = "scheduled"
+                existing.next_review_date = next_review
+                existing.last_review_date = last_review
+                existing.status = "scheduled"
             else:
                 record = MonitoringSchedule(
                     customer_id=cust_uuid,
@@ -163,9 +168,13 @@ class MonitoringAgent(BaseAgent):
                 self.db.add(record)
 
             self.db.commit()
-            logger.info(f"MonitoringAgent: Schedule persisted for customer {state.customer_id}.")
+            logger.info(
+                f"MonitoringAgent: Schedule persisted for customer {state.customer_id}."
+            )
         except Exception as exc:
-            logger.error(f"MonitoringAgent: Failed to persist monitoring schedule: {exc}")
+            logger.error(
+                f"MonitoringAgent: Failed to persist monitoring schedule: {exc}"
+            )
             try:
                 self.db.rollback()
             except Exception:
@@ -175,8 +184,9 @@ class MonitoringAgent(BaseAgent):
     def _add_months(dt: date, months: int) -> date:
         """Adds months to a date, handling month boundary correctly."""
         import calendar
+
         month = dt.month - 1 + months
-        year  = dt.year + month // 12
+        year = dt.year + month // 12
         month = month % 12 + 1
-        day   = min(dt.day, calendar.monthrange(year, month)[1])
+        day = min(dt.day, calendar.monthrange(year, month)[1])
         return date(year, month, day)

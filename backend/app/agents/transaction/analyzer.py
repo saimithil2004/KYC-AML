@@ -10,7 +10,9 @@ from typing import List
 from app.agents.transaction.models import TransactionRecord, PatternResult
 from app.agents.transaction.patterns import TransactionPatternDetectors
 from app.agents.transaction.constants import (
-    RULE_MULTIPLE_PATTERNS, RISK_CRITICAL, MULTIPLE_PATTERNS_COUNT
+    RULE_MULTIPLE_PATTERNS,
+    RISK_CRITICAL,
+    MULTIPLE_PATTERNS_COUNT,
 )
 
 
@@ -23,7 +25,7 @@ class TransactionAnalyzer:
     def analyze(
         transactions: List[TransactionRecord],
         high_risk_countries: List[str],
-        prohibited_countries: List[str]
+        prohibited_countries: List[str],
     ) -> List[PatternResult]:
         """
         Executes all 10 patterns against the list of transactions.
@@ -56,7 +58,9 @@ class TransactionAnalyzer:
         results.append(TransactionPatternDetectors.detect_round_amounts(transactions))
 
         # ── 7. Dormant Reactivation (TX007) ──────────────────────────────────
-        results.append(TransactionPatternDetectors.detect_dormant_reactivation(transactions))
+        results.append(
+            TransactionPatternDetectors.detect_dormant_reactivation(transactions)
+        )
 
         # ── 8. Cash Intensive (TX008) ────────────────────────────────────────
         results.append(TransactionPatternDetectors.detect_cash_intensive(transactions))
@@ -75,7 +79,7 @@ class TransactionAnalyzer:
                     triggered_tx_ids.append(tx_id)
 
         triggered_tx009 = len(triggered_others) >= MULTIPLE_PATTERNS_COUNT
-        
+
         finding = None
         recomm = None
         if triggered_tx009:
@@ -91,9 +95,9 @@ class TransactionAnalyzer:
             finding=finding,
             recommendation=recomm,
             triggered_transaction_ids=triggered_tx_ids if triggered_tx009 else [],
-            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2)
+            execution_time_ms=round((time.perf_counter() - t0) * 1000, 2),
         )
-        
+
         results.append(tx009_result)
 
         return results

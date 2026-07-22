@@ -3,11 +3,13 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+
 class AgentLogger:
     """
     Structured JSON logger for compliance agent executions.
     Ensures logs are formatted as single-line JSON items for ingestion.
     """
+
     @staticmethod
     def log_execution(
         agent_name: str,
@@ -19,7 +21,7 @@ class AgentLogger:
         warnings: List[str] = None,
         errors: List[str] = None,
         risk_score: float = 0.0,
-        summary: str = ""
+        summary: str = "",
     ) -> Dict[str, Any]:
         log_payload = {
             "timestamp": datetime.utcnow().isoformat(),
@@ -33,7 +35,7 @@ class AgentLogger:
             "risk_score": risk_score,
             "warnings": warnings or [],
             "errors": errors or [],
-            "summary": summary
+            "summary": summary,
         }
         logger = logging.getLogger(f"app.agents.{agent_name}")
         logger.info(json.dumps(log_payload))

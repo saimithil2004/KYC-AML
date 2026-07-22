@@ -24,16 +24,24 @@ from app.agents.base.agent_state import AgentState
 from app.agents.base.exceptions import AgentValidationError
 from app.agents.company.agent import CompanyAgent
 from app.agents.company.constants import (
-    STATUS_COMPLETE, STATUS_INCOMPLETE, STATUS_FAILED, STATUS_SKIPPED,
-    RISK_HIGH, RISK_MEDIUM, RISK_LOW,
-    RULE_MISSING_REG_NUMBER, RULE_NO_DIRECTORS, RULE_NO_UBOS,
-    RULE_NO_COMPANY_DOCS, RULE_DISSOLVED_COMPANY,
+    STATUS_COMPLETE,
+    STATUS_INCOMPLETE,
+    STATUS_FAILED,
+    STATUS_SKIPPED,
+    RISK_HIGH,
+    RISK_MEDIUM,
+    RISK_LOW,
+    RULE_MISSING_REG_NUMBER,
+    RULE_NO_DIRECTORS,
+    RULE_NO_UBOS,
+    RULE_NO_COMPANY_DOCS,
+    RULE_DISSOLVED_COMPANY,
 )
-
 
 # ─────────────────────────────────────────────────────────────
 # Fixtures / payload builders
 # ─────────────────────────────────────────────────────────────
+
 
 def individual_customer():
     return {
@@ -98,6 +106,7 @@ def complete_state(customer=None, companies=None, dirs=None, ubos=None, docs=Non
 # ─────────────────────────────────────────────────────────────
 # Test Group A — Individual Customer (SKIP path)
 # ─────────────────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_individual_customer_returns_success():
@@ -165,6 +174,7 @@ async def test_individual_customer_no_warnings():
 # ─────────────────────────────────────────────────────────────
 # Test Group B — Business Customer (full verification path)
 # ─────────────────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_business_complete_profile_returns_complete():
@@ -246,7 +256,9 @@ async def test_business_no_ubos_triggers_edd_recommendation():
     result = await agent.execute(state)
 
     assert RULE_NO_UBOS in result.metadata["audit_trail"]["failed_rules"]
-    assert any("EDD" in r or "Enhanced Due Diligence" in r for r in result.recommendations)
+    assert any(
+        "EDD" in r or "Enhanced Due Diligence" in r for r in result.recommendations
+    )
 
 
 @pytest.mark.anyio
@@ -257,7 +269,9 @@ async def test_business_no_company_documents_recommendation():
     result = await agent.execute(state)
 
     assert RULE_NO_COMPANY_DOCS in result.metadata["audit_trail"]["failed_rules"]
-    assert any("Incorporation" in r or "incorporation" in r for r in result.recommendations)
+    assert any(
+        "Incorporation" in r or "incorporation" in r for r in result.recommendations
+    )
 
 
 @pytest.mark.anyio
@@ -284,12 +298,13 @@ async def test_business_all_missing_returns_failed():
 # Test Group C — Validation Errors
 # ─────────────────────────────────────────────────────────────
 
+
 @pytest.mark.anyio
 async def test_missing_customer_type_raises_validation_error():
     state = AgentState(
         customer_id="err-001",
         case_id="case-err",
-        customer={"first_name": "Bob"},    # no customer_type
+        customer={"first_name": "Bob"},  # no customer_type
     )
     agent = CompanyAgent()
     with pytest.raises(AgentValidationError) as exc_info:

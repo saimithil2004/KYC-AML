@@ -41,16 +41,20 @@ from app.agents.risk.config import (
     DEFAULT_AGENT_SCORE,
     get_risk_level,
 )
-from app.agents.risk.models import ContributingFactor, RiskScoringResult, RiskScoringAuditTrail
+from app.agents.risk.models import (
+    ContributingFactor,
+    RiskScoringResult,
+    RiskScoringAuditTrail,
+)
 
 logger = logging.getLogger(__name__)
 
 # Map signal names → the shared_metadata key that holds the agent score
 _SIGNAL_KEY_MAP: Dict[str, str] = {
-    "pep":         "pep_score",
-    "sanctions":   "sanctions_score",
-    "country":     "country_score",
-    "document":    "document_score",
+    "pep": "pep_score",
+    "sanctions": "sanctions_score",
+    "country": "country_score",
+    "document": "document_score",
     "transaction": "transaction_score",
 }
 
@@ -142,9 +146,15 @@ class RiskScoringAgent(BaseAgent):
         risk_level = get_risk_level(overall_score)
 
         # ── Step 4: Build explanation ─────────────────────────────────────────
-        top_factors = sorted(contributing_factors, key=lambda f: f.contribution, reverse=True)
-        top_signal_names = [f.signal.upper() for f in top_factors[:3] if f.contribution > 0]
-        explanation = self._build_explanation(overall_score, risk_level, top_signal_names)
+        top_factors = sorted(
+            contributing_factors, key=lambda f: f.contribution, reverse=True
+        )
+        top_signal_names = [
+            f.signal.upper() for f in top_factors[:3] if f.contribution > 0
+        ]
+        explanation = self._build_explanation(
+            overall_score, risk_level, top_signal_names
+        )
 
         # ── Step 5: Build result & audit trail ───────────────────────────────
         execution_duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
@@ -168,17 +178,21 @@ class RiskScoringAgent(BaseAgent):
         )
 
         # ── Step 6: Persist to DB ─────────────────────────────────────────────
-        self._persist_risk_score(state, overall_score, risk_level, contributing_factors, agent_scores)
+        self._persist_risk_score(
+            state, overall_score, risk_level, contributing_factors, agent_scores
+        )
 
         # ── Step 7: Update AgentState ─────────────────────────────────────────
         state.overall_score = overall_score
         state.risk_tier = risk_level.lower()
-        state.shared_metadata["risk_scoring_result"]    = result.model_dump()
-        state.shared_metadata["risk_scoring_audit"]     = audit.model_dump()
-        state.shared_metadata["overall_score"]          = overall_score
-        state.shared_metadata["risk_level"]             = risk_level
-        state.shared_metadata["contributing_factors"]   = [f.model_dump() for f in contributing_factors]
-        state.shared_metadata["risk_explanation"]       = explanation
+        state.shared_metadata["risk_scoring_result"] = result.model_dump()
+        state.shared_metadata["risk_scoring_audit"] = audit.model_dump()
+        state.shared_metadata["overall_score"] = overall_score
+        state.shared_metadata["risk_level"] = risk_level
+        state.shared_metadata["contributing_factors"] = [
+            f.model_dump() for f in contributing_factors
+        ]
+        state.shared_metadata["risk_explanation"] = explanation
 
         state.logs.append(
             f"RiskScoringAgent: overall_score={overall_score}, risk_level={risk_level}. "
@@ -205,7 +219,9 @@ class RiskScoringAgent(BaseAgent):
         }
 
     # ── Private Helpers ───────────────────────────────────────────────────────
-    def _explain_factor(self, signal: str, agent_score: float, contribution: float) -> str:
+    def _explain_factor(
+        self, signal: str, agent_score: float, contribution: float
+    ) -> str:
         """Generates a human-readable explanation for a single contributing factor."""
         if contribution <= 0:
             return f"{signal.upper()} check: All clear (score {agent_score:.0f}/100). No risk contribution."
@@ -215,7 +231,9 @@ class RiskScoringAgent(BaseAgent):
             f"→ {pct}% of maximum weight triggered ({contribution:.1f} risk points)."
         )
 
-    def _build_explanation(self, score: float, level: str, top_signals: List[str]) -> str:
+    def _build_explanation(
+        self, score: float, level: str, top_signals: List[str]
+    ) -> str:
         """Constructs a concise overall narrative for the risk score."""
         if not top_signals:
             return (
@@ -241,7 +259,9 @@ class RiskScoringAgent(BaseAgent):
                 "Schedule standard Enhanced Due Diligence review.",
                 "Increase transaction monitoring frequency.",
             ]
-        return ["Continue standard monitoring. Schedule next review per monitoring schedule."]
+        return [
+            "Continue standard monitoring. Schedule next review per monitoring schedule."
+        ]
 
     def _persist_risk_score(
         self,
@@ -253,10 +273,13 @@ class RiskScoringAgent(BaseAgent):
     ) -> None:
         """Persists RiskScore record to the database if a DB session is available."""
         if not self.db:
-            logger.warning("RiskScoringAgent: No DB session — skipping risk_score persistence.")
+            logger.warning(
+                "RiskScoringAgent: No DB session — skipping risk_score persistence."
+            )
             return
         try:
             from app.models.models import RiskScore, KYCProfile
+
             cust_uuid = UUID(state.customer_id)
             breakdown = {
                 f.signal: {
@@ -275,15 +298,19 @@ class RiskScoringAgent(BaseAgent):
             self.db.add(record)
 
             # Sync KYC profile risk category
-            kyc = self.db.query(KYCProfile).filter(
-                KYCProfile.customer_id == cust_uuid
-            ).first()
+            kyc = (
+                self.db.query(KYCProfile)
+                .filter(KYCProfile.customer_id == cust_uuid)
+                .first()
+            )
             if kyc:
                 kyc.risk_category = risk_level.lower()
                 kyc.screening_completed_at = datetime.utcnow()
 
             self.db.commit()
-            logger.info(f"RiskScoringAgent: Risk score persisted for customer {state.customer_id}.")
+            logger.info(
+                f"RiskScoringAgent: Risk score persisted for customer {state.customer_id}."
+            )
         except Exception as exc:
             logger.error(f"RiskScoringAgent: Failed to persist risk score: {exc}")
             try:

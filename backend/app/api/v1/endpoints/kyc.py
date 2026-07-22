@@ -10,19 +10,27 @@ from app.core.celery_app import celery_app
 
 router = APIRouter()
 
-@router.post("/", response_model=KYCProfileResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=KYCProfileResponse, status_code=status.HTTP_201_CREATED
+)
 async def submit_kyc(
     kyc_in: KYCProfileCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Customer).where(Customer.id == kyc_in.customer_id))
     customer = result.scalars().first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
-        
-    if customer.user_id != current_user.id and current_user.role not in ["compliance_officer", "admin"]:
-        raise HTTPException(status_code=403, detail="Not authorized to edit this profile.")
+
+    if customer.user_id != current_user.id and current_user.role not in [
+        "compliance_officer",
+        "admin",
+    ]:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to edit this profile."
+        )
 
     # Update Customer core details
     names = kyc_in.full_name.split(" ", 1)
@@ -33,10 +41,15 @@ async def submit_kyc(
     customer.street_address = kyc_in.address
     customer.status = "pending_verification"
 
-    res_existing = await db.execute(select(KYCProfile).where(KYCProfile.customer_id == customer.id))
+    res_existing = await db.execute(
+        select(KYCProfile).where(KYCProfile.customer_id == customer.id)
+    )
     existing = res_existing.scalars().first()
     if existing:
-        raise HTTPException(status_code=409, detail="KYC profile already exists for this customer. Use PUT to update it.")
+        raise HTTPException(
+            status_code=409,
+            detail="KYC profile already exists for this customer. Use PUT to update it.",
+        )
 
     kyc_profile = KYCProfile(
         customer_id=customer.id,
@@ -50,7 +63,7 @@ async def submit_kyc(
         occupation=kyc_in.occupation,
         annual_income_range=kyc_in.annual_income_range,
         expected_activity_desc=kyc_in.expected_activity_desc,
-        risk_category=kyc_in.risk_category or "low"
+        risk_category=kyc_in.risk_category or "low",
     )
     db.add(kyc_profile)
     await db.commit()
@@ -58,8 +71,7 @@ async def submit_kyc(
 
     # Trigger background pipeline
     celery_app.send_task(
-        "tasks.kyc_tasks.run_aml_kyc_pipeline",
-        args=[str(customer.id)]
+        "tasks.kyc_tasks.run_aml_kyc_pipeline", args=[str(customer.id)]
     )
 
     response_data = KYCProfileResponse(
@@ -81,24 +93,34 @@ async def submit_kyc(
     )
     return response_data
 
+
 @router.get("/{customer_id}", response_model=KYCProfileResponse)
 async def get_kyc(
     customer_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Customer).where(Customer.id == customer_id))
     customer = result.scalars().first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
-        
-    if customer.user_id != current_user.id and current_user.role not in ["compliance_officer", "admin"]:
-        raise HTTPException(status_code=403, detail="Not authorized to access this KYC profile.")
 
-    res_kyc = await db.execute(select(KYCProfile).where(KYCProfile.customer_id == customer_id))
+    if customer.user_id != current_user.id and current_user.role not in [
+        "compliance_officer",
+        "admin",
+    ]:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this KYC profile."
+        )
+
+    res_kyc = await db.execute(
+        select(KYCProfile).where(KYCProfile.customer_id == customer_id)
+    )
     kyc = res_kyc.scalars().first()
     if not kyc:
-        raise HTTPException(status_code=404, detail="KYC profile declarations not found.")
+        raise HTTPException(
+            status_code=404, detail="KYC profile declarations not found."
+        )
 
     return KYCProfileResponse(
         id=kyc.id,
@@ -115,22 +137,30 @@ async def get_kyc(
         updated_at=kyc.updated_at,
     )
 
+
 @router.put("/{customer_id}", response_model=KYCProfileResponse)
 async def update_kyc(
     customer_id: UUID,
     kyc_in: KYCProfileUpdate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Customer).where(Customer.id == customer_id))
     customer = result.scalars().first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
-        
-    if customer.user_id != current_user.id and current_user.role not in ["compliance_officer", "admin"]:
-        raise HTTPException(status_code=403, detail="Not authorized to edit this profile.")
 
-    res_kyc = await db.execute(select(KYCProfile).where(KYCProfile.customer_id == customer_id))
+    if customer.user_id != current_user.id and current_user.role not in [
+        "compliance_officer",
+        "admin",
+    ]:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to edit this profile."
+        )
+
+    res_kyc = await db.execute(
+        select(KYCProfile).where(KYCProfile.customer_id == customer_id)
+    )
     kyc = res_kyc.scalars().first()
     if not kyc:
         raise HTTPException(status_code=404, detail="KYC profile not found.")
@@ -158,35 +188,46 @@ async def update_kyc(
         customer.street_address = kyc_in.address
         kyc.address = kyc_in.address
         changed = True
-    if kyc_in.source_of_funds is not None and kyc_in.source_of_funds != kyc.source_of_funds:
+    if (
+        kyc_in.source_of_funds is not None
+        and kyc_in.source_of_funds != kyc.source_of_funds
+    ):
         kyc.source_of_funds = kyc_in.source_of_funds
         changed = True
-    if kyc_in.source_of_wealth is not None and kyc_in.source_of_wealth != kyc.source_of_wealth:
+    if (
+        kyc_in.source_of_wealth is not None
+        and kyc_in.source_of_wealth != kyc.source_of_wealth
+    ):
         kyc.source_of_wealth = kyc_in.source_of_wealth
         changed = True
     if kyc_in.occupation is not None and kyc_in.occupation != kyc.occupation:
         kyc.occupation = kyc_in.occupation
         changed = True
-    if kyc_in.annual_income_range is not None and kyc_in.annual_income_range != kyc.annual_income_range:
+    if (
+        kyc_in.annual_income_range is not None
+        and kyc_in.annual_income_range != kyc.annual_income_range
+    ):
         kyc.annual_income_range = kyc_in.annual_income_range
         changed = True
-    if kyc_in.expected_activity_desc is not None and kyc_in.expected_activity_desc != kyc.expected_activity_desc:
+    if (
+        kyc_in.expected_activity_desc is not None
+        and kyc_in.expected_activity_desc != kyc.expected_activity_desc
+    ):
         kyc.expected_activity_desc = kyc_in.expected_activity_desc
         changed = True
     if kyc_in.risk_category is not None and kyc_in.risk_category != kyc.risk_category:
         kyc.risk_category = kyc_in.risk_category
         changed = True
-    
+
     if changed:
         customer.status = "pending_verification"
-    
+
     await db.commit()
     await db.refresh(kyc)
 
     if changed:
         celery_app.send_task(
-            "tasks.kyc_tasks.run_aml_kyc_pipeline",
-            args=[str(customer.id)]
+            "tasks.kyc_tasks.run_aml_kyc_pipeline", args=[str(customer.id)]
         )
 
     return KYCProfileResponse(

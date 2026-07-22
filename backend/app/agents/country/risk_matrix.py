@@ -8,7 +8,12 @@ Stateless country risk lookup matrix that maps countries to their classification
 from typing import Optional
 
 from app.agents.country.provider import BaseCountryRiskProvider
-from app.agents.country.constants import RISK_LOW, RISK_MEDIUM, RISK_HIGH, RISK_PROHIBITED
+from app.agents.country.constants import (
+    RISK_LOW,
+    RISK_MEDIUM,
+    RISK_HIGH,
+    RISK_PROHIBITED,
+)
 
 
 class RiskMatrix:

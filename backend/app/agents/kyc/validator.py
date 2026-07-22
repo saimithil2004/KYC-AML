@@ -1,6 +1,7 @@
 from typing import Dict, Any, List, Tuple
 from app.agents.kyc.constants import *
 
+
 class KycValidator:
     """
     Validates individual fields and calculates individual validation score components.
@@ -8,7 +9,9 @@ class KycValidator:
     """
 
     @staticmethod
-    def validate_personal_info(customer: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
+    def validate_personal_info(
+        customer: Dict[str, Any],
+    ) -> Tuple[float, List[str], List[str]]:
         """Validates Name, DOB, Gender, Nationality. Max 20 points."""
         score = 0.0
         missing = []
@@ -41,7 +44,9 @@ class KycValidator:
         return score, missing, passed
 
     @staticmethod
-    def validate_address(customer: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
+    def validate_address(
+        customer: Dict[str, Any],
+    ) -> Tuple[float, List[str], List[str]]:
         """Validates Street, City, Postal Code, Country. Max 20 points."""
         score = 0.0
         missing = []
@@ -74,7 +79,9 @@ class KycValidator:
         return score, missing, passed
 
     @staticmethod
-    def validate_identity_documents(documents: List[Dict[str, Any]]) -> Tuple[float, List[str], List[str]]:
+    def validate_identity_documents(
+        documents: List[Dict[str, Any]],
+    ) -> Tuple[float, List[str], List[str]]:
         """Validates presence of passport, national_id, or driving_licence. Max 20 points."""
         passed_docs = []
         for doc in documents:
@@ -87,28 +94,36 @@ class KycValidator:
         return 0.0, ["passport_or_national_id_or_driving_licence"], []
 
     @staticmethod
-    def validate_occupation(kyc_profile: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
+    def validate_occupation(
+        kyc_profile: Dict[str, Any],
+    ) -> Tuple[float, List[str], List[str]]:
         """Validates Occupation. Max 10 points."""
         if kyc_profile.get("occupation"):
             return 10.0, [], ["Occupation"]
         return 0.0, ["occupation"], []
 
     @staticmethod
-    def validate_source_of_funds(kyc_profile: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
+    def validate_source_of_funds(
+        kyc_profile: Dict[str, Any],
+    ) -> Tuple[float, List[str], List[str]]:
         """Validates Source of Funds. Max 15 points."""
         if kyc_profile.get("source_of_funds"):
             return 15.0, [], ["Source of Funds"]
         return 0.0, ["source_of_funds"], []
 
     @staticmethod
-    def validate_source_of_wealth(kyc_profile: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
+    def validate_source_of_wealth(
+        kyc_profile: Dict[str, Any],
+    ) -> Tuple[float, List[str], List[str]]:
         """Validates Source of Wealth. Max 10 points."""
         if kyc_profile.get("source_of_wealth"):
             return 10.0, [], ["Source of Wealth"]
         return 0.0, ["source_of_wealth"], []
 
     @staticmethod
-    def validate_tax_residency(kyc_profile: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
+    def validate_tax_residency(
+        kyc_profile: Dict[str, Any],
+    ) -> Tuple[float, List[str], List[str]]:
         """Validates Tax Residency. Max 5 points."""
         if kyc_profile.get("tax_residency"):
             return 5.0, [], ["Tax Residency"]

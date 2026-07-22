@@ -26,8 +26,14 @@ from app.agents.country.agent import CountryRiskAgent
 from app.agents.country.models import CountryRiskProfile
 from app.agents.country.provider import BaseCountryRiskProvider
 from app.agents.country.constants import (
-    RISK_LOW, RISK_MEDIUM, RISK_HIGH, RISK_PROHIBITED, RISK_CRITICAL,
-    COUNTRY_STATUS_CLEAR, COUNTRY_STATUS_WARNING, COUNTRY_STATUS_SUSPENDED
+    RISK_LOW,
+    RISK_MEDIUM,
+    RISK_HIGH,
+    RISK_PROHIBITED,
+    RISK_CRITICAL,
+    COUNTRY_STATUS_CLEAR,
+    COUNTRY_STATUS_WARNING,
+    COUNTRY_STATUS_SUSPENDED,
 )
 
 
@@ -42,7 +48,9 @@ class FailingCountryProvider(BaseCountryRiskProvider):
 
 
 # ─── Payload Helpers ──────────────────────────────────────────────────────────
-def individual_customer(nationality: str = "United Kingdom", residence: str = "UK") -> Dict[str, Any]:
+def individual_customer(
+    nationality: str = "United Kingdom", residence: str = "UK"
+) -> Dict[str, Any]:
     return {
         "first_name": "John",
         "last_name": "Smith",
@@ -64,9 +72,13 @@ def make_state(
     customer_profile: Optional[Dict] = None,
     companies: Optional[List] = None,
     transactions: Optional[List] = None,
-    use_empty_customer: bool = False
+    use_empty_customer: bool = False,
 ) -> AgentState:
-    resolved_customer = {} if use_empty_customer else (customer if customer is not None else individual_customer())
+    resolved_customer = (
+        {}
+        if use_empty_customer
+        else (customer if customer is not None else individual_customer())
+    )
     return AgentState(
         customer_id="test-cust-456",
         case_id="case-country-456",
@@ -75,13 +87,14 @@ def make_state(
         ubos=ubos or [],
         customer_profile=customer_profile or {},
         companies=companies or [],
-        transactions=transactions or []
+        transactions=transactions or [],
     )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Test Cases
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_individual_low_risk_is_clear():
@@ -102,18 +115,20 @@ async def test_business_medium_risk():
     """Business with Panama operating country -> Score 90, RISK_MEDIUM."""
     state = make_state(
         customer=business_customer(),
-        companies=[{
-            "name": "Acme Ltd",
-            "country": "UK",
-            "operating_countries": ["Panama", "United States"]
-        }],
-        directors=[{"nationality": "Germany"}]
+        companies=[
+            {
+                "name": "Acme Ltd",
+                "country": "UK",
+                "operating_countries": ["Panama", "United States"],
+            }
+        ],
+        directors=[{"nationality": "Germany"}],
     )
     agent = CountryRiskAgent()
     result = await agent.execute(state)
 
     assert result.success is True
-    assert result.metadata["country_score"] == 90.0 # 100 - 10 (Panama)
+    assert result.metadata["country_score"] == 90.0  # 100 - 10 (Panama)
     assert result.risk_level == RISK_MEDIUM
     assert "Panama" in result.metadata["countries_evaluated"]
     assert "United Kingdom" in result.metadata["countries_evaluated"]
@@ -126,7 +141,7 @@ async def test_high_risk_country_association():
     agent = CountryRiskAgent()
     result = await agent.execute(state)
 
-    assert result.metadata["country_score"] == 70.0 # 100 - 30 (Russia)
+    assert result.metadata["country_score"] == 70.0  # 100 - 30 (Russia)
     assert result.risk_level == RISK_HIGH
     assert "Russia" in result.metadata["high_risk_countries"]
     assert "CR003" in result.metadata["rules_triggered"]
@@ -151,12 +166,12 @@ async def test_multiple_high_risk_countries():
     """Syria + Russia -> Deduct 60 points -> Score 40 -> triggers CR005."""
     state = make_state(
         customer=individual_customer("Syria", "UK"),
-        directors=[{"nationality": "Russia"}]
+        directors=[{"nationality": "Russia"}],
     )
     agent = CountryRiskAgent()
     result = await agent.execute(state)
 
-    assert result.metadata["country_score"] == 40.0 # 100 - 30 - 30
+    assert result.metadata["country_score"] == 40.0  # 100 - 30 - 30
     assert result.risk_level == RISK_HIGH
     assert "CR005" in result.metadata["rules_triggered"]
     assert any("multiple high risk" in w.lower() for w in result.warnings)
@@ -167,7 +182,7 @@ async def test_duplicate_country_removal():
     """Customer residence and director nationality both UK/GBR -> evaluated once."""
     state = make_state(
         customer=individual_customer("United Kingdom", "GBR"),
-        directors=[{"nationality": "GB"}, {"nationality": "United Kingdom"}]
+        directors=[{"nationality": "GB"}, {"nationality": "United Kingdom"}],
     )
     agent = CountryRiskAgent()
     result = await agent.execute(state)
@@ -202,7 +217,7 @@ async def test_unknown_country_warning():
 @pytest.mark.anyio
 async def test_missing_country_throws_validation_error():
     """If state has zero countries -> throws AgentValidationError."""
-    state = make_state(use_empty_customer=True) # customer={}
+    state = make_state(use_empty_customer=True)  # customer={}
     agent = CountryRiskAgent()
     with pytest.raises(AgentValidationError) as exc_info:
         await agent.execute(state)
@@ -226,11 +241,13 @@ async def test_contextual_transaction_destination_rule():
     """High-risk country (Russia) in transaction destination triggers CR006."""
     state = make_state(
         customer=individual_customer("UK", "UK"),
-        transactions=[{
-            "origin_country": "UK",
-            "destination_country": "Russia",
-            "bank_country": "UK"
-        }]
+        transactions=[
+            {
+                "origin_country": "UK",
+                "destination_country": "Russia",
+                "bank_country": "UK",
+            }
+        ],
     )
     agent = CountryRiskAgent()
     result = await agent.execute(state)
@@ -244,7 +261,7 @@ async def test_contextual_company_registration_rule():
     """High-risk country (Syria) in company registration triggers CR007."""
     state = make_state(
         customer=business_customer(),
-        companies=[{"name": "Syrian Shipping", "country": "Syria"}]
+        companies=[{"name": "Syrian Shipping", "country": "Syria"}],
     )
     agent = CountryRiskAgent()
     result = await agent.execute(state)

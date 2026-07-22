@@ -28,10 +28,15 @@ router = APIRouter()
 
 def _get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
-    return forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+    return (
+        forwarded.split(",")[0].strip()
+        if forwarded
+        else (request.client.host if request.client else "unknown")
+    )
 
 
 # ── POST /screening/{customer_id}/run ─────────────────────────────────────────
+
 
 @router.post("/{customer_id}/run", response_model=RescreeningResponse)
 async def run_screening(
@@ -67,6 +72,7 @@ async def run_screening(
     # Run screening (synchronous call — ScreeningService handles async internally)
     try:
         from app.services.screening_service import ScreeningService
+
         screening_result = await ScreeningService.run_screening_async(str(customer_id))
 
         # Audit: log result
@@ -105,6 +111,7 @@ async def run_screening(
 
 # ── GET /screening/{customer_id}/status ───────────────────────────────────────
 
+
 @router.get("/{customer_id}/status")
 async def get_screening_status(
     customer_id: UUID,
@@ -139,23 +146,32 @@ async def get_screening_status(
 
     return {
         "customer_id": str(customer_id),
-        "risk_score": {
-            "overall_score": float(risk.overall_score),
-            "risk_tier": risk.risk_tier,
-            "breakdown": risk.breakdown,
-            "assessed_at": risk.created_at.isoformat(),
-        } if risk else None,
-        "latest_case": {
-            "id": str(case.id),
-            "status": case.status,
-            "priority": case.priority,
-            "sar_filed": case.sar_filed,
-            "created_at": case.created_at.isoformat(),
-        } if case else None,
+        "risk_score": (
+            {
+                "overall_score": float(risk.overall_score),
+                "risk_tier": risk.risk_tier,
+                "breakdown": risk.breakdown,
+                "assessed_at": risk.created_at.isoformat(),
+            }
+            if risk
+            else None
+        ),
+        "latest_case": (
+            {
+                "id": str(case.id),
+                "status": case.status,
+                "priority": case.priority,
+                "sar_filed": case.sar_filed,
+                "created_at": case.created_at.isoformat(),
+            }
+            if case
+            else None
+        ),
     }
 
 
 # ── GET /screening/{customer_id}/history ─────────────────────────────────────
+
 
 @router.get("/{customer_id}/history")
 async def get_screening_history(

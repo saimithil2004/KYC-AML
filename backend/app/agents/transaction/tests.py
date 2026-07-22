@@ -24,12 +24,14 @@ from app.agents.base.exceptions import AgentValidationError
 from app.agents.transaction.agent import TransactionAgent
 from app.agents.transaction.constants import *
 
-
 # ─────────────────────────────────────────────────────────────
 # Payload Helpers
 # ─────────────────────────────────────────────────────────────
 
-def mock_customer(customer_type="individual", nationality="United Kingdom", country="United Kingdom"):
+
+def mock_customer(
+    customer_type="individual", nationality="United Kingdom", country="United Kingdom"
+):
     return {
         "first_name": "John",
         "last_name": "Doe",
@@ -60,7 +62,7 @@ def clean_txs() -> list:
             "direction": "OUTFLOW",
             "timestamp": (base_time - timedelta(days=3)).isoformat(),
             "transaction_type": "CARD",
-        }
+        },
     ]
 
 
@@ -70,13 +72,14 @@ def build_state(customer=None, txs=None, shared_metadata=None) -> AgentState:
         case_id="case-100",
         customer=customer if customer is not None else mock_customer(),
         transactions=txs if txs is not None else [],
-        shared_metadata=shared_metadata or {}
+        shared_metadata=shared_metadata or {},
     )
 
 
 # ─────────────────────────────────────────────────────────────
 # Tests
 # ─────────────────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_normal_customer_clear():
@@ -112,7 +115,7 @@ async def test_structuring_triggered():
             "direction": "INFLOW",
             "timestamp": (base_time + timedelta(hours=2)).isoformat(),
             "transaction_type": "TRANSFER",
-        }
+        },
     ]
     state = build_state(txs=txs)
     agent = TransactionAgent()
@@ -130,14 +133,16 @@ async def test_velocity_triggered():
     base_time = datetime.utcnow()
     txs = []
     for i in range(12):
-        txs.append({
-            "transaction_id": f"tx-vel-{i}",
-            "amount": 50.0,
-            "currency": "GBP",
-            "direction": "OUTFLOW",
-            "timestamp": (base_time + timedelta(minutes=i * 10)).isoformat(),
-            "transaction_type": "CARD"
-        })
+        txs.append(
+            {
+                "transaction_id": f"tx-vel-{i}",
+                "amount": 50.0,
+                "currency": "GBP",
+                "direction": "OUTFLOW",
+                "timestamp": (base_time + timedelta(minutes=i * 10)).isoformat(),
+                "transaction_type": "CARD",
+            }
+        )
     state = build_state(txs=txs)
     agent = TransactionAgent()
     result = await agent.execute(state)
@@ -149,38 +154,42 @@ async def test_velocity_triggered():
 @pytest.mark.anyio
 async def test_large_transaction_triggered():
     """4. Large Transaction: Single transfer > 50,000 GBP."""
-    txs = [{
-        "transaction_id": "tx-large",
-        "amount": 55000.0,
-        "currency": "GBP",
-        "direction": "OUTFLOW",
-        "timestamp": datetime.utcnow().isoformat(),
-        "transaction_type": "TRANSFER"
-    }]
+    txs = [
+        {
+            "transaction_id": "tx-large",
+            "amount": 55000.0,
+            "currency": "GBP",
+            "direction": "OUTFLOW",
+            "timestamp": datetime.utcnow().isoformat(),
+            "transaction_type": "TRANSFER",
+        }
+    ]
     state = build_state(txs=txs)
     agent = TransactionAgent()
     result = await agent.execute(state)
 
     assert result.metadata["transaction_status"] == TRANSACTION_STATUS_ALERT
-    assert "TX003" in result.metadata["rules_triggered"] or "TX002" in result.metadata["rules_triggered"]
+    assert (
+        "TX003" in result.metadata["rules_triggered"]
+        or "TX002" in result.metadata["rules_triggered"]
+    )
 
 
 @pytest.mark.anyio
 async def test_high_risk_country_transfers():
     """5. High Risk Country: Dest/origin country in metadata's high risk list."""
-    txs = [{
-        "transaction_id": "tx-hr-cty",
-        "amount": 1000.0,
-        "currency": "GBP",
-        "direction": "OUTFLOW",
-        "timestamp": datetime.utcnow().isoformat(),
-        "transaction_type": "TRANSFER",
-        "destination_country": "Syria"
-    }]
-    shared_meta = {
-        "high_risk_countries": ["Syria"],
-        "prohibited_countries": []
-    }
+    txs = [
+        {
+            "transaction_id": "tx-hr-cty",
+            "amount": 1000.0,
+            "currency": "GBP",
+            "direction": "OUTFLOW",
+            "timestamp": datetime.utcnow().isoformat(),
+            "transaction_type": "TRANSFER",
+            "destination_country": "Syria",
+        }
+    ]
+    shared_meta = {"high_risk_countries": ["Syria"], "prohibited_countries": []}
     state = build_state(txs=txs, shared_metadata=shared_meta)
     agent = TransactionAgent()
     result = await agent.execute(state)
@@ -200,7 +209,7 @@ async def test_dormant_reactivation():
             "currency": "GBP",
             "direction": "INFLOW",
             "timestamp": (base_time - timedelta(days=100)).isoformat(),
-            "transaction_type": "TRANSFER"
+            "transaction_type": "TRANSFER",
         },
         {
             "transaction_id": "tx-reactivate",
@@ -208,8 +217,8 @@ async def test_dormant_reactivation():
             "currency": "GBP",
             "direction": "OUTFLOW",
             "timestamp": base_time.isoformat(),
-            "transaction_type": "TRANSFER"
-        }
+            "transaction_type": "TRANSFER",
+        },
     ]
     state = build_state(txs=txs)
     agent = TransactionAgent()
@@ -229,7 +238,7 @@ async def test_cash_intensive_behaviour():
             "currency": "GBP",
             "direction": "INFLOW",
             "timestamp": datetime.utcnow().isoformat(),
-            "transaction_type": "CASH_DEPOSIT"
+            "transaction_type": "CASH_DEPOSIT",
         },
         {
             "transaction_id": "tx-cash-2",
@@ -237,7 +246,7 @@ async def test_cash_intensive_behaviour():
             "currency": "GBP",
             "direction": "INFLOW",
             "timestamp": datetime.utcnow().isoformat(),
-            "transaction_type": "CASH_DEPOSIT"
+            "transaction_type": "CASH_DEPOSIT",
         },
         {
             "transaction_id": "tx-cash-3",
@@ -245,8 +254,8 @@ async def test_cash_intensive_behaviour():
             "currency": "GBP",
             "direction": "INFLOW",
             "timestamp": datetime.utcnow().isoformat(),
-            "transaction_type": "CASH_DEPOSIT"
-        }
+            "transaction_type": "CASH_DEPOSIT",
+        },
     ]
     state = build_state(txs=txs)
     agent = TransactionAgent()
@@ -268,7 +277,7 @@ async def test_rapid_in_rapid_out():
             "currency": "GBP",
             "direction": "INFLOW",
             "timestamp": base_time.isoformat(),
-            "transaction_type": "TRANSFER"
+            "transaction_type": "TRANSFER",
         },
         {
             "transaction_id": "tx-out",
@@ -277,8 +286,8 @@ async def test_rapid_in_rapid_out():
             "currency": "GBP",
             "direction": "OUTFLOW",
             "timestamp": (base_time + timedelta(hours=4)).isoformat(),
-            "transaction_type": "TRANSFER"
-        }
+            "transaction_type": "TRANSFER",
+        },
     ]
     state = build_state(txs=txs)
     agent = TransactionAgent()
@@ -298,7 +307,7 @@ async def test_round_amount_detection():
             "currency": "GBP",
             "direction": "INFLOW",
             "timestamp": datetime.utcnow().isoformat(),
-            "transaction_type": "TRANSFER"
+            "transaction_type": "TRANSFER",
         },
         {
             "transaction_id": "tx-r-2",
@@ -306,7 +315,7 @@ async def test_round_amount_detection():
             "currency": "GBP",
             "direction": "OUTFLOW",
             "timestamp": datetime.utcnow().isoformat(),
-            "transaction_type": "TRANSFER"
+            "transaction_type": "TRANSFER",
         },
         {
             "transaction_id": "tx-r-3",
@@ -314,8 +323,8 @@ async def test_round_amount_detection():
             "currency": "GBP",
             "direction": "INFLOW",
             "timestamp": datetime.utcnow().isoformat(),
-            "transaction_type": "TRANSFER"
-        }
+            "transaction_type": "TRANSFER",
+        },
     ]
     state = build_state(txs=txs)
     agent = TransactionAgent()
@@ -336,7 +345,7 @@ async def test_multiple_suspicious_patterns():
             "currency": "GBP",
             "direction": "INFLOW",
             "timestamp": base_time.isoformat(),
-            "transaction_type": "TRANSFER"
+            "transaction_type": "TRANSFER",
         },
         # Round amount (1)
         {
@@ -345,7 +354,7 @@ async def test_multiple_suspicious_patterns():
             "currency": "GBP",
             "direction": "OUTFLOW",
             "timestamp": base_time.isoformat(),
-            "transaction_type": "TRANSFER"
+            "transaction_type": "TRANSFER",
         },
         # Round amount (2)
         {
@@ -354,7 +363,7 @@ async def test_multiple_suspicious_patterns():
             "currency": "GBP",
             "direction": "OUTFLOW",
             "timestamp": base_time.isoformat(),
-            "transaction_type": "TRANSFER"
+            "transaction_type": "TRANSFER",
         },
         # Round amount (3)
         {
@@ -363,7 +372,7 @@ async def test_multiple_suspicious_patterns():
             "currency": "GBP",
             "direction": "OUTFLOW",
             "timestamp": base_time.isoformat(),
-            "transaction_type": "TRANSFER"
+            "transaction_type": "TRANSFER",
         },
         # Structuring check (just below threshold)
         {
@@ -372,7 +381,7 @@ async def test_multiple_suspicious_patterns():
             "currency": "GBP",
             "direction": "INFLOW",
             "timestamp": base_time.isoformat(),
-            "transaction_type": "TRANSFER"
+            "transaction_type": "TRANSFER",
         },
         {
             "transaction_id": "tx-p6",
@@ -380,8 +389,8 @@ async def test_multiple_suspicious_patterns():
             "currency": "GBP",
             "direction": "INFLOW",
             "timestamp": (base_time + timedelta(hours=1)).isoformat(),
-            "transaction_type": "TRANSFER"
-        }
+            "transaction_type": "TRANSFER",
+        },
     ]
     state = build_state(txs=txs)
     agent = TransactionAgent()
@@ -415,7 +424,7 @@ async def test_invalid_transaction():
             "currency": "GBP",
             "direction": "INFLOW",
             "timestamp": datetime.utcnow().isoformat(),
-            "transaction_type": "TRANSFER"
+            "transaction_type": "TRANSFER",
         },
         # Invalid: Bad currency format
         {
@@ -424,7 +433,7 @@ async def test_invalid_transaction():
             "currency": "INVALID_CURRENCY",
             "direction": "INFLOW",
             "timestamp": datetime.utcnow().isoformat(),
-            "transaction_type": "TRANSFER"
+            "transaction_type": "TRANSFER",
         },
         # Valid transaction
         {
@@ -433,8 +442,8 @@ async def test_invalid_transaction():
             "currency": "GBP",
             "direction": "INFLOW",
             "timestamp": datetime.utcnow().isoformat(),
-            "transaction_type": "TRANSFER"
-        }
+            "transaction_type": "TRANSFER",
+        },
     ]
     state = build_state(txs=txs)
     agent = TransactionAgent()

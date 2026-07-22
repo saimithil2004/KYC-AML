@@ -3,6 +3,7 @@ from typing import List, Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from uuid import UUID
 
+
 # AUTHENTICATION
 class UserRegister(BaseModel):
     email: EmailStr
@@ -17,10 +18,12 @@ class UserRegister(BaseModel):
             raise ValueError(f"role must be one of: {', '.join(sorted(allowed))}")
         return value
 
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
     mfa_code: Optional[str] = None
+
 
 class UserResponse(BaseModel):
     id: UUID
@@ -34,11 +37,13 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
     user: UserResponse
+
 
 # CORPORATE STRUCTURES
 class DirectorCreate(BaseModel):
@@ -48,6 +53,7 @@ class DirectorCreate(BaseModel):
     nationality: Optional[str] = None
     appointment_date: Optional[date] = None
 
+
 class UboCreate(BaseModel):
     first_name: str
     last_name: str
@@ -55,6 +61,7 @@ class UboCreate(BaseModel):
     nationality: Optional[str] = None
     ownership_percentage: float = Field(..., ge=0.0, le=100.0)
     control_type: str
+
 
 class CompanyCreate(BaseModel):
     company_name: str
@@ -64,6 +71,7 @@ class CompanyCreate(BaseModel):
     country_of_incorporation: str
     incorporation_date: Optional[date] = None
     sic_code: Optional[str] = None
+
 
 # CUSTOMERS
 class CustomerCreate(BaseModel):
@@ -77,7 +85,7 @@ class CustomerCreate(BaseModel):
     city: Optional[str] = None
     postal_code: Optional[str] = None
     country: Optional[str] = None
-    
+
     # Corporate payloads
     company: Optional[CompanyCreate] = None
     directors: Optional[List[DirectorCreate]] = []
@@ -90,6 +98,7 @@ class CustomerCreate(BaseModel):
         if value not in allowed:
             raise ValueError("customer_type must be individual or corporate")
         return value
+
 
 class CustomerUpdate(BaseModel):
     customer_type: Optional[str] = None
@@ -114,6 +123,7 @@ class CustomerUpdate(BaseModel):
             raise ValueError("customer_type must be individual or corporate")
         return value
 
+
 class CustomerResponse(BaseModel):
     id: UUID
     customer_type: str
@@ -131,6 +141,7 @@ class CustomerResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 # KYC PROFILE
 class KYCProfileCreate(BaseModel):
@@ -157,6 +168,7 @@ class KYCProfileCreate(BaseModel):
             raise ValueError("risk_category must be low, medium, or high")
         return value
 
+
 class KYCProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     dob: Optional[date] = None
@@ -180,6 +192,7 @@ class KYCProfileUpdate(BaseModel):
             raise ValueError("risk_category must be low, medium, or high")
         return value
 
+
 class KYCProfileResponse(BaseModel):
     id: UUID
     customer_id: UUID
@@ -200,6 +213,7 @@ class KYCProfileResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 # DOCUMENTS
 class DocumentResponse(BaseModel):
     id: UUID
@@ -215,6 +229,7 @@ class DocumentResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 # TRANSACTIONS
 class TransactionCreate(BaseModel):
     sender_account_number: str
@@ -229,10 +244,12 @@ class TransactionCreate(BaseModel):
     reference: Optional[str] = None
     channel: Optional[str] = None
 
+
 class TransactionUpdate(BaseModel):
     status: Optional[str] = None
     reference: Optional[str] = None
     completed_at: Optional[datetime] = None
+
 
 class TransactionResponse(BaseModel):
     id: UUID
@@ -252,11 +269,13 @@ class TransactionResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class PaginatedTransactions(BaseModel):
     total: int
     page: int
     page_size: int
     items: List[TransactionResponse]
+
 
 # ALERTS
 class AlertCreate(BaseModel):
@@ -267,9 +286,11 @@ class AlertCreate(BaseModel):
     status: str = "open"
     alert_metadata: Optional[dict] = None
 
+
 class AlertUpdate(BaseModel):
     status: Optional[str] = None
     alert_metadata: Optional[dict] = None
+
 
 class AlertResponse(BaseModel):
     id: UUID
@@ -285,11 +306,13 @@ class AlertResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class PaginatedAlerts(BaseModel):
     total: int
     page: int
     page_size: int
     items: List[AlertResponse]
+
 
 # CASES
 class CaseCreate(BaseModel):
@@ -299,6 +322,7 @@ class CaseCreate(BaseModel):
     investigation_notes: Optional[str] = None
     assigned_to: Optional[UUID] = None
 
+
 class CaseUpdate(BaseModel):
     priority: Optional[str] = None
     status: Optional[str] = None
@@ -306,11 +330,13 @@ class CaseUpdate(BaseModel):
     assigned_to: Optional[UUID] = None
     sar_filed: Optional[bool] = None
 
+
 class CaseDecision(BaseModel):
     decision: str  # APPROVE, REJECT, EDD_REQUIRED, MANUAL_REVIEW
     notes: str
     reason: Optional[str] = None
     sar_filed: Optional[bool] = False
+
 
 class CaseResponse(BaseModel):
     id: UUID
@@ -326,11 +352,13 @@ class CaseResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class PaginatedCases(BaseModel):
     total: int
     page: int
     page_size: int
     items: List[CaseResponse]
+
 
 # AUDIT LOGS
 class AuditLogResponse(BaseModel):
@@ -347,11 +375,13 @@ class AuditLogResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class PaginatedAuditLogs(BaseModel):
     total: int
     page: int
     page_size: int
     items: List[AuditLogResponse]
+
 
 # RE-SCREENING
 class RescreeningResponse(BaseModel):
@@ -363,7 +393,9 @@ class RescreeningResponse(BaseModel):
     decision: Optional[str] = None
     message: str
 
+
 # ─── Phase 10: Regulations & Policy Management ───────────────────────────────
+
 
 class RegulationCreate(BaseModel):
     title: str = Field(..., max_length=255)
@@ -376,6 +408,7 @@ class RegulationCreate(BaseModel):
     version: Optional[str] = "1.0.0"
     effective_date: Optional[date] = None
     expiry_date: Optional[date] = None
+
 
 class RegulationUpdate(BaseModel):
     title: Optional[str] = None
@@ -390,6 +423,7 @@ class RegulationUpdate(BaseModel):
     expiry_date: Optional[date] = None
     status: Optional[str] = None  # active, archived, draft, pending_review
     extracted_text: Optional[str] = None
+
 
 class RegulationResponse(BaseModel):
     id: UUID
@@ -413,16 +447,20 @@ class RegulationResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class PaginatedRegulations(BaseModel):
     total: int
     page: int
     page_size: int
     items: List[RegulationResponse]
 
+
 class PolicyRuleCreate(BaseModel):
     regulation_id: UUID
     rule_name: str = Field(..., max_length=255)
-    rule_type: str = Field(..., max_length=100)  # threshold, block, edd, aml, kyc, internal
+    rule_type: str = Field(
+        ..., max_length=100
+    )  # threshold, block, edd, aml, kyc, internal
     conditions: dict
     severity: str = "medium"
     description: Optional[str] = None
@@ -430,6 +468,7 @@ class PolicyRuleCreate(BaseModel):
     threshold: Optional[float] = None
     country: Optional[str] = None
     version: Optional[str] = "1.0.0"
+
 
 class PolicyRuleUpdate(BaseModel):
     rule_name: Optional[str] = None
@@ -442,6 +481,7 @@ class PolicyRuleUpdate(BaseModel):
     threshold: Optional[float] = None
     country: Optional[str] = None
     version: Optional[str] = None
+
 
 class PolicyRuleResponse(BaseModel):
     id: UUID
@@ -461,11 +501,13 @@ class PolicyRuleResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class PaginatedPolicyRules(BaseModel):
     total: int
     page: int
     page_size: int
     items: List[PolicyRuleResponse]
+
 
 class RegulationVersionResponse(BaseModel):
     id: UUID
@@ -481,12 +523,14 @@ class RegulationVersionResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class RollbackRequest(BaseModel):
     version_id: UUID
     reason: str
 
 
 # ─── Phase 11: Continuous Monitoring & Re-Screening ─────────────────────────
+
 
 class MonitoringScheduleResponse(BaseModel):
     id: UUID
@@ -501,11 +545,13 @@ class MonitoringScheduleResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class PaginatedMonitoringSchedules(BaseModel):
     total: int
     page: int
     page_size: int
     items: List[MonitoringScheduleResponse]
+
 
 class MonitoringJobResponse(BaseModel):
     id: UUID
@@ -523,11 +569,13 @@ class MonitoringJobResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class PaginatedMonitoringJobs(BaseModel):
     total: int
     page: int
     page_size: int
     items: List[MonitoringJobResponse]
+
 
 class MonitoringHistoryResponse(BaseModel):
     id: UUID
@@ -551,11 +599,13 @@ class MonitoringHistoryResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class PaginatedMonitoringHistory(BaseModel):
     total: int
     page: int
     page_size: int
     items: List[MonitoringHistoryResponse]
+
 
 class MonitoringStatistics(BaseModel):
     customers_under_monitoring: int
@@ -566,6 +616,7 @@ class MonitoringStatistics(BaseModel):
     upcoming_reviews: int
     risk_changes_today: int
     completed_reviews: int
+
 
 class RiskDeltaResponse(BaseModel):
     customer_id: UUID
@@ -578,19 +629,24 @@ class RiskDeltaResponse(BaseModel):
 
 # --- PHASE 12: INVESTIGATION WORKSPACE SCHEMAS ---
 
+
 class InvestigationUpdate(BaseModel):
     status: Optional[str] = None
     risk_level: Optional[str] = None
+
 
 class AssignmentCreate(BaseModel):
     assigned_to: UUID
     role: str = "investigator"  # investigator, supervisor
 
+
 class CaseNoteCreate(BaseModel):
     note_text: str
 
+
 class CaseNoteUpdate(BaseModel):
     note_text: str
+
 
 class SARCreate(BaseModel):
     narrative: str
@@ -598,11 +654,14 @@ class SARCreate(BaseModel):
     risk_indicators: List[str]
     recommendation: str
 
+
 class SARUpdate(BaseModel):
     status: str  # submitted, approved, rejected, archived
 
+
 class CaseActionRequest(BaseModel):
     action: str  # close, reopen, escalate, return, edd_required
+
 
 class EvidenceResponse(BaseModel):
     id: UUID
@@ -618,6 +677,7 @@ class EvidenceResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class CaseNoteResponse(BaseModel):
     id: UUID
     investigation_id: UUID
@@ -628,6 +688,7 @@ class CaseNoteResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class SARResponse(BaseModel):
     id: UUID
@@ -645,6 +706,7 @@ class SARResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class TimelineEventResponse(BaseModel):
     id: UUID
     investigation_id: UUID
@@ -657,6 +719,7 @@ class TimelineEventResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class AssignmentResponse(BaseModel):
     id: UUID
     investigation_id: UUID
@@ -667,6 +730,7 @@ class AssignmentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class InvestigationResponse(BaseModel):
     id: UUID
@@ -683,11 +747,13 @@ class InvestigationResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class PaginatedInvestigations(BaseModel):
     total: int
     page: int
     page_size: int
     items: List[InvestigationResponse]
+
 
 class InvestigationWorkspacePayload(BaseModel):
     investigation: InvestigationResponse
@@ -704,10 +770,12 @@ class InvestigationWorkspacePayload(BaseModel):
     timeline: List[TimelineEventResponse]
     assignments: List[AssignmentResponse]
 
+
 class InvestigatorWorkloadSchema(BaseModel):
     user_id: str
     email: str
     active_cases: int
+
 
 class InvestigationDashboardMetrics(BaseModel):
     open_investigations: int
@@ -721,10 +789,12 @@ class InvestigationDashboardMetrics(BaseModel):
 
 # --- PHASE 13: REPORTING & BI SCHEMAS ---
 
+
 class ReportTemplateCreate(BaseModel):
     name: str
     description: Optional[str] = None
     config: dict
+
 
 class ReportTemplateResponse(BaseModel):
     id: UUID
@@ -738,11 +808,13 @@ class ReportTemplateResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class ReportCreate(BaseModel):
     name: str
     template_id: Optional[UUID] = None
     format: str = "pdf"
     filters: dict = {}
+
 
 class ReportResponse(BaseModel):
     id: UUID
@@ -758,10 +830,12 @@ class ReportResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class ScheduledReportCreate(BaseModel):
     name: str
     template_id: UUID
     cron_expression: str
+
 
 class ScheduledReportResponse(BaseModel):
     id: UUID
@@ -776,9 +850,11 @@ class ScheduledReportResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class ScheduledReportUpdate(BaseModel):
     status: Optional[str] = None
     cron_expression: Optional[str] = None
+
 
 class DashboardWidgetCreate(BaseModel):
     widget_type: str
@@ -788,6 +864,7 @@ class DashboardWidgetCreate(BaseModel):
     position_y: int = 0
     width: int = 3
     height: int = 2
+
 
 class DashboardWidgetResponse(BaseModel):
     id: UUID
@@ -803,11 +880,13 @@ class DashboardWidgetResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class DashboardLayoutCreate(BaseModel):
     name: str
     is_default: bool = False
     config: dict = {}
     widgets: List[DashboardWidgetCreate] = []
+
 
 class DashboardLayoutResponse(BaseModel):
     id: UUID
@@ -822,8 +901,8 @@ class DashboardLayoutResponse(BaseModel):
         from_attributes = True
 
 
-
 # ─── PHASE 14 — EXTERNAL INTEGRATIONS & NOTIFICATIONS ────────────────────────
+
 
 class IntegrationSettingCreate(BaseModel):
     provider_name: str
@@ -835,6 +914,7 @@ class IntegrationSettingCreate(BaseModel):
     timeout: int = 30
     configuration: dict = {}
 
+
 class IntegrationSettingUpdate(BaseModel):
     base_url: Optional[str] = None
     api_key: Optional[str] = None
@@ -842,6 +922,7 @@ class IntegrationSettingUpdate(BaseModel):
     enabled: Optional[bool] = None
     timeout: Optional[int] = None
     configuration: Optional[dict] = None
+
 
 class IntegrationSettingResponse(BaseModel):
     id: UUID
@@ -856,6 +937,7 @@ class IntegrationSettingResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class SyncHistoryResponse(BaseModel):
     id: UUID
@@ -873,6 +955,7 @@ class SyncHistoryResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class NotificationTemplateCreate(BaseModel):
     name: str
     event_type: str
@@ -881,6 +964,7 @@ class NotificationTemplateCreate(BaseModel):
     body: str
     variables: List[str] = []
     active: bool = True
+
 
 class NotificationTemplateResponse(BaseModel):
     id: UUID
@@ -895,6 +979,7 @@ class NotificationTemplateResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class NotificationResponse(BaseModel):
     id: UUID
@@ -912,6 +997,7 @@ class NotificationResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class WebhookEndpointCreate(BaseModel):
     name: str
     url: str
@@ -920,12 +1006,14 @@ class WebhookEndpointCreate(BaseModel):
     events: List[str] = []
     retries: int = 3
 
+
 class WebhookEndpointUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
     enabled: Optional[bool] = None
     events: Optional[List[str]] = None
     retries: Optional[int] = None
+
 
 class WebhookEndpointResponse(BaseModel):
     id: UUID
@@ -938,6 +1026,7 @@ class WebhookEndpointResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class WebhookLogResponse(BaseModel):
     id: UUID
@@ -953,9 +1042,11 @@ class WebhookLogResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class ManualSyncRequest(BaseModel):
     provider: str
     sync_type: str = "manual"
+
 
 class SendNotificationRequest(BaseModel):
     event_type: str
@@ -970,22 +1061,27 @@ class SendNotificationRequest(BaseModel):
 # PHASE 15 — ENTERPRISE SECURITY & OBSERVABILITY SCHEMAS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class MFAEnrollResponse(BaseModel):
     secret: str
     qr_code_base64: str
     backup_codes: List[str]
     otpauth_uri: str
 
+
 class MFAVerifyRequest(BaseModel):
     code: str
+
 
 class MFASetupResponse(BaseModel):
     success: bool
     message: str
 
+
 class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str
+
 
 class LoginHistoryResponse(BaseModel):
     id: UUID
@@ -1000,6 +1096,7 @@ class LoginHistoryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class BackupRecordResponse(BaseModel):
     id: UUID
@@ -1017,6 +1114,7 @@ class BackupRecordResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class SystemMetricResponse(BaseModel):
     metric_name: str
     metric_value: float
@@ -1026,10 +1124,10 @@ class SystemMetricResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class HealthResponse(BaseModel):
     status: str
     latency_ms: float
     version: str
     timestamp: datetime
     details: Optional[dict] = None
-

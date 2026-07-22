@@ -17,14 +17,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.schema_helpers import ensure_phase13_schema
-from app.dependencies.auth import get_current_user, verify_compliance_officer, verify_admin
-from app.models.models import User, Report, ReportTemplate, ScheduledReport, ReportExecution
+from app.dependencies.auth import (
+    get_current_user,
+    verify_compliance_officer,
+    verify_admin,
+)
+from app.models.models import (
+    User,
+    Report,
+    ReportTemplate,
+    ScheduledReport,
+    ReportExecution,
+)
 from app.services.report_service import ReportService
 from app.services.audit_service import AuditService
 from app.schemas.schemas import (
-    ReportTemplateCreate, ReportTemplateResponse,
-    ReportCreate, ReportResponse,
-    ScheduledReportCreate, ScheduledReportResponse, ScheduledReportUpdate
+    ReportTemplateCreate,
+    ReportTemplateResponse,
+    ReportCreate,
+    ReportResponse,
+    ScheduledReportCreate,
+    ScheduledReportResponse,
+    ScheduledReportUpdate,
 )
 
 router = APIRouter()
@@ -35,7 +49,7 @@ async def list_reports(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """List compliance generated reports."""
     await ensure_phase13_schema(db)
@@ -52,7 +66,7 @@ async def list_reports(
 async def generate_report(
     payload: ReportCreate,
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Instantiate report compilation and save metadata and local file."""
     await ensure_phase13_schema(db)
@@ -62,9 +76,11 @@ async def generate_report(
     data = await ReportService.compile_report_data(db, report_type, payload.filters)
 
     # 2. Setup storage path
-    reports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "generated_reports")
+    reports_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "generated_reports"
+    )
     os.makedirs(reports_dir, exist_ok=True)
-    
+
     file_id = uuid4()
     filename = f"{payload.name.lower().replace(' ', '_')}_{file_id}.{payload.format}"
     filepath = os.path.join(reports_dir, filename)
@@ -91,7 +107,7 @@ async def generate_report(
         status="completed",
         format=payload.format,
         file_path=filepath,
-        filters=payload.filters
+        filters=payload.filters,
     )
     db.add(rep)
 
@@ -101,7 +117,7 @@ async def generate_report(
         action="REPORT_GENERATED",
         entity_name="report",
         entity_id=rep.id,
-        new_values={"name": payload.name, "format": payload.format}
+        new_values={"name": payload.name, "format": payload.format},
     )
     await db.commit()
     await db.refresh(rep)
@@ -114,7 +130,7 @@ async def get_report(
     id: UUID,
     download: bool = False,
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Retrieve report metadata or trigger file download."""
     await ensure_phase13_schema(db)
@@ -127,7 +143,7 @@ async def get_report(
         return FileResponse(
             rep.file_path,
             media_type="application/octet-stream",
-            filename=os.path.basename(rep.file_path)
+            filename=os.path.basename(rep.file_path),
         )
 
     return rep
@@ -137,7 +153,7 @@ async def get_report(
 async def delete_report(
     id: UUID,
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Remove report record and purge local document file."""
     await ensure_phase13_schema(db)
@@ -159,7 +175,7 @@ async def delete_report(
         user_id=current_user.id,
         action="REPORT_DELETED",
         entity_name="report",
-        entity_id=id
+        entity_id=id,
     )
     await db.commit()
     return {"status": "success", "message": "Report file and database record deleted."}
@@ -167,14 +183,17 @@ async def delete_report(
 
 # ─── Report Templates CRUD ───
 
+
 @router.get("/templates", response_model=List[ReportTemplateResponse])
 async def list_templates(
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """List custom report builder templates."""
     await ensure_phase13_schema(db)
-    res = await db.execute(select(ReportTemplate).order_by(desc(ReportTemplate.created_at)))
+    res = await db.execute(
+        select(ReportTemplate).order_by(desc(ReportTemplate.created_at))
+    )
     return res.scalars().all()
 
 
@@ -182,7 +201,7 @@ async def list_templates(
 async def create_template(
     payload: ReportTemplateCreate,
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Save custom report builder templates."""
     await ensure_phase13_schema(db)
@@ -191,7 +210,7 @@ async def create_template(
         name=payload.name,
         description=payload.description,
         config=payload.config,
-        created_by=current_user.id
+        created_by=current_user.id,
     )
     db.add(template)
 
@@ -201,7 +220,7 @@ async def create_template(
         action="TEMPLATE_SAVED",
         entity_name="report_template",
         entity_id=template.id,
-        new_values={"name": payload.name}
+        new_values={"name": payload.name},
     )
     await db.commit()
     await db.refresh(template)
@@ -213,7 +232,7 @@ async def update_template(
     id: UUID,
     payload: ReportTemplateCreate,
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Edit report template details."""
     await ensure_phase13_schema(db)
@@ -233,7 +252,7 @@ async def update_template(
         action="TEMPLATE_MODIFIED",
         entity_name="report_template",
         entity_id=id,
-        new_values={"name": payload.name}
+        new_values={"name": payload.name},
     )
     await db.commit()
     await db.refresh(template)
@@ -244,7 +263,7 @@ async def update_template(
 async def delete_template(
     id: UUID,
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Remove saved report template."""
     await ensure_phase13_schema(db)
@@ -259,7 +278,7 @@ async def delete_template(
         user_id=current_user.id,
         action="TEMPLATE_DELETED",
         entity_name="report_template",
-        entity_id=id
+        entity_id=id,
     )
     await db.commit()
     return {"status": "success", "message": "Template deleted."}
@@ -267,14 +286,17 @@ async def delete_template(
 
 # ─── Report Schedules CRUD ───
 
+
 @router.get("/schedules", response_model=List[ScheduledReportResponse])
 async def list_schedules(
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """List scheduled reports."""
     await ensure_phase13_schema(db)
-    res = await db.execute(select(ScheduledReport).order_by(desc(ScheduledReport.created_at)))
+    res = await db.execute(
+        select(ScheduledReport).order_by(desc(ScheduledReport.created_at))
+    )
     return res.scalars().all()
 
 
@@ -282,11 +304,11 @@ async def list_schedules(
 async def create_schedule(
     payload: ScheduledReportCreate,
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Register daily/weekly/monthly report schedules."""
     await ensure_phase13_schema(db)
-    
+
     # Calculate initial next_run based on cron_expression
     # daily, weekly, monthly
     next_run = datetime.utcnow()
@@ -307,7 +329,7 @@ async def create_schedule(
         cron_expression=payload.cron_expression,
         next_run=next_run,
         status="active",
-        created_by=current_user.id
+        created_by=current_user.id,
     )
     db.add(schedule)
 
@@ -317,7 +339,7 @@ async def create_schedule(
         action="SCHEDULE_CREATED",
         entity_name="scheduled_report",
         entity_id=schedule.id,
-        new_values={"name": payload.name, "cron": payload.cron_expression}
+        new_values={"name": payload.name, "cron": payload.cron_expression},
     )
     await db.commit()
     await db.refresh(schedule)
@@ -329,7 +351,7 @@ async def update_schedule(
     id: UUID,
     payload: ScheduledReportUpdate,
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Pause, resume, or edit scheduler details."""
     await ensure_phase13_schema(db)
@@ -349,7 +371,7 @@ async def update_schedule(
         action="SCHEDULE_MODIFIED",
         entity_name="scheduled_report",
         entity_id=id,
-        new_values={"status": payload.status}
+        new_values={"status": payload.status},
     )
     await db.commit()
     await db.refresh(schedule)
@@ -360,7 +382,7 @@ async def update_schedule(
 async def delete_schedule(
     id: UUID,
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Delete scheduled report."""
     await ensure_phase13_schema(db)
@@ -375,7 +397,7 @@ async def delete_schedule(
         user_id=current_user.id,
         action="SCHEDULE_DELETED",
         entity_name="scheduled_report",
-        entity_id=id
+        entity_id=id,
     )
     await db.commit()
     return {"status": "success", "message": "Scheduled report removed."}
@@ -383,16 +405,19 @@ async def delete_schedule(
 
 # ─── Instant Export Endpoints ───
 
+
 @router.post("/export/pdf")
 async def export_pdf(
     filters: Dict[str, Any],
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Generate and return styled PDF export bytes directly."""
     report_type = filters.get("report_type", "customer_summary")
     data = await ReportService.compile_report_data(db, report_type, filters)
-    pdf_bytes = ReportService.generate_pdf_bytes(data, f"Compliance Audit: {report_type.title()}", filters)
+    pdf_bytes = ReportService.generate_pdf_bytes(
+        data, f"Compliance Audit: {report_type.title()}", filters
+    )
 
     await AuditService.log(
         db=db,
@@ -400,7 +425,7 @@ async def export_pdf(
         action="REPORT_EXPORTED",
         entity_name="report",
         entity_id=uuid4(),
-        new_values={"format": "pdf", "type": report_type}
+        new_values={"format": "pdf", "type": report_type},
     )
     await db.commit()
 
@@ -411,12 +436,14 @@ async def export_pdf(
 async def export_excel(
     filters: Dict[str, Any],
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Generate and return Excel bytes directly."""
     report_type = filters.get("report_type", "customer_summary")
     data = await ReportService.compile_report_data(db, report_type, filters)
-    xlsx_bytes = ReportService.generate_excel_bytes(data, f"Excel Export: {report_type}")
+    xlsx_bytes = ReportService.generate_excel_bytes(
+        data, f"Excel Export: {report_type}"
+    )
 
     await AuditService.log(
         db=db,
@@ -424,14 +451,14 @@ async def export_excel(
         action="REPORT_EXPORTED",
         entity_name="report",
         entity_id=uuid4(),
-        new_values={"format": "excel", "type": report_type}
+        new_values={"format": "excel", "type": report_type},
     )
     await db.commit()
 
     return Response(
         content=xlsx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={report_type}.xlsx"}
+        headers={"Content-Disposition": f"attachment; filename={report_type}.xlsx"},
     )
 
 
@@ -439,7 +466,7 @@ async def export_excel(
 async def export_csv(
     filters: Dict[str, Any],
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Generate and return CSV bytes directly."""
     report_type = filters.get("report_type", "customer_summary")
@@ -452,12 +479,12 @@ async def export_csv(
         action="REPORT_EXPORTED",
         entity_name="report",
         entity_id=uuid4(),
-        new_values={"format": "csv", "type": report_type}
+        new_values={"format": "csv", "type": report_type},
     )
     await db.commit()
 
     return Response(
         content=csv_bytes,
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={report_type}.csv"}
+        headers={"Content-Disposition": f"attachment; filename={report_type}.csv"},
     )

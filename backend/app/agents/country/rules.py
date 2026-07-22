@@ -9,11 +9,22 @@ from typing import Dict, Any, List, Set
 
 from app.agents.country.risk_matrix import RiskMatrix
 from app.agents.country.constants import (
-    RULE_LOW_RISK_COUNTRY, RULE_MEDIUM_RISK_COUNTRY, RULE_HIGH_RISK_COUNTRY,
-    RULE_PROHIBITED_COUNTRY, RULE_MULTIPLE_HIGH_RISK, RULE_HIGH_RISK_TX_DEST,
-    RULE_HIGH_RISK_CO_REG, RULE_UNKNOWN_COUNTRY,
-    RISK_LOW, RISK_MEDIUM, RISK_HIGH, RISK_PROHIBITED, RISK_CRITICAL,
-    COUNTRY_STATUS_CLEAR, COUNTRY_STATUS_WARNING, COUNTRY_STATUS_SUSPENDED
+    RULE_LOW_RISK_COUNTRY,
+    RULE_MEDIUM_RISK_COUNTRY,
+    RULE_HIGH_RISK_COUNTRY,
+    RULE_PROHIBITED_COUNTRY,
+    RULE_MULTIPLE_HIGH_RISK,
+    RULE_HIGH_RISK_TX_DEST,
+    RULE_HIGH_RISK_CO_REG,
+    RULE_UNKNOWN_COUNTRY,
+    RISK_LOW,
+    RISK_MEDIUM,
+    RISK_HIGH,
+    RISK_PROHIBITED,
+    RISK_CRITICAL,
+    COUNTRY_STATUS_CLEAR,
+    COUNTRY_STATUS_WARNING,
+    COUNTRY_STATUS_SUSPENDED,
 )
 
 
@@ -24,8 +35,7 @@ class CountryRulesEngine:
 
     @staticmethod
     def evaluate(
-        collected_countries: Dict[str, Set[str]],
-        risk_matrix: RiskMatrix
+        collected_countries: Dict[str, Set[str]], risk_matrix: RiskMatrix
     ) -> Dict[str, Any]:
         """
         Runs the country risk rules engine.
@@ -62,7 +72,9 @@ class CountryRulesEngine:
                     f"[{RULE_UNKNOWN_COUNTRY}] Unknown country alias/code detected: '{raw_name}' "
                     f"under source(s) {sorted(list(sources))}."
                 )
-                recommendations.append(f"Correct country details for '{raw_name}' in the CRM.")
+                recommendations.append(
+                    f"Correct country details for '{raw_name}' in the CRM."
+                )
                 continue
 
             # Standard standard country
@@ -72,20 +84,30 @@ class CountryRulesEngine:
             # CR001: Low Risk Country
             if risk_level == RISK_LOW:
                 rules_triggered.add(RULE_LOW_RISK_COUNTRY)
-                findings.append(f"[{RULE_LOW_RISK_COUNTRY}] standard screening for '{country}' (Low Risk).")
+                findings.append(
+                    f"[{RULE_LOW_RISK_COUNTRY}] standard screening for '{country}' (Low Risk)."
+                )
 
             # CR002: Medium Risk Country
             elif risk_level == RISK_MEDIUM:
                 rules_triggered.add(RULE_MEDIUM_RISK_COUNTRY)
-                findings.append(f"[{RULE_MEDIUM_RISK_COUNTRY}] '{country}' is classified as Medium Risk.")
-                recommendations.append(f"Apply standard ongoing monitoring for relationships with '{country}'.")
+                findings.append(
+                    f"[{RULE_MEDIUM_RISK_COUNTRY}] '{country}' is classified as Medium Risk."
+                )
+                recommendations.append(
+                    f"Apply standard ongoing monitoring for relationships with '{country}'."
+                )
 
             # CR003: High Risk Country
             elif risk_level == RISK_HIGH:
                 high_risk_countries.add(country)
                 rules_triggered.add(RULE_HIGH_RISK_COUNTRY)
-                warnings.append(f"[{RULE_HIGH_RISK_COUNTRY}] Association with High Risk country: '{country}'.")
-                recommendations.append(f"Conduct Enhanced Due Diligence (EDD) due to High Risk country '{country}'.")
+                warnings.append(
+                    f"[{RULE_HIGH_RISK_COUNTRY}] Association with High Risk country: '{country}'."
+                )
+                recommendations.append(
+                    f"Conduct Enhanced Due Diligence (EDD) due to High Risk country '{country}'."
+                )
 
                 # Contextual rules:
                 # CR006: High-Risk Transaction Destination
@@ -94,7 +116,9 @@ class CountryRulesEngine:
                     warnings.append(
                         f"[{RULE_HIGH_RISK_TX_DEST}] High Risk country '{country}' is a transaction destination."
                     )
-                    recommendations.append(f"Escalate and review transactions routed to '{country}'.")
+                    recommendations.append(
+                        f"Escalate and review transactions routed to '{country}'."
+                    )
 
                 # CR007: High-Risk Company Registration Country
                 if "company_registration" in sources:
@@ -107,8 +131,12 @@ class CountryRulesEngine:
             elif risk_level == RISK_PROHIBITED:
                 prohibited_countries.add(country)
                 rules_triggered.add(RULE_PROHIBITED_COUNTRY)
-                findings.append(f"[{RULE_PROHIBITED_COUNTRY}] CRITICAL: Association with PROHIBITED country '{country}'.")
-                warnings.append(f"[{RULE_PROHIBITED_COUNTRY}] Prohibited jurisdiction: '{country}'.")
+                findings.append(
+                    f"[{RULE_PROHIBITED_COUNTRY}] CRITICAL: Association with PROHIBITED country '{country}'."
+                )
+                warnings.append(
+                    f"[{RULE_PROHIBITED_COUNTRY}] Prohibited jurisdiction: '{country}'."
+                )
                 recommendations.append(
                     f"Escalate to Compliance Officer immediately for relationship review regarding prohibited '{country}'."
                 )
@@ -119,7 +147,9 @@ class CountryRulesEngine:
             warnings.append(
                 f"[{RULE_MULTIPLE_HIGH_RISK}] Multiple High Risk country associations: {sorted(list(high_risk_countries))}."
             )
-            recommendations.append("Trigger Manual Compliance Review due to multiple high-risk jurisdictions.")
+            recommendations.append(
+                "Trigger Manual Compliance Review due to multiple high-risk jurisdictions."
+            )
 
         # ─── Status Determination ─────────────────────────────────────────────
         if prohibited_countries:
@@ -134,22 +164,29 @@ class CountryRulesEngine:
             agg_risk_level = RISK_CRITICAL
         elif high_risk_countries:
             agg_risk_level = RISK_HIGH
-        elif unknown_countries or collected_countries and any(
-            risk_matrix.get_risk_level(c) == RISK_MEDIUM for c in evaluated_countries
+        elif (
+            unknown_countries
+            or collected_countries
+            and any(
+                risk_matrix.get_risk_level(c) == RISK_MEDIUM
+                for c in evaluated_countries
+            )
         ):
             agg_risk_level = RISK_MEDIUM
         else:
             agg_risk_level = RISK_LOW
 
         return {
-            "country_status":       country_status,
-            "risk_level":           agg_risk_level,
-            "evaluated_countries":  sorted(list(evaluated_countries)),
-            "high_risk_countries":  sorted(list(high_risk_countries)),
+            "country_status": country_status,
+            "risk_level": agg_risk_level,
+            "evaluated_countries": sorted(list(evaluated_countries)),
+            "high_risk_countries": sorted(list(high_risk_countries)),
             "prohibited_countries": sorted(list(prohibited_countries)),
-            "unknown_countries":    sorted(list(unknown_countries)),
-            "findings":             findings,
-            "warnings":             warnings,
-            "recommendations":      list(dict.fromkeys(recommendations)), # dedupe preserving order
-            "rules_triggered":      sorted(list(rules_triggered)),
+            "unknown_countries": sorted(list(unknown_countries)),
+            "findings": findings,
+            "warnings": warnings,
+            "recommendations": list(
+                dict.fromkeys(recommendations)
+            ),  # dedupe preserving order
+            "rules_triggered": sorted(list(rules_triggered)),
         }

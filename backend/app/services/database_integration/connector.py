@@ -9,10 +9,13 @@ from sqlalchemy.exc import OperationalError
 
 logger = logging.getLogger(__name__)
 
+
 class DatabaseConnector:
     def __init__(self, db_url_env_name: str = "EXTERNAL_BANK_DB_URL"):
         self.db_url = os.getenv(db_url_env_name, "sqlite:///:memory:")
-        self.mock_mode = "placeholder" in self.db_url.lower() or self.db_url == "sqlite:///:memory:"
+        self.mock_mode = (
+            "placeholder" in self.db_url.lower() or self.db_url == "sqlite:///:memory:"
+        )
         self.engine: Optional[Engine] = None
         self._initialize_connection()
 
@@ -36,12 +39,20 @@ class DatabaseConnector:
         try:
             self.engine = create_engine(
                 self.db_url,
-                connect_args={"timeout": int(os.getenv("DB_TIMEOUT", "10"))} if self.db_url.startswith("sqlite") else {},
-                **pool_args
+                connect_args=(
+                    {"timeout": int(os.getenv("DB_TIMEOUT", "10"))}
+                    if self.db_url.startswith("sqlite")
+                    else {}
+                ),
+                **pool_args,
             )
-            logger.info(f"DatabaseConnector connected successfully to dialect: {self.engine.dialect.name}")
+            logger.info(
+                f"DatabaseConnector connected successfully to dialect: {self.engine.dialect.name}"
+            )
         except Exception as e:
-            logger.error(f"Failed to initialize database connection pool: {e}. Falling back to MOCK MODE.")
+            logger.error(
+                f"Failed to initialize database connection pool: {e}. Falling back to MOCK MODE."
+            )
             self.mock_mode = True
 
     def health_check(self) -> Dict[str, Any]:
@@ -51,9 +62,9 @@ class DatabaseConnector:
                 "status": "healthy",
                 "mode": "mock_simulation",
                 "dialect": "mock",
-                "latency_ms": 0.5
+                "latency_ms": 0.5,
             }
-        
+
         start = time.time()
         try:
             with self.engine.connect() as conn:
@@ -63,7 +74,7 @@ class DatabaseConnector:
                 "status": "healthy",
                 "mode": "production_pool",
                 "dialect": self.engine.dialect.name,
-                "latency_ms": round(latency, 2)
+                "latency_ms": round(latency, 2),
             }
         except Exception as e:
             logger.error(f"Database connection pool health check failed: {e}")
@@ -71,10 +82,16 @@ class DatabaseConnector:
                 "status": "unhealthy",
                 "mode": "production_pool",
                 "error": str(e),
-                "latency_ms": -1
+                "latency_ms": -1,
             }
 
-    def execute_with_retry(self, query: str, params: Optional[Dict[str, Any]] = None, retries: int = 3, backoff: float = 1.0) -> List[Dict[str, Any]]:
+    def execute_with_retry(
+        self,
+        query: str,
+        params: Optional[Dict[str, Any]] = None,
+        retries: int = 3,
+        backoff: float = 1.0,
+    ) -> List[Dict[str, Any]]:
         """Executes query with exponential backoff retry logic."""
         if self.mock_mode:
             logger.info(f"[MOCK] Skipping raw execute: {query}")
@@ -90,8 +107,10 @@ class DatabaseConnector:
                     return []
             except (OperationalError, Exception) as e:
                 last_error = e
-                wait = backoff * (2 ** attempt)
-                logger.warning(f"Database operation failed (attempt {attempt + 1}/{retries}). Retrying in {wait}s. Error: {e}")
+                wait = backoff * (2**attempt)
+                logger.warning(
+                    f"Database operation failed (attempt {attempt + 1}/{retries}). Retrying in {wait}s. Error: {e}"
+                )
                 time.sleep(wait)
 
         logger.error(f"All database retries exhausted for query: {query}")
@@ -112,7 +131,7 @@ class DatabaseConnector:
                 "city": "London",
                 "postcode": "SW1A 2AA",
                 "country": "United Kingdom",
-                "updated_at": "2026-07-12T00:00:00"
+                "updated_at": "2026-07-12T00:00:00",
             },
             {
                 "ext_id": "ext-cust-102",
@@ -126,7 +145,7 @@ class DatabaseConnector:
                 "city": "Minneapolis",
                 "postcode": "55401",
                 "country": "United States",
-                "updated_at": "2026-07-12T01:00:00"
+                "updated_at": "2026-07-12T01:00:00",
             },
             {
                 "ext_id": "ext-cust-103",
@@ -140,8 +159,8 @@ class DatabaseConnector:
                 "city": "London",
                 "postcode": "W1B 4DY",
                 "country": "United Kingdom",
-                "updated_at": "2026-07-12T02:00:00"
-            }
+                "updated_at": "2026-07-12T02:00:00",
+            },
         ]
 
     def get_mock_accounts(self) -> List[Dict[str, Any]]:
@@ -154,7 +173,7 @@ class DatabaseConnector:
                 "balance": 15000.50,
                 "currency": "GBP",
                 "status": "active",
-                "updated_at": "2026-07-12T00:00:00"
+                "updated_at": "2026-07-12T00:00:00",
             },
             {
                 "ext_id": "ext-acc-802",
@@ -164,7 +183,7 @@ class DatabaseConnector:
                 "balance": 450.00,
                 "currency": "USD",
                 "status": "active",
-                "updated_at": "2026-07-12T01:00:00"
+                "updated_at": "2026-07-12T01:00:00",
             },
             {
                 "ext_id": "ext-acc-803",
@@ -174,8 +193,8 @@ class DatabaseConnector:
                 "balance": 98000.00,
                 "currency": "GBP",
                 "status": "active",
-                "updated_at": "2026-07-12T02:00:00"
-            }
+                "updated_at": "2026-07-12T02:00:00",
+            },
         ]
 
     def get_mock_transactions(self) -> List[Dict[str, Any]]:
@@ -193,7 +212,7 @@ class DatabaseConnector:
                 "tx_type": "transfer",
                 "reference": "Investment Funding",
                 "completed_at": "2026-07-12T09:30:00",
-                "updated_at": "2026-07-12T09:30:00"
+                "updated_at": "2026-07-12T09:30:00",
             },
             {
                 "ext_id": "ext-tx-902",
@@ -208,8 +227,8 @@ class DatabaseConnector:
                 "tx_type": "transfer",
                 "reference": "Invoice #89901",
                 "completed_at": "2026-07-12T10:15:00",
-                "updated_at": "2026-07-12T10:15:00"
-            }
+                "updated_at": "2026-07-12T10:15:00",
+            },
         ]
 
     def get_mock_companies(self) -> List[Dict[str, Any]]:
@@ -224,7 +243,7 @@ class DatabaseConnector:
                 "country_of_incorporation": "United Kingdom",
                 "incorporation_date": "2018-06-15",
                 "sic_code": "49410",
-                "updated_at": "2026-07-12T00:00:00"
+                "updated_at": "2026-07-12T00:00:00",
             }
         ]
 
@@ -237,7 +256,7 @@ class DatabaseConnector:
                     "last_name": "Thomas",
                     "dob": "1994-01-20",
                     "nationality": "United Kingdom",
-                    "appointment_date": "2018-06-15"
+                    "appointment_date": "2018-06-15",
                 }
             ],
             "ubos": [
@@ -248,7 +267,7 @@ class DatabaseConnector:
                     "dob": "1994-01-20",
                     "nationality": "United Kingdom",
                     "ownership_percentage": 100.0,
-                    "control_type": "shares_and_voting_rights"
+                    "control_type": "shares_and_voting_rights",
                 }
-            ]
+            ],
         }

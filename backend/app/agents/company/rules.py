@@ -24,7 +24,7 @@ class CompanyRulesEngine:
 
         passed_rules: List[str] = []
         failed_rules: List[str] = []
-        warnings:     List[str] = []
+        warnings: List[str] = []
         recommendations: List[str] = []
         risk_influences: Set[str] = set()
 
@@ -40,7 +40,10 @@ class CompanyRulesEngine:
             passed_rules.append(RULE_MISSING_REG_NUMBER)
 
         # ── CO002 · Company Status Presence ─────────────────────────────────
-        status_missing = any(f == "company_status" or f.startswith("company_status") for f in missing_fields)
+        status_missing = any(
+            f == "company_status" or f.startswith("company_status")
+            for f in missing_fields
+        )
         if status_missing:
             failed_rules.append(RULE_MISSING_STATUS)
             warnings.append(
@@ -51,11 +54,17 @@ class CompanyRulesEngine:
             passed_rules.append(RULE_MISSING_STATUS)
 
         # ── CO003 · Dissolved / Inactive Company ────────────────────────────
-        inactive_status = any(f.startswith("company_status_inactive:") for f in missing_fields)
+        inactive_status = any(
+            f.startswith("company_status_inactive:") for f in missing_fields
+        )
         if inactive_status:
             raw_status = next(
-                (f.split(":", 1)[1] for f in missing_fields if f.startswith("company_status_inactive:")),
-                "unknown"
+                (
+                    f.split(":", 1)[1]
+                    for f in missing_fields
+                    if f.startswith("company_status_inactive:")
+                ),
+                "unknown",
             )
             failed_rules.append(RULE_DISSOLVED_COMPANY)
             warnings.append(
@@ -68,8 +77,10 @@ class CompanyRulesEngine:
 
         # ── CO004 · Registered Address ──────────────────────────────────────
         address_tags = {
-            "registered_street", "registered_city",
-            "registered_postcode", "registered_country",
+            "registered_street",
+            "registered_city",
+            "registered_postcode",
+            "registered_country",
         }
         if address_tags & set(missing_fields):
             failed_rules.append(RULE_MISSING_ADDRESS)
@@ -104,9 +115,7 @@ class CompanyRulesEngine:
         # ── CO007 · Shareholders ─────────────────────────────────────────────
         if "no_shareholders" in missing_fields:
             failed_rules.append(RULE_NO_SHAREHOLDERS)
-            warnings.append(
-                f"[{RULE_NO_SHAREHOLDERS}] No shareholders declared."
-            )
+            warnings.append(f"[{RULE_NO_SHAREHOLDERS}] No shareholders declared.")
             risk_influences.add(RISK_MEDIUM)
         else:
             passed_rules.append(RULE_NO_SHAREHOLDERS)
@@ -147,10 +156,10 @@ class CompanyRulesEngine:
         next_agent = "pep_agent"
 
         return {
-            "passed_rules":   passed_rules,
-            "failed_rules":   failed_rules,
-            "warnings":       warnings,
+            "passed_rules": passed_rules,
+            "failed_rules": failed_rules,
+            "warnings": warnings,
             "recommendations": recommendations,
-            "risk_level":     risk_level,
-            "next_agent":     next_agent,
+            "risk_level": risk_level,
+            "next_agent": next_agent,
         }

@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 
 # ─── Abstract Storage Layer ──────────────────────────────────────────────────
 
+
 class BackupStorage(abc.ABC):
     @abc.abstractmethod
     def store(self, source_path: str, filename: str) -> str:
@@ -86,6 +87,7 @@ _storage: BackupStorage = LocalBackupStorage()
 
 # ─── Core Backup Service ──────────────────────────────────────────────────────
 
+
 class BackupService:
     @staticmethod
     def _calculate_sha256(filepath: str) -> str:
@@ -97,7 +99,9 @@ class BackupService:
         return sha256.hexdigest()
 
     @staticmethod
-    async def create_backup(db, backup_type: str = "database", triggered_by: str = "manual") -> BackupRecord:
+    async def create_backup(
+        db, backup_type: str = "database", triggered_by: str = "manual"
+    ) -> BackupRecord:
         """
         Creates a full or partial backup.
         backup_type options: 'database', 'documents', 'config', 'full'
@@ -115,7 +119,8 @@ class BackupService:
             status="pending",
             triggered_by=triggered_by,
             compressed=settings.BACKUP_COMPRESSION,
-            expires_at=datetime.utcnow() + timedelta(days=settings.BACKUP_RETENTION_DAYS)
+            expires_at=datetime.utcnow()
+            + timedelta(days=settings.BACKUP_RETENTION_DAYS),
         )
         db.add(record)
         await db.flush()
@@ -168,7 +173,7 @@ class BackupService:
                 os.remove(final_temp_path)
 
             await db.commit()
-            
+
             # Log audit event
             await AuditService.log(
                 db=db,
@@ -176,7 +181,11 @@ class BackupService:
                 action="BACKUP_CREATED",
                 entity_name="backup_records",
                 entity_id=record.id,
-                new_values={"filename": final_filename, "type": backup_type, "size_bytes": file_size}
+                new_values={
+                    "filename": final_filename,
+                    "type": backup_type,
+                    "size_bytes": file_size,
+                },
             )
             logger.info(f"Backup created successfully: {final_filename}")
             return record
@@ -217,24 +226,47 @@ class BackupService:
             # Parse connection details from DATABASE_URL
             # Format: postgresql+asyncpg://user:pass@host:port/dbname
             import re
+
             pattern = r"postgresql\+?(?:asyncpg)?://([^:]+):([^@]+)@([^:/]+)(?::(\d+))?/([^?]+)"
             match = re.match(pattern, db_url)
             if not match:
                 raise ValueError("Could not parse PostgreSQL database URL.")
-            
+
             user, password, host, port, dbname = match.groups()
             port = port or "5432"
-            
+
             # Run pg_dump command
             env = os.environ.copy()
             env["PGPASSWORD"] = password
-            cmd = ["pg_dump", "-h", host, "-p", port, "-U", user, "-d", dbname, "-F", "p", "-f", temp_sql_path]
-            
+            cmd = [
+                "pg_dump",
+                "-h",
+                host,
+                "-p",
+                port,
+                "-U",
+                user,
+                "-d",
+                dbname,
+                "-F",
+                "p",
+                "-f",
+                temp_sql_path,
+            ]
+
             try:
-                subprocess.run(cmd, env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                subprocess.run(
+                    cmd,
+                    env=env,
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
                 return temp_sql_path
             except (subprocess.SubprocessError, FileNotFoundError) as exc:
-                logger.warning(f"pg_dump tool not available or failed: {exc}. Falling back to metadata backup.")
+                logger.warning(
+                    f"pg_dump tool not available or failed: {exc}. Falling back to metadata backup."
+                )
                 # Fallback: metadata backup
                 with open(temp_sql_path, "w") as f:
                     f.write(f"-- Fallback Postgres Dump\n-- Timestamp: {timestamp}\n")
@@ -245,7 +277,7 @@ class BackupService:
         """Tarball compression of the uploaded document assets directory."""
         upload_dir = settings.UPLOAD_DIR
         archive_path = os.path.join(settings.BACKUP_DIR, f"documents_{timestamp}.tar")
-        
+
         if not os.path.exists(upload_dir):
             os.makedirs(upload_dir, exist_ok=True)
             # Create a mock readme so tar isn't empty
@@ -254,7 +286,7 @@ class BackupService:
 
         with tarfile.open(archive_path, "w") as tar:
             tar.add(upload_dir, arcname="uploads")
-        
+
         return archive_path
 
     @staticmethod
@@ -269,7 +301,10 @@ class BackupService:
                 for line in f:
                     if "=" in line:
                         k, v = line.split("=", 1)
-                        if any(secret in k.upper() for secret in ("KEY", "SECRET", "PASSWORD")):
+                        if any(
+                            secret in k.upper()
+                            for secret in ("KEY", "SECRET", "PASSWORD")
+                        ):
                             sanitized_lines.append(f"{k}=[REDACTED]\n")
                         else:
                             sanitized_lines.append(line)
@@ -304,7 +339,7 @@ class BackupService:
                 user_id=None,
                 action="BACKUP_VERIFIED",
                 entity_name="backup_records",
-                entity_id=record.id
+                entity_id=record.id,
             )
             return True
         else:
@@ -335,5 +370,7 @@ class BackupService:
 
         if deleted_count > 0:
             await db.commit()
-            logger.info(f"Purged {deleted_count} expired backups from retention policy.")
+            logger.info(
+                f"Purged {deleted_count} expired backups from retention policy."
+            )
         return deleted_count

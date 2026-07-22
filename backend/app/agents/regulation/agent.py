@@ -69,38 +69,49 @@ class RegulationAgent(BaseAgent):
 
     async def process(self, state: AgentState) -> Dict[str, Any]:
         start_time = time.perf_counter()
-        state.logs.append(f"[{self.get_name()}] Starting regulation compliance check...")
+        state.logs.append(
+            f"[{self.get_name()}] Starting regulation compliance check..."
+        )
 
         # ── Load policy rules ─────────────────────────────────────────────────
         policy_rules = self._load_policy_rules(state)
 
-        findings:        List[str] = []
-        warnings:        List[str] = []
-        violations:      List[Dict[str, Any]] = []
-        edd_triggers:    List[str] = []
-        block_triggers:  List[str] = []
+        findings: List[str] = []
+        warnings: List[str] = []
+        violations: List[Dict[str, Any]] = []
+        edd_triggers: List[str] = []
+        block_triggers: List[str] = []
         recommendations: List[str] = []
 
         # ── Apply each active rule ────────────────────────────────────────────
         for rule in policy_rules:
             result = self._apply_rule(rule, state)
             if result["violated"]:
-                violations.append({
-                    "rule_name":  rule.get("rule_name", "Unknown"),
-                    "rule_type":  rule.get("rule_type", ""),
-                    "reason":     result["reason"],
-                    "severity":   rule.get("severity") or result.get("severity", "medium"),
-                    "description": rule.get("description") or "",
-                })
+                violations.append(
+                    {
+                        "rule_name": rule.get("rule_name", "Unknown"),
+                        "rule_type": rule.get("rule_type", ""),
+                        "reason": result["reason"],
+                        "severity": rule.get("severity")
+                        or result.get("severity", "medium"),
+                        "description": rule.get("description") or "",
+                    }
+                )
                 rule_type = str(rule.get("rule_type") or "").lower()
                 if rule_type == "block":
                     block_triggers.append(rule.get("rule_name", "Unknown"))
-                    findings.append(f"BLOCK RULE TRIGGERED: {rule.get('rule_name')} — {result['reason']}")
+                    findings.append(
+                        f"BLOCK RULE TRIGGERED: {rule.get('rule_name')} — {result['reason']}"
+                    )
                 elif rule_type == "edd":
                     edd_triggers.append(rule.get("rule_name", "Unknown"))
-                    warnings.append(f"EDD REQUIRED: {rule.get('rule_name')} — {result['reason']}")
+                    warnings.append(
+                        f"EDD REQUIRED: {rule.get('rule_name')} — {result['reason']}"
+                    )
                 else:
-                    warnings.append(f"Policy violation ({rule_type.upper()}): {rule.get('rule_name')} — {result['reason']}")
+                    warnings.append(
+                        f"Policy violation ({rule_type.upper()}): {rule.get('rule_name')} — {result['reason']}"
+                    )
             else:
                 findings.append(f"Rule passed: {rule.get('rule_name', 'Unknown')}")
 
@@ -121,20 +132,26 @@ class RegulationAgent(BaseAgent):
 
         # ── Score ─────────────────────────────────────────────────────────────
         violation_count = len(violations)
-        block_count     = len(block_triggers)
-        edd_count       = len(edd_triggers)
+        block_count = len(block_triggers)
+        edd_count = len(edd_triggers)
 
-        score = 100.0 - (block_count * 40.0) - (edd_count * 20.0) - (violation_count * 5.0)
+        score = (
+            100.0 - (block_count * 40.0) - (edd_count * 20.0) - (violation_count * 5.0)
+        )
         score = round(max(0.0, min(100.0, score)), 2)
-        risk_level = "high" if block_count > 0 or score < 40 else "medium" if score < 70 else "low"
+        risk_level = (
+            "high"
+            if block_count > 0 or score < 40
+            else "medium" if score < 70 else "low"
+        )
 
         execution_duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
         # Update state
-        state.shared_metadata["regulation_violations"]  = violations
+        state.shared_metadata["regulation_violations"] = violations
         state.shared_metadata["regulation_edd_triggers"] = edd_triggers
         state.shared_metadata["regulation_block_triggers"] = block_triggers
-        state.shared_metadata["regulation_score"]       = score
+        state.shared_metadata["regulation_score"] = score
 
         state.logs.append(
             f"RegulationAgent: {len(policy_rules)} rules evaluated, {violation_count} violation(s). "
@@ -147,16 +164,16 @@ class RegulationAgent(BaseAgent):
             "confidence": score / 100.0,
             "risk_score": score,
             "risk_level": risk_level,
-            "findings":   findings,
-            "warnings":   warnings,
+            "findings": findings,
+            "warnings": warnings,
             "recommendations": recommendations,
-            "errors":     [],
+            "errors": [],
             # Metadata
-            "regulation_score":   score,
-            "violations":         violations,
-            "edd_triggers":       edd_triggers,
-            "block_triggers":     block_triggers,
-            "rules_evaluated":    len(policy_rules),
+            "regulation_score": score,
+            "violations": violations,
+            "edd_triggers": edd_triggers,
+            "block_triggers": block_triggers,
+            "rules_evaluated": len(policy_rules),
             "execution_duration_ms": execution_duration_ms,
         }
 
@@ -171,7 +188,10 @@ class RegulationAgent(BaseAgent):
         if self.db:
             try:
                 from app.models.models import PolicyRule
-                rules = self.db.query(PolicyRule).filter(PolicyRule.is_active == True).all()
+
+                rules = (
+                    self.db.query(PolicyRule).filter(PolicyRule.is_active == True).all()
+                )
                 return [
                     {
                         "rule_name": r.rule_name,
@@ -187,16 +207,18 @@ class RegulationAgent(BaseAgent):
                     for r in rules
                 ]
             except Exception as exc:
-                logger.warning(f"RegulationAgent: Could not load policy rules from DB: {exc}")
+                logger.warning(
+                    f"RegulationAgent: Could not load policy rules from DB: {exc}"
+                )
 
         # Built-in default rules (fallback)
         return self._default_rules()
 
     def _apply_rule(self, rule: Dict[str, Any], state: AgentState) -> Dict[str, Any]:
         """Applies a single policy rule against AgentState. Returns violated=True if breached."""
-        rule_type   = str(rule.get("rule_type") or "").lower()
-        conditions  = rule.get("conditions") or {}
-        rule_name   = rule.get("rule_name", "Unknown")
+        rule_type = str(rule.get("rule_type") or "").lower()
+        conditions = rule.get("conditions") or {}
+        rule_name = rule.get("rule_name", "Unknown")
 
         try:
             if rule_type == "block":
@@ -211,44 +233,73 @@ class RegulationAgent(BaseAgent):
             logger.error(f"RegulationAgent: Error applying rule '{rule_name}': {exc}")
             return {"violated": False, "reason": f"Rule evaluation error: {exc}"}
 
-    def _apply_block_rule(self, rule_name: str, conditions: Dict, state: AgentState) -> Dict[str, Any]:
+    def _apply_block_rule(
+        self, rule_name: str, conditions: Dict, state: AgentState
+    ) -> Dict[str, Any]:
         """Evaluates BLOCK-type rules (absolute prohibition)."""
         sm = state.shared_metadata
         # Sanctions confirmed block
-        if conditions.get("sanctions_confirmed") and sm.get("sanctions_status") == "CONFIRMED":
-            return {"violated": True, "reason": "Confirmed sanctions match — account must be blocked.", "severity": "critical"}
+        if (
+            conditions.get("sanctions_confirmed")
+            and sm.get("sanctions_status") == "CONFIRMED"
+        ):
+            return {
+                "violated": True,
+                "reason": "Confirmed sanctions match — account must be blocked.",
+                "severity": "critical",
+            }
         # FATF black list
         if conditions.get("fatf_blacklist") and sm.get("fatf_black_listed"):
-            return {"violated": True, "reason": f"Customer connected to FATF black-listed jurisdiction.", "severity": "critical"}
+            return {
+                "violated": True,
+                "reason": f"Customer connected to FATF black-listed jurisdiction.",
+                "severity": "critical",
+            }
         return {"violated": False, "reason": "Block conditions not triggered."}
 
-    def _apply_edd_rule(self, rule_name: str, conditions: Dict, state: AgentState) -> Dict[str, Any]:
+    def _apply_edd_rule(
+        self, rule_name: str, conditions: Dict, state: AgentState
+    ) -> Dict[str, Any]:
         """Evaluates EDD-type rules."""
         sm = state.shared_metadata
         # PEP confirmed EDD trigger
         if conditions.get("pep_confirmed") and sm.get("pep_status") == "CONFIRMED_PEP":
-            return {"violated": True, "reason": "PEP status confirmed — Enhanced Due Diligence required.", "severity": "high"}
+            return {
+                "violated": True,
+                "reason": "PEP status confirmed — Enhanced Due Diligence required.",
+                "severity": "high",
+            }
         # Risk score threshold
         threshold = conditions.get("overall_score_threshold")
         if threshold is not None and state.overall_score >= float(threshold):
-            return {"violated": True, "reason": f"Overall risk score {state.overall_score:.1f} exceeds EDD threshold {threshold}.", "severity": "high"}
+            return {
+                "violated": True,
+                "reason": f"Overall risk score {state.overall_score:.1f} exceeds EDD threshold {threshold}.",
+                "severity": "high",
+            }
         # High-risk country
         if conditions.get("high_risk_country") and sm.get("high_risk_countries"):
-            return {"violated": True, "reason": "High-risk jurisdiction connection triggers EDD.", "severity": "high"}
+            return {
+                "violated": True,
+                "reason": "High-risk jurisdiction connection triggers EDD.",
+                "severity": "high",
+            }
         return {"violated": False, "reason": "EDD conditions not triggered."}
 
-    def _apply_threshold_rule(self, rule_name: str, conditions: Dict, state: AgentState) -> Dict[str, Any]:
+    def _apply_threshold_rule(
+        self, rule_name: str, conditions: Dict, state: AgentState
+    ) -> Dict[str, Any]:
         """Evaluates threshold/AML/KYC/internal rules."""
         sm = state.shared_metadata
         threshold = conditions.get("score_threshold")
-        signal    = conditions.get("signal")
+        signal = conditions.get("signal")
         if threshold is not None and signal:
             score = sm.get(f"{signal}_score") or state.risk_breakdown.get(signal, 100)
             if float(score) < float(threshold):
                 return {
                     "violated": True,
                     "reason": f"{signal.upper()} score {score:.1f} is below minimum threshold {threshold}.",
-                    "severity": "medium"
+                    "severity": "medium",
                 }
         # Transaction amount
         max_tx = conditions.get("max_transaction_amount")
@@ -259,7 +310,7 @@ class RegulationAgent(BaseAgent):
                 return {
                     "violated": True,
                     "reason": f"{len(large)} transaction(s) exceed maximum allowed amount £{max_tx:,.0f}.",
-                    "severity": "medium"
+                    "severity": "medium",
                 }
         return {"violated": False, "reason": "Threshold conditions not triggered."}
 

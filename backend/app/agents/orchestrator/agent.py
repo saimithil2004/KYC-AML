@@ -58,22 +58,22 @@ from app.agents.base.exceptions import AgentExecutionError
 logger = logging.getLogger(__name__)
 
 # Agent names in the workflow — never hardcoded in logic, only here as constants
-AGENT_KYC                  = "kyc_agent"
+AGENT_KYC = "kyc_agent"
 AGENT_DOCUMENT_VERIFICATION = "document_verification_agent"
-AGENT_PEP                  = "pep_agent"
-AGENT_SANCTIONS            = "sanctions_agent"
-AGENT_COUNTRY_RISK         = "country_risk_agent"
-AGENT_FATF                 = "fatf_agent"
-AGENT_COMPANY              = "company_agent"
-AGENT_DIRECTOR             = "director_verification_agent"
-AGENT_UBO                  = "ubo_verification_agent"
-AGENT_TRANSACTION          = "transaction_agent"
-AGENT_ACCOUNT_BEHAVIOR     = "account_behavior_agent"
-AGENT_REGULATION           = "regulation_agent"
-AGENT_RISK_SCORING         = "risk_scoring_agent"
-AGENT_INVESTIGATION        = "investigation_agent"
-AGENT_DECISION             = "decision_agent"
-AGENT_MONITORING           = "monitoring_agent"
+AGENT_PEP = "pep_agent"
+AGENT_SANCTIONS = "sanctions_agent"
+AGENT_COUNTRY_RISK = "country_risk_agent"
+AGENT_FATF = "fatf_agent"
+AGENT_COMPANY = "company_agent"
+AGENT_DIRECTOR = "director_verification_agent"
+AGENT_UBO = "ubo_verification_agent"
+AGENT_TRANSACTION = "transaction_agent"
+AGENT_ACCOUNT_BEHAVIOR = "account_behavior_agent"
+AGENT_REGULATION = "regulation_agent"
+AGENT_RISK_SCORING = "risk_scoring_agent"
+AGENT_INVESTIGATION = "investigation_agent"
+AGENT_DECISION = "decision_agent"
+AGENT_MONITORING = "monitoring_agent"
 
 # Corporate-only agent names
 CORPORATE_AGENTS = {AGENT_COMPANY, AGENT_DIRECTOR, AGENT_UBO}
@@ -86,8 +86,8 @@ class OrchestratorAgent:
     """
 
     def __init__(self, db_session=None, context: Optional[AgentContext] = None):
-        self.db       = db_session
-        self.context  = context or AgentContext(db_session=db_session)
+        self.db = db_session
+        self.context = context or AgentContext(db_session=db_session)
         self.registry = AgentRegistry.get_registry()
 
     async def run(self, state: AgentState) -> AgentState:
@@ -105,7 +105,9 @@ class OrchestratorAgent:
         state = await self._run_agent(AGENT_KYC, state, step=1, total=12)
 
         # ── Step 2: Document Verification ────────────────────────────────────
-        state = await self._run_agent(AGENT_DOCUMENT_VERIFICATION, state, step=2, total=12)
+        state = await self._run_agent(
+            AGENT_DOCUMENT_VERIFICATION, state, step=2, total=12
+        )
 
         # ── Step 3: Parallel — PEP + Sanctions + Country Risk + FATF ─────────
         state = await self._run_parallel(
@@ -116,8 +118,10 @@ class OrchestratorAgent:
         )
 
         # ── Step 4: Corporate routing ─────────────────────────────────────────
-        customer_type = str((state.customer or {}).get("customer_type") or "").strip().lower()
-        is_corporate  = customer_type in ("corporate", "business", "company")
+        customer_type = (
+            str((state.customer or {}).get("customer_type") or "").strip().lower()
+        )
+        is_corporate = customer_type in ("corporate", "business", "company")
 
         if is_corporate:
             state.logs.append(
@@ -160,10 +164,10 @@ class OrchestratorAgent:
 
         # ── Final Summary ─────────────────────────────────────────────────────
         total_duration_ms = round((time.perf_counter() - workflow_start) * 1000, 2)
-        completed_count   = len(state.completed_agents)
+        completed_count = len(state.completed_agents)
 
         state.shared_metadata["orchestrator_total_duration_ms"] = total_duration_ms
-        state.shared_metadata["orchestrator_completed_agents"]  = state.completed_agents
+        state.shared_metadata["orchestrator_completed_agents"] = state.completed_agents
         state.logs.append(
             f"[OrchestratorAgent] Workflow completed. "
             f"Agents={completed_count}, Duration={total_duration_ms}ms. "
@@ -184,7 +188,9 @@ class OrchestratorAgent:
         """Runs a single agent, isolating failures from the rest of the workflow."""
         display = label or agent_name
         agent_start = time.perf_counter()
-        state.logs.append(f"[OrchestratorAgent] Step {step}/{total}: Running {display}...")
+        state.logs.append(
+            f"[OrchestratorAgent] Step {step}/{total}: Running {display}..."
+        )
 
         try:
             # Check agent is registered
@@ -237,7 +243,9 @@ class OrchestratorAgent:
         async def _run_one(name: str) -> AgentState:
             """Runs one agent on an isolated state copy."""
             if name not in registered:
-                logger.warning(f"OrchestratorAgent: '{name}' not registered, skipping in parallel run.")
+                logger.warning(
+                    f"OrchestratorAgent: '{name}' not registered, skipping in parallel run."
+                )
                 # Return a minimal copy that won't override anything
                 return state.model_copy(deep=True)
             try:
@@ -247,14 +255,18 @@ class OrchestratorAgent:
                 await agent.execute(state_copy)
                 return state_copy
             except Exception as exc:
-                logger.error(f"OrchestratorAgent: Parallel agent '{name}' failed: {exc}")
+                logger.error(
+                    f"OrchestratorAgent: Parallel agent '{name}' failed: {exc}"
+                )
                 state.logs.append(
                     f"[OrchestratorAgent] WARN: Parallel agent '{name}' FAILED: {exc}."
                 )
                 return state.model_copy(deep=True)
 
         # Run all in parallel
-        results: List[AgentState] = await asyncio.gather(*[_run_one(n) for n in agent_names])
+        results: List[AgentState] = await asyncio.gather(
+            *[_run_one(n) for n in agent_names]
+        )
 
         # ── Merge results back ────────────────────────────────────────────────
         for result_state in results:

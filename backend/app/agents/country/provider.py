@@ -14,7 +14,11 @@ from typing import Dict, Optional
 
 from app.agents.country.models import CountryRiskProfile
 from app.agents.country.constants import (
-    RISK_LOW, RISK_MEDIUM, RISK_HIGH, RISK_PROHIBITED, PROVIDER_MOCK
+    RISK_LOW,
+    RISK_MEDIUM,
+    RISK_HIGH,
+    RISK_PROHIBITED,
+    PROVIDER_MOCK,
 )
 
 
@@ -44,7 +48,7 @@ _MOCK_COUNTRY_PROFILES: Dict[str, CountryRiskProfile] = {
         risk_level=RISK_PROHIBITED,
         is_fatf_listed=True,
         is_sanctioned=True,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "North Korea": CountryRiskProfile(
         country_name="North Korea",
@@ -53,7 +57,7 @@ _MOCK_COUNTRY_PROFILES: Dict[str, CountryRiskProfile] = {
         risk_level=RISK_PROHIBITED,
         is_fatf_listed=True,
         is_sanctioned=True,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "Russia": CountryRiskProfile(
         country_name="Russia",
@@ -62,7 +66,7 @@ _MOCK_COUNTRY_PROFILES: Dict[str, CountryRiskProfile] = {
         risk_level=RISK_HIGH,
         is_fatf_listed=False,
         is_sanctioned=True,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "Syria": CountryRiskProfile(
         country_name="Syria",
@@ -71,7 +75,7 @@ _MOCK_COUNTRY_PROFILES: Dict[str, CountryRiskProfile] = {
         risk_level=RISK_HIGH,
         is_fatf_listed=True,
         is_sanctioned=True,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "Cayman Islands": CountryRiskProfile(
         country_name="Cayman Islands",
@@ -80,7 +84,7 @@ _MOCK_COUNTRY_PROFILES: Dict[str, CountryRiskProfile] = {
         risk_level=RISK_MEDIUM,
         is_fatf_listed=True,
         is_sanctioned=False,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "Panama": CountryRiskProfile(
         country_name="Panama",
@@ -89,84 +93,84 @@ _MOCK_COUNTRY_PROFILES: Dict[str, CountryRiskProfile] = {
         risk_level=RISK_MEDIUM,
         is_fatf_listed=True,
         is_sanctioned=False,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "United Kingdom": CountryRiskProfile(
         country_name="United Kingdom",
         iso_alpha2="GB",
         iso_alpha3="GBR",
         risk_level=RISK_LOW,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "United States": CountryRiskProfile(
         country_name="United States",
         iso_alpha2="US",
         iso_alpha3="USA",
         risk_level=RISK_LOW,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "Germany": CountryRiskProfile(
         country_name="Germany",
         iso_alpha2="DE",
         iso_alpha3="DEU",
         risk_level=RISK_LOW,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "France": CountryRiskProfile(
         country_name="France",
         iso_alpha2="FR",
         iso_alpha3="FRA",
         risk_level=RISK_LOW,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "Singapore": CountryRiskProfile(
         country_name="Singapore",
         iso_alpha2="SG",
         iso_alpha3="SGP",
         risk_level=RISK_LOW,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "Switzerland": CountryRiskProfile(
         country_name="Switzerland",
         iso_alpha2="CH",
         iso_alpha3="CHE",
         risk_level=RISK_LOW,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "Canada": CountryRiskProfile(
         country_name="Canada",
         iso_alpha2="CA",
         iso_alpha3="CAN",
         risk_level=RISK_LOW,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "Japan": CountryRiskProfile(
         country_name="Japan",
         iso_alpha2="JP",
         iso_alpha3="JPN",
         risk_level=RISK_LOW,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "Australia": CountryRiskProfile(
         country_name="Australia",
         iso_alpha2="AU",
         iso_alpha3="AUS",
         risk_level=RISK_LOW,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "Belgium": CountryRiskProfile(
         country_name="Belgium",
         iso_alpha2="BE",
         iso_alpha3="BEL",
         risk_level=RISK_LOW,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
     "China": CountryRiskProfile(
         country_name="China",
         iso_alpha2="CN",
         iso_alpha3="CHN",
         risk_level=RISK_LOW,
-        source=PROVIDER_MOCK
+        source=PROVIDER_MOCK,
     ),
 }
 

@@ -5,6 +5,7 @@ from app.services.database_integration.sync_service import SyncService
 
 logger = logging.getLogger(__name__)
 
+
 @celery_app.task(name="tasks.sync_tasks.sync_customers")
 def sync_customers_task():
     logger.info("[CELERY] Running customers sync task")
@@ -17,6 +18,7 @@ def sync_customers_task():
         raise e
     finally:
         db.close()
+
 
 @celery_app.task(name="tasks.sync_tasks.sync_accounts")
 def sync_accounts_task():
@@ -31,6 +33,7 @@ def sync_accounts_task():
     finally:
         db.close()
 
+
 @celery_app.task(name="tasks.sync_tasks.sync_transactions")
 def sync_transactions_task():
     logger.info("[CELERY] Running transactions sync task")
@@ -43,6 +46,7 @@ def sync_transactions_task():
         raise e
     finally:
         db.close()
+
 
 @celery_app.task(name="tasks.sync_tasks.sync_companies")
 def sync_companies_task():
@@ -57,6 +61,7 @@ def sync_companies_task():
     finally:
         db.close()
 
+
 @celery_app.task(name="tasks.sync_tasks.daily_sync")
 def daily_sync_task():
     """Performs daily full import synchronization across all datasets."""
@@ -70,6 +75,7 @@ def daily_sync_task():
         raise e
     finally:
         db.close()
+
 
 @celery_app.task(name="tasks.sync_tasks.incremental_sync")
 def incremental_sync_task():

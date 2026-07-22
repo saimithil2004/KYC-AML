@@ -14,7 +14,17 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock, AsyncMock
 
 from fastapi import status
-from app.models.models import User, Customer, Case, Investigation, Evidence, CaseNote, SAR, TimelineEvent, Assignment
+from app.models.models import (
+    User,
+    Customer,
+    Case,
+    Investigation,
+    Evidence,
+    CaseNote,
+    SAR,
+    TimelineEvent,
+    Assignment,
+)
 from app.services.investigation_service import InvestigationService
 from app.api.v1.endpoints.investigations import verify_compliance_or_admin
 
@@ -40,26 +50,29 @@ async def test_get_or_create_investigation():
     """Verify that get_or_create_investigation works and initializes timeline loggings."""
     mock_db = AsyncMock()
     mock_db.__aenter__.return_value = mock_db
-    
+
     # Configure case
     case_id = uuid4()
     mock_case = MagicMock()
     mock_case.customer_id = uuid4()
     mock_case.assigned_to = uuid4()
-    
+
     # Set db queries mock
     mock_res = MagicMock()
     mock_res.scalars.return_value.first.side_effect = [
         None,  # First query: Investigation not found
-        mock_case  # Second query: Case found
+        mock_case,  # Second query: Case found
     ]
     mock_db.execute = AsyncMock(return_value=mock_res)
 
-    with patch("app.services.investigation_service.ensure_phase12_schema", return_value=None), \
-         patch("app.services.investigation_service.AuditService.log", return_value=None):
-        
-        inv = await InvestigationService.get_or_create_investigation(mock_db, case_id, uuid4())
-        
+    with patch(
+        "app.services.investigation_service.ensure_phase12_schema", return_value=None
+    ), patch("app.services.investigation_service.AuditService.log", return_value=None):
+
+        inv = await InvestigationService.get_or_create_investigation(
+            mock_db, case_id, uuid4()
+        )
+
         assert inv.case_id == case_id
         assert inv.status == "open"
         assert inv.risk_level == "medium"
@@ -72,17 +85,24 @@ async def test_note_management_and_audit():
     """Verify notes log, update, and deletions with corresponding timeline/audit footprints."""
     mock_db = AsyncMock()
     mock_db.__aenter__.return_value = mock_db
-    
+
     inv_id = uuid4()
     author_id = uuid4()
     note_text = "Suspicious outbound transfers detected"
 
-    with patch("app.services.investigation_service.ensure_phase12_schema", return_value=None), \
-         patch("app.services.investigation_service.AuditService.log", return_value=None), \
-         patch("app.services.investigation_service.InvestigationService.log_timeline_event", return_value=None):
-        
+    with patch(
+        "app.services.investigation_service.ensure_phase12_schema", return_value=None
+    ), patch(
+        "app.services.investigation_service.AuditService.log", return_value=None
+    ), patch(
+        "app.services.investigation_service.InvestigationService.log_timeline_event",
+        return_value=None,
+    ):
+
         # 1. Add Note
-        note = await InvestigationService.add_note(mock_db, inv_id, author_id, note_text)
+        note = await InvestigationService.add_note(
+            mock_db, inv_id, author_id, note_text
+        )
         assert note.note_text == note_text
         assert note.investigation_id == inv_id
         assert note.author_id == author_id
@@ -93,7 +113,9 @@ async def test_note_management_and_audit():
         mock_db.execute = AsyncMock(return_value=mock_res)
 
         # 2. Edit Note
-        updated = await InvestigationService.edit_note(mock_db, note.id, author_id, "Outbound transactions are cleared")
+        updated = await InvestigationService.edit_note(
+            mock_db, note.id, author_id, "Outbound transactions are cleared"
+        )
         assert updated.note_text == "Outbound transactions are cleared"
 
         # 3. Delete Note
@@ -106,7 +128,7 @@ async def test_evidence_management():
     """Verify upload computes SHA256 file hashes and deletion purges paths."""
     mock_db = AsyncMock()
     mock_db.__aenter__.return_value = mock_db
-    
+
     inv_id = uuid4()
     uploader_id = uuid4()
     file_name = "bank_statement.pdf"
@@ -115,12 +137,19 @@ async def test_evidence_management():
     # Compute expected SHA256 checksum hash
     expected_hash = hashlib.sha256(content).hexdigest()
 
-    with patch("app.services.investigation_service.ensure_phase12_schema", return_value=None), \
-         patch("app.services.investigation_service.AuditService.log", return_value=None), \
-         patch("app.services.investigation_service.InvestigationService.log_timeline_event", return_value=None), \
-         patch("os.makedirs", return_value=None), \
-         patch("builtins.open", MagicMock()):
-        
+    with patch(
+        "app.services.investigation_service.ensure_phase12_schema", return_value=None
+    ), patch(
+        "app.services.investigation_service.AuditService.log", return_value=None
+    ), patch(
+        "app.services.investigation_service.InvestigationService.log_timeline_event",
+        return_value=None,
+    ), patch(
+        "os.makedirs", return_value=None
+    ), patch(
+        "builtins.open", MagicMock()
+    ):
+
         # 1. Add Evidence
         evidence = await InvestigationService.add_evidence(
             db=mock_db,
@@ -129,7 +158,7 @@ async def test_evidence_management():
             evidence_type="pdf",
             file_content=content,
             uploaded_by=uploader_id,
-            description="Client bank transfer list statement"
+            description="Client bank transfer list statement",
         )
 
         assert evidence.file_name == file_name
@@ -142,9 +171,12 @@ async def test_evidence_management():
         mock_db.execute = AsyncMock(return_value=mock_res)
 
         # 2. Delete Evidence
-        with patch("os.path.exists", return_value=True), \
-             patch("os.remove", return_value=None):
-            deleted = await InvestigationService.delete_evidence(mock_db, evidence.id, uploader_id)
+        with patch("os.path.exists", return_value=True), patch(
+            "os.remove", return_value=None
+        ):
+            deleted = await InvestigationService.delete_evidence(
+                mock_db, evidence.id, uploader_id
+            )
             assert deleted is True
 
 
@@ -153,7 +185,7 @@ async def test_investigator_assignments():
     """Verify workspace reassignments and owner changes log events."""
     mock_db = AsyncMock()
     mock_db.__aenter__.return_value = mock_db
-    
+
     inv_id = uuid4()
     officer_id = uuid4()
     current_user_id = uuid4()
@@ -164,20 +196,25 @@ async def test_investigator_assignments():
     mock_res = MagicMock()
     mock_res.scalars.return_value.first.side_effect = [
         mock_inv,  # Query 1: Investigation workspace found
-        MagicMock()  # Query 2: User found
+        MagicMock(),  # Query 2: User found
     ]
     mock_db.execute = AsyncMock(return_value=mock_res)
 
-    with patch("app.services.investigation_service.ensure_phase12_schema", return_value=None), \
-         patch("app.services.investigation_service.AuditService.log", return_value=None), \
-         patch("app.services.investigation_service.InvestigationService.log_timeline_event", return_value=None):
-        
+    with patch(
+        "app.services.investigation_service.ensure_phase12_schema", return_value=None
+    ), patch(
+        "app.services.investigation_service.AuditService.log", return_value=None
+    ), patch(
+        "app.services.investigation_service.InvestigationService.log_timeline_event",
+        return_value=None,
+    ):
+
         assignment = await InvestigationService.assign_case(
             db=mock_db,
             investigation_id=inv_id,
             assignee_id=officer_id,
             role="investigator",
-            current_user_id=current_user_id
+            current_user_id=current_user_id,
         )
 
         assert assignment.investigation_id == inv_id
@@ -190,23 +227,28 @@ async def test_sar_narrative_and_workflows():
     """Verify SAR report generated status changes."""
     mock_db = AsyncMock()
     mock_db.__aenter__.return_value = mock_db
-    
+
     inv_id = uuid4()
     created_by = uuid4()
-    
+
     # Mock parent investigation
     mock_inv = MagicMock()
     mock_inv.case_id = uuid4()
-    
+
     mock_res = MagicMock()
     mock_res.scalars.return_value.first.return_value = mock_inv
     mock_db.execute = MagicMock(return_value=mock_res)
     mock_db.execute = AsyncMock(return_value=mock_res)
 
-    with patch("app.services.investigation_service.ensure_phase12_schema", return_value=None), \
-         patch("app.services.investigation_service.AuditService.log", return_value=None), \
-         patch("app.services.investigation_service.InvestigationService.log_timeline_event", return_value=None):
-        
+    with patch(
+        "app.services.investigation_service.ensure_phase12_schema", return_value=None
+    ), patch(
+        "app.services.investigation_service.AuditService.log", return_value=None
+    ), patch(
+        "app.services.investigation_service.InvestigationService.log_timeline_event",
+        return_value=None,
+    ):
+
         # 1. Draft SAR
         sar = await InvestigationService.generate_sar(
             db=mock_db,
@@ -215,7 +257,7 @@ async def test_sar_narrative_and_workflows():
             reason="High volume risk delta triggers.",
             risk_indicators=["structuring", "high_risk_jurisdiction"],
             recommendation="Block account.",
-            created_by=created_by
+            created_by=created_by,
         )
 
         assert sar.status == "draft"
@@ -228,5 +270,7 @@ async def test_sar_narrative_and_workflows():
         mock_db.execute = AsyncMock(return_value=mock_sar_res)
 
         # 2. Transition SAR status to submitted
-        updated = await InvestigationService.update_sar_status(mock_db, sar.id, "submitted", created_by)
+        updated = await InvestigationService.update_sar_status(
+            mock_db, sar.id, "submitted", created_by
+        )
         assert updated.status == "submitted"

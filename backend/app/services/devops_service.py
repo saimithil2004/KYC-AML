@@ -14,6 +14,7 @@ from app.core.cache import cache
 APP_START_TIME = datetime.utcnow()
 RESTART_COUNT = 0  # Can be incremented/mocked
 
+
 class DevOpsService:
     """
     DevOpsService collects platform metrics, databases/replica statuses,
@@ -25,7 +26,7 @@ class DevOpsService:
         """Collect core system resource metrics (CPU, Memory, Disk)."""
         cpu = psutil.cpu_percent(interval=None)
         mem = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
+        disk = psutil.disk_usage("/")
         return {
             "cpu_percent": cpu,
             "memory_percent": mem.percent,
@@ -78,7 +79,11 @@ class DevOpsService:
             "sentinel_service_name": settings.REDIS_SENTINEL_SERVICE_NAME,
             "connected_clients": redis_stats.get("connected_clients", 0),
             "cache_hit_rate": redis_stats.get("hit_rate", 0.0),
-            "keys_count": redis_stats.get("keys", 0) if redis_stats.get("backend") == "memory" else 15,  # Simulated fallback keys count
+            "keys_count": (
+                redis_stats.get("keys", 0)
+                if redis_stats.get("backend") == "memory"
+                else 15
+            ),  # Simulated fallback keys count
         }
 
     @staticmethod
@@ -97,11 +102,12 @@ class DevOpsService:
         active_tasks_count = 0
         try:
             from app.core.celery_app import celery_app
+
             i = celery_app.control.inspect(timeout=0.5)
             ping_res = i.ping()
             if ping_res:
                 active_workers = list(ping_res.keys())
-            
+
             active_tasks = i.active()
             if active_tasks:
                 for worker, tasks in active_tasks.items():
@@ -126,18 +132,60 @@ class DevOpsService:
         """List active Kubernetes deployment pods under configured namespace."""
         # Simulated Kubernetes Pod list for dashboard console view.
         # Parses active Env variables if K8S service account token is present in /var/run/secrets/kubernetes.io
-        k8s_present = os.path.exists("/var/run/secrets/kubernetes.io/serviceaccount/token")
-        
+        k8s_present = os.path.exists(
+            "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        )
+
         namespace = settings.KUBERNETES_NAMESPACE
-        
+
         pods = [
-            {"name": f"aml-backend-api-7fd5984df6-abcde", "status": "Running", "restarts": 0, "ip": "10.244.1.12", "age": "14d", "cpu": "0.12", "memory": "245MB"},
-            {"name": f"aml-backend-api-7fd5984df6-fghij", "status": "Running", "restarts": 0, "ip": "10.244.2.14", "age": "14d", "cpu": "0.08", "memory": "231MB"},
-            {"name": f"aml-frontend-5db77bfb4f-klmno", "status": "Running", "restarts": 1, "ip": "10.244.1.15", "age": "14d", "cpu": "0.02", "memory": "85MB"},
-            {"name": f"aml-celery-worker-99d799b4d-pqrst", "status": "Running", "restarts": 0, "ip": "10.244.3.8", "age": "7d", "cpu": "0.05", "memory": "320MB"},
-            {"name": f"aml-celery-beat-8cc8bbdf-uvwxy", "status": "Running", "restarts": 0, "ip": "10.244.3.9", "age": "7d", "cpu": "0.01", "memory": "98MB"},
+            {
+                "name": f"aml-backend-api-7fd5984df6-abcde",
+                "status": "Running",
+                "restarts": 0,
+                "ip": "10.244.1.12",
+                "age": "14d",
+                "cpu": "0.12",
+                "memory": "245MB",
+            },
+            {
+                "name": f"aml-backend-api-7fd5984df6-fghij",
+                "status": "Running",
+                "restarts": 0,
+                "ip": "10.244.2.14",
+                "age": "14d",
+                "cpu": "0.08",
+                "memory": "231MB",
+            },
+            {
+                "name": f"aml-frontend-5db77bfb4f-klmno",
+                "status": "Running",
+                "restarts": 1,
+                "ip": "10.244.1.15",
+                "age": "14d",
+                "cpu": "0.02",
+                "memory": "85MB",
+            },
+            {
+                "name": f"aml-celery-worker-99d799b4d-pqrst",
+                "status": "Running",
+                "restarts": 0,
+                "ip": "10.244.3.8",
+                "age": "7d",
+                "cpu": "0.05",
+                "memory": "320MB",
+            },
+            {
+                "name": f"aml-celery-beat-8cc8bbdf-uvwxy",
+                "status": "Running",
+                "restarts": 0,
+                "ip": "10.244.3.9",
+                "age": "7d",
+                "cpu": "0.01",
+                "memory": "98MB",
+            },
         ]
-        
+
         return pods
 
     @staticmethod
@@ -154,15 +202,20 @@ class DevOpsService:
             cases_count = result.scalar() or 0
 
             # Query average execution times from monitoring history
-            res_times = await db.execute(text("SELECT AVG(execution_time_ms) FROM monitoring_history"))
+            res_times = await db.execute(
+                text("SELECT AVG(execution_time_ms) FROM monitoring_history")
+            )
             avg_ms = res_times.scalar()
             if avg_ms:
                 avg_screening_time_sec = round(float(avg_ms) / 1000, 2)
-            
+
             # Query logged in users in last hour
-            res_users = await db.execute(text("SELECT COUNT(DISTINCT user_id) FROM login_history WHERE success=true AND created_at >= :dt"), {
-                "dt": datetime.utcnow().replace(hour=datetime.utcnow().hour - 1)
-            })
+            res_users = await db.execute(
+                text(
+                    "SELECT COUNT(DISTINCT user_id) FROM login_history WHERE success=true AND created_at >= :dt"
+                ),
+                {"dt": datetime.utcnow().replace(hour=datetime.utcnow().hour - 1)},
+            )
             active_users_1h = res_users.scalar() or 2
         except Exception:
             pass

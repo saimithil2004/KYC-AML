@@ -24,15 +24,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # ─── Mock DB Session helpers ─────────────────────────────────────────────────
 
+
 class _ScalarResult:
     def __init__(self, items):
         self._items = items
+
     def first(self):
         return self._items[0] if self._items else None
+
     def all(self):
         return list(self._items)
+
     def scalars(self):
         return self
+
 
 def make_db(rows=None):
     db = AsyncMock(spec=AsyncSession)
@@ -51,9 +56,11 @@ def make_db(rows=None):
 
 # ─── 1. Webhook Signature Verification ───────────────────────────────────────
 
+
 class TestWebhookSignature:
     def test_sign_payload_produces_sha256_prefix(self):
         from app.services.webhook_service import sign_payload
+
         secret = "test_secret_abc"
         payload = b'{"event": "customer.approved"}'
         sig = sign_payload(secret, payload)
@@ -62,6 +69,7 @@ class TestWebhookSignature:
 
     def test_verify_signature_correct(self):
         from app.services.webhook_service import sign_payload, verify_signature
+
         secret = "super_secret_key"
         payload = b'{"event": "alert.created", "data": {}}'
         sig = sign_payload(secret, payload)
@@ -69,6 +77,7 @@ class TestWebhookSignature:
 
     def test_verify_signature_tampered_payload(self):
         from app.services.webhook_service import sign_payload, verify_signature
+
         secret = "super_secret_key"
         original = b'{"event": "alert.created"}'
         tampered = b'{"event": "customer.approved"}'
@@ -77,12 +86,14 @@ class TestWebhookSignature:
 
     def test_verify_signature_wrong_secret(self):
         from app.services.webhook_service import sign_payload, verify_signature
+
         payload = b'{"event": "sar.submitted"}'
         sig = sign_payload("correct_secret", payload)
         assert not verify_signature("wrong_secret", payload, sig)
 
     def test_webhook_events_list(self):
         from app.services.webhook_service import WEBHOOK_EVENTS
+
         assert "customer.approved" in WEBHOOK_EVENTS
         assert "sar.submitted" in WEBHOOK_EVENTS
         assert "alert.created" in WEBHOOK_EVENTS
@@ -91,23 +102,29 @@ class TestWebhookSignature:
 
 # ─── 2. Notification Template Rendering ──────────────────────────────────────
 
+
 class TestNotificationRendering:
     def test_render_template_replaces_variables(self):
         from app.services.notification_service import render_template
+
         body = "Dear {{customer_name}}, your risk score is {{risk_score}}."
-        result = render_template(body, {"customer_name": "John Doe", "risk_score": "75"})
+        result = render_template(
+            body, {"customer_name": "John Doe", "risk_score": "75"}
+        )
         assert "John Doe" in result
         assert "75" in result
         assert "{{" not in result
 
     def test_render_template_empty_variables(self):
         from app.services.notification_service import render_template
+
         body = "Hello {{name}}."
         result = render_template(body, {})
         assert "{{name}}" in result  # unchanged when no variable provided
 
     def test_render_template_none_value(self):
         from app.services.notification_service import render_template
+
         body = "Case: {{case_id}}"
         result = render_template(body, {"case_id": None})
         assert "{{case_id}}" not in result
@@ -115,6 +132,7 @@ class TestNotificationRendering:
 
     def test_default_templates_exist(self):
         from app.services.notification_service import DEFAULT_TEMPLATES
+
         assert "customer.approved" in DEFAULT_TEMPLATES
         assert "alert.high_risk" in DEFAULT_TEMPLATES
         assert "sar.submitted" in DEFAULT_TEMPLATES
@@ -127,10 +145,12 @@ class TestNotificationRendering:
 
 # ─── 3. Integration Provider Mock Mode ───────────────────────────────────────
 
+
 @pytest.mark.asyncio
 class TestIntegrationServiceMockMode:
     async def test_opensanctions_mock_sync(self):
         from app.services.integration_service import OpenSanctionsProvider
+
         db = make_db()
         provider = OpenSanctionsProvider(setting=None)
         assert provider.mock_mode is True
@@ -141,6 +161,7 @@ class TestIntegrationServiceMockMode:
 
     async def test_companies_house_mock_sync(self):
         from app.services.integration_service import CompaniesHouseProvider
+
         db = make_db()
         provider = CompaniesHouseProvider(setting=None)
         result = await provider.sync(db, "scheduled")
@@ -149,6 +170,7 @@ class TestIntegrationServiceMockMode:
 
     async def test_fatf_mock_sync(self):
         from app.services.integration_service import FATFProvider
+
         db = make_db()
         provider = FATFProvider(setting=None)
         result = await provider.sync(db, "manual")
@@ -158,6 +180,7 @@ class TestIntegrationServiceMockMode:
 
     async def test_pep_mock_sync(self):
         from app.services.integration_service import PEPProvider
+
         db = make_db()
         provider = PEPProvider(setting=None)
         result = await provider.sync(db, "manual")
@@ -166,6 +189,7 @@ class TestIntegrationServiceMockMode:
 
     async def test_sanctions_list_mock_sync(self):
         from app.services.integration_service import SanctionsListProvider
+
         db = make_db()
         provider = SanctionsListProvider(setting=None)
         result = await provider.sync(db, "manual")
@@ -173,6 +197,7 @@ class TestIntegrationServiceMockMode:
 
     async def test_all_providers_have_health(self):
         from app.services.integration_service import PROVIDER_MAP
+
         for name, cls in PROVIDER_MAP.items():
             provider = cls(setting=None)
             health = provider.health()
@@ -181,6 +206,7 @@ class TestIntegrationServiceMockMode:
 
     async def test_all_providers_have_version(self):
         from app.services.integration_service import PROVIDER_MAP
+
         for name, cls in PROVIDER_MAP.items():
             provider = cls(setting=None)
             ver = provider.version()
@@ -188,7 +214,11 @@ class TestIntegrationServiceMockMode:
             assert len(ver) > 0
 
     async def test_run_all_syncs(self):
-        from app.services.integration_service import IntegrationService, ALL_PROVIDER_NAMES
+        from app.services.integration_service import (
+            IntegrationService,
+            ALL_PROVIDER_NAMES,
+        )
+
         db = make_db()
         results = await IntegrationService.run_all_syncs(db=db, sync_type="scheduled")
         assert len(results) == len(ALL_PROVIDER_NAMES)
@@ -199,31 +229,42 @@ class TestIntegrationServiceMockMode:
 
 # ─── 4. Notification Service ──────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 class TestNotificationService:
     async def test_mock_email_send_succeeds(self):
         from app.services.notification_service import _send_email
-        result = await _send_email("test@test.com", "Test Subject", "Test body", smtp_setting=None)
+
+        result = await _send_email(
+            "test@test.com", "Test Subject", "Test body", smtp_setting=None
+        )
         assert result is True
 
     async def test_mock_slack_send_succeeds(self):
         from app.services.notification_service import _send_slack
+
         result = await _send_slack("Hello compliance team!", slack_setting=None)
         assert result is True
 
     async def test_mock_teams_send_succeeds(self):
         from app.services.notification_service import _send_teams
+
         result = await _send_teams("Alert Title", "Alert Message", teams_setting=None)
         assert result is True
 
     async def test_send_in_app_notification(self):
         from app.services.notification_service import NotificationService
+
         db = make_db()
         results = await NotificationService.send(
             db=db,
             event_type="customer.approved",
             channels=["in_app"],
-            variables={"customer_name": "Test User", "risk_level": "low", "decision_date": "2025-01-01"},
+            variables={
+                "customer_name": "Test User",
+                "risk_level": "low",
+                "decision_date": "2025-01-01",
+            },
             priority="medium",
         )
         assert len(results) == 1
@@ -244,6 +285,7 @@ class TestNotificationService:
 
 
 # ─── 5. RBAC Tests ───────────────────────────────────────────────────────────
+
 
 class TestRBAC:
     def _make_user(self, role: str):
@@ -269,10 +311,12 @@ class TestRBAC:
 
 # ─── 6. Audit Logging ────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 class TestAuditLogging:
     async def test_audit_log_creation(self):
         from app.services.audit_service import AuditService
+
         db = make_db()
         log = await AuditService.log(
             db=db,
@@ -286,6 +330,7 @@ class TestAuditLogging:
 
     async def test_audit_log_with_reason(self):
         from app.services.audit_service import AuditService
+
         db = make_db()
         log = await AuditService.log(
             db=db,
@@ -301,10 +346,12 @@ class TestAuditLogging:
 
 # ─── 7. Schema Helpers ───────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 class TestPhase14SchemaHelper:
     async def test_ensure_phase14_schema_no_error(self):
         from app.core.schema_helpers import ensure_phase14_schema
+
         db = make_db()
         # Should not raise, just create/verify tables
         try:
@@ -317,12 +364,18 @@ class TestPhase14SchemaHelper:
 
 # ─── 8. Model Existence ───────────────────────────────────────────────────────
 
+
 class TestModels:
     def test_all_phase14_models_importable(self):
         from app.models.models import (
-            IntegrationSetting, SyncHistory, NotificationTemplate,
-            Notification, WebhookEndpoint, WebhookLog
+            IntegrationSetting,
+            SyncHistory,
+            NotificationTemplate,
+            Notification,
+            WebhookEndpoint,
+            WebhookLog,
         )
+
         assert IntegrationSetting.__tablename__ == "integration_settings"
         assert SyncHistory.__tablename__ == "sync_history"
         assert NotificationTemplate.__tablename__ == "notification_templates"
@@ -332,6 +385,7 @@ class TestModels:
 
     def test_integration_setting_fields(self):
         from app.models.models import IntegrationSetting
+
         cols = [c.name for c in IntegrationSetting.__table__.columns]
         assert "provider_name" in cols
         assert "provider_type" in cols
@@ -341,6 +395,7 @@ class TestModels:
 
     def test_webhook_log_fields(self):
         from app.models.models import WebhookLog
+
         cols = [c.name for c in WebhookLog.__table__.columns]
         assert "endpoint_id" in cols
         assert "event" in cols
@@ -351,6 +406,7 @@ class TestModels:
 
     def test_notification_fields(self):
         from app.models.models import Notification
+
         cols = [c.name for c in Notification.__table__.columns]
         assert "channel" in cols
         assert "priority" in cols
@@ -360,9 +416,11 @@ class TestModels:
 
 # ─── 9. Integration Service Utilities ────────────────────────────────────────
 
+
 class TestIntegrationServiceUtilities:
     def test_all_provider_names_list(self):
         from app.services.integration_service import ALL_PROVIDER_NAMES
+
         assert "opensanctions" in ALL_PROVIDER_NAMES
         assert "companies_house" in ALL_PROVIDER_NAMES
         assert "fatf" in ALL_PROVIDER_NAMES
@@ -371,5 +429,6 @@ class TestIntegrationServiceUtilities:
 
     def test_provider_map_completeness(self):
         from app.services.integration_service import PROVIDER_MAP, ALL_PROVIDER_NAMES
+
         for name in ALL_PROVIDER_NAMES:
             assert name in PROVIDER_MAP, f"Provider {name} not in PROVIDER_MAP"

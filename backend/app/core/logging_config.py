@@ -63,6 +63,7 @@ def generate_correlation_id() -> str:
 
 # ─── JSON Log Formatter ────────────────────────────────────────────────────────
 
+
 class JSONFormatter(logging.Formatter):
     """Formats log records as single-line JSON objects."""
 
@@ -85,10 +86,27 @@ class JSONFormatter(logging.Formatter):
         # Extra fields passed via `extra={}`
         for key, val in record.__dict__.items():
             if key not in (
-                "name", "msg", "args", "levelname", "levelno", "pathname",
-                "filename", "module", "exc_info", "exc_text", "stack_info",
-                "lineno", "funcName", "created", "msecs", "relativeCreated",
-                "thread", "threadName", "processName", "process", "message",
+                "name",
+                "msg",
+                "args",
+                "levelname",
+                "levelno",
+                "pathname",
+                "filename",
+                "module",
+                "exc_info",
+                "exc_text",
+                "stack_info",
+                "lineno",
+                "funcName",
+                "created",
+                "msecs",
+                "relativeCreated",
+                "thread",
+                "threadName",
+                "processName",
+                "process",
+                "message",
                 "taskName",
             ):
                 if not key.startswith("_"):
@@ -128,6 +146,7 @@ class PlainTextFormatter(logging.Formatter):
 
 
 # ─── Logger Configuration ──────────────────────────────────────────────────────
+
 
 def configure_logging() -> None:
     """
@@ -193,7 +212,9 @@ def configure_logging() -> None:
     for noisy in ["httpx", "asyncio", "uvicorn.access"]:
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
-    logging.info(f"Logging configured — Level: {settings.LOG_LEVEL}, JSON: {use_json}, Dir: {log_dir}")
+    logging.info(
+        f"Logging configured — Level: {settings.LOG_LEVEL}, JSON: {use_json}, Dir: {log_dir}"
+    )
 
 
 def get_logger(name: str) -> logging.Logger:

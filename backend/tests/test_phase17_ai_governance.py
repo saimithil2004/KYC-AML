@@ -9,8 +9,15 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.models.models import (
-    AIModel, ModelVersion, PromptTemplate, PromptVersion,
-    AIExecution, AIFeedback, AIExplanation, AIPolicy, AIUsageStatistics
+    AIModel,
+    ModelVersion,
+    PromptTemplate,
+    PromptVersion,
+    AIExecution,
+    AIFeedback,
+    AIExplanation,
+    AIPolicy,
+    AIUsageStatistics,
 )
 from app.services.ai_governance_service import AIGovernanceService, PRICING_TABLE
 from app.services.explainability_service import ExplainabilityService
@@ -20,19 +27,26 @@ client = TestClient(app)
 
 # ─── Mock DB Helpers ──────────────────────────────────────────────────────────
 
+
 class _ScalarResult:
     def __init__(self, items):
         self._items = items
+
     def first(self):
         return self._items[0] if self._items else None
+
     def all(self):
         return list(self._items)
+
     def scalars(self):
         return self
+
     def scalar_one_or_none(self):
         return self._items[0] if self._items else None
+
     def scalar_one(self):
         return self._items[0] if self._items else None
+
 
 def make_mock_db(rows=None):
     db = AsyncMock(spec=AsyncSession)
@@ -48,21 +62,25 @@ def make_mock_db(rows=None):
     db.bind.dialect.name = "sqlite"
     return db
 
+
 # ─── Service Unit Tests ───────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_register_model_and_version():
     """Verify that models and versions can be registered correctly."""
     db = make_mock_db()
-    
+
     # 1. Model registration
     model = await AIGovernanceService.register_model(db, "test-model", "gemini", True)
     assert model.name == "test-model"
     assert model.provider == "gemini"
     assert model.is_active is True
-    
+
     # 2. Version registration
-    m_ver = await AIGovernanceService.register_model_version(db, model.id, "v1.0", {"temp": 0.5})
+    m_ver = await AIGovernanceService.register_model_version(
+        db, model.id, "v1.0", {"temp": 0.5}
+    )
     assert m_ver.version == "v1.0"
     assert m_ver.metadata_json == {"temp": 0.5}
 
@@ -71,13 +89,17 @@ async def test_register_model_and_version():
 async def test_prompt_template_and_version_lifecycles():
     """Test creating prompt templates, versions, and switching active versions."""
     db = make_mock_db()
-    
+
     # 1. Create prompt template
-    pt = await AIGovernanceService.create_prompt_template(db, "test_prompt", "Standard test prompt")
+    pt = await AIGovernanceService.create_prompt_template(
+        db, "test_prompt", "Standard test prompt"
+    )
     assert pt.name == "test_prompt"
-    
+
     # 2. Create prompt version
-    pv = await AIGovernanceService.create_prompt_version(db, pt.id, "Hello {name}", "1.0.0", "draft")
+    pv = await AIGovernanceService.create_prompt_version(
+        db, pt.id, "Hello {name}", "1.0.0", "draft"
+    )
     assert pv.version == "1.0.0"
     assert pv.approved_status == "draft"
     assert pv.is_active is False
@@ -87,16 +109,27 @@ async def test_prompt_template_and_version_lifecycles():
 async def test_approve_reject_prompt_version():
     """Verify state transitions and approvals workflows."""
     # Mock prompt version row
-    pv = PromptVersion(id=uuid4(), template_id=uuid4(), version="1.0.0", content="Text", approved_status="pending", is_active=False)
+    pv = PromptVersion(
+        id=uuid4(),
+        template_id=uuid4(),
+        version="1.0.0",
+        content="Text",
+        approved_status="pending",
+        is_active=False,
+    )
     db = make_mock_db([pv])
-    
+
     # 1. Approve version
-    res_app = await AIGovernanceService.approve_prompt_version(db, pv.id, uuid4(), "Looks perfect.")
+    res_app = await AIGovernanceService.approve_prompt_version(
+        db, pv.id, uuid4(), "Looks perfect."
+    )
     assert res_app.approved_status == "approved"
-    
+
     # 2. Reject version
     pv.approved_status = "pending"
-    res_rej = await AIGovernanceService.reject_prompt_version(db, pv.id, uuid4(), "Needs work.")
+    res_rej = await AIGovernanceService.reject_prompt_version(
+        db, pv.id, uuid4(), "Needs work."
+    )
     assert res_rej.approved_status == "rejected"
 
 
@@ -104,9 +137,16 @@ async def test_approve_reject_prompt_version():
 async def test_switch_and_rollback_active_version():
     """Verify switching active versions checks that version is approved."""
     pt_id = uuid4()
-    pv = PromptVersion(id=uuid4(), template_id=pt_id, version="1.0.0", content="Text", approved_status="approved", is_active=False)
+    pv = PromptVersion(
+        id=uuid4(),
+        template_id=pt_id,
+        version="1.0.0",
+        content="Text",
+        approved_status="approved",
+        is_active=False,
+    )
     db = make_mock_db([pv])
-    
+
     # Switch active
     active_pv = await AIGovernanceService.switch_active_prompt_version(db, pt_id, pv.id)
     assert active_pv.is_active is True
@@ -121,9 +161,11 @@ def test_cost_calculation():
     # 2000 output tokens = 2 * 0.000300 = 0.0006
     # Total = 0.000675
     assert gemini_cost == 0.000675
-    
+
     # Test fallback
-    fallback_cost = AIGovernanceService.calculate_cost("unsupported-provider", 1000, 1000)
+    fallback_cost = AIGovernanceService.calculate_cost(
+        "unsupported-provider", 1000, 1000
+    )
     # Default is input 0.001000, output 0.003000
     # Total = 0.004000
     assert fallback_cost == 0.004000
@@ -135,18 +177,26 @@ async def test_policy_guardrails_compliance():
     policy = AIPolicy(
         id=uuid4(),
         name="strict_policy",
-        rules_json={"min_confidence_threshold": 80.0, "max_latency_ms": 1000, "max_cost": 0.01},
-        is_active=True
+        rules_json={
+            "min_confidence_threshold": 80.0,
+            "max_latency_ms": 1000,
+            "max_cost": 0.01,
+        },
+        is_active=True,
     )
     db = make_mock_db([policy])
-    
+
     # 1. Compliant call
-    ok, violations = await AIGovernanceService.check_policy_guardrails(db, "strict_policy", 90.0, 500, 0.005)
+    ok, violations = await AIGovernanceService.check_policy_guardrails(
+        db, "strict_policy", 90.0, 500, 0.005
+    )
     assert ok is True
     assert len(violations) == 0
-    
+
     # 2. Non-compliant call (fails confidence, latency, cost)
-    ok, violations = await AIGovernanceService.check_policy_guardrails(db, "strict_policy", 50.0, 2000, 0.05)
+    ok, violations = await AIGovernanceService.check_policy_guardrails(
+        db, "strict_policy", 50.0, 2000, 0.05
+    )
     assert ok is False
     assert len(violations) == 3
 
@@ -154,14 +204,18 @@ async def test_policy_guardrails_compliance():
 def test_hallucination_detection_accuracy():
     """Verify that hallucination rates are calculated based on references matches."""
     text = "Subject John Doe matches database list markers for Sanction checks."
-    
+
     # 1. High match rate (no hallucination)
-    has_hallucination, score = AIGovernanceService.detect_hallucinations(text, ["John Doe", "Sanction"])
+    has_hallucination, score = AIGovernanceService.detect_hallucinations(
+        text, ["John Doe", "Sanction"]
+    )
     assert has_hallucination is False
     assert score == 100.0
-    
+
     # 2. Low match rate (hallucination flagged)
-    has_hallucination, score = AIGovernanceService.detect_hallucinations(text, ["Jane Doe", "PEP Check", "Adverse Media"])
+    has_hallucination, score = AIGovernanceService.detect_hallucinations(
+        text, ["Jane Doe", "PEP Check", "Adverse Media"]
+    )
     assert has_hallucination is True
     assert score == 0.0
 
@@ -171,7 +225,7 @@ async def test_explainability_report_construction():
     """Test structured explainability reports generation logic."""
     db = make_mock_db()
     exec_id = uuid4()
-    
+
     report = await ExplainabilityService.generate_explanation_report(
         db=db,
         execution_id=exec_id,
@@ -180,9 +234,9 @@ async def test_explainability_report_construction():
         findings=["Name similarity high", "Birthdate mismatch"],
         rules_triggered=["RULE_SANCTION_001"],
         matched_entities=["John Doe"],
-        missing_evidence=["Official PII verification doc"]
+        missing_evidence=["Official PII verification doc"],
     )
-    
+
     assert report.execution_id == exec_id
     assert "SanctionsAgent" in report.decision_summary
     assert report.confidence == 95.0
@@ -191,6 +245,7 @@ async def test_explainability_report_construction():
 
 
 # ─── API Router Integration Tests ────────────────────────────────────────────
+
 
 def test_api_statistics_and_dashboard_structure():
     """Verify schemas and response structures for AI Analytics endpoints."""

@@ -33,13 +33,17 @@ class TransactionRulesEngine:
         # ── Rule TX001: No Suspicious Activity ────────────────────────────────
         if not triggered:
             rules_triggered.append("TX001")
-            findings.append("No suspicious behavioral patterns detected in transaction history.")
+            findings.append(
+                "No suspicious behavioral patterns detected in transaction history."
+            )
             return {
                 "transaction_status": TRANSACTION_STATUS_CLEAR,
                 "findings": findings,
                 "warnings": warnings,
-                "recommendations": ["Maintain standard transaction monitoring schedule."],
-                "rules_triggered": rules_triggered
+                "recommendations": [
+                    "Maintain standard transaction monitoring schedule."
+                ],
+                "rules_triggered": rules_triggered,
             }
 
         # ── Map specific pattern triggers to business rule triggers ───────────
@@ -48,7 +52,7 @@ class TransactionRulesEngine:
         # Structuring
         if RULE_STRUCTURING in triggered_ids:
             rules_triggered.append("TX002")  # Business Rule TX002
-        
+
         # Velocity / Large Value (both increase risk)
         if RULE_VELOCITY in triggered_ids or RULE_LARGE_VALUE in triggered_ids:
             rules_triggered.append("TX003")  # Business Rule TX003
@@ -84,13 +88,21 @@ class TransactionRulesEngine:
 
         # ── Determine overall status ──────────────────────────────────────────
         status = TRANSACTION_STATUS_WARNING
-        
+
         # Check severities of triggered patterns
         severities = {p.severity.lower() for p in triggered}
-        
-        if "TX008" in rules_triggered or "TX004" in rules_triggered or RISK_CRITICAL in severities:
+
+        if (
+            "TX008" in rules_triggered
+            or "TX004" in rules_triggered
+            or RISK_CRITICAL in severities
+        ):
             status = TRANSACTION_STATUS_CRITICAL
-        elif "TX002" in rules_triggered or "TX005" in rules_triggered or RISK_HIGH in severities:
+        elif (
+            "TX002" in rules_triggered
+            or "TX005" in rules_triggered
+            or RISK_HIGH in severities
+        ):
             status = TRANSACTION_STATUS_ALERT
         elif len(triggered) >= 3:
             status = TRANSACTION_STATUS_CRITICAL
@@ -106,5 +118,5 @@ class TransactionRulesEngine:
             "findings": findings,
             "warnings": warnings,
             "recommendations": recommendations,
-            "rules_triggered": rules_triggered
+            "rules_triggered": rules_triggered,
         }

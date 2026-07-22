@@ -29,20 +29,38 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.schema_helpers import ensure_phase14_schema
-from app.dependencies.auth import get_current_user, verify_compliance_officer, verify_admin
+from app.dependencies.auth import (
+    get_current_user,
+    verify_compliance_officer,
+    verify_admin,
+)
 from app.models.models import (
-    User, IntegrationSetting, SyncHistory, NotificationTemplate,
-    Notification, WebhookEndpoint, WebhookLog
+    User,
+    IntegrationSetting,
+    SyncHistory,
+    NotificationTemplate,
+    Notification,
+    WebhookEndpoint,
+    WebhookLog,
 )
 from app.services.integration_service import IntegrationService, ALL_PROVIDER_NAMES
 from app.services.notification_service import NotificationService
 from app.services.webhook_service import WebhookService, WEBHOOK_EVENTS
 from app.services.audit_service import AuditService
 from app.schemas.schemas import (
-    IntegrationSettingCreate, IntegrationSettingUpdate, IntegrationSettingResponse,
-    SyncHistoryResponse, NotificationTemplateCreate, NotificationTemplateResponse,
-    NotificationResponse, WebhookEndpointCreate, WebhookEndpointUpdate,
-    WebhookEndpointResponse, WebhookLogResponse, ManualSyncRequest, SendNotificationRequest,
+    IntegrationSettingCreate,
+    IntegrationSettingUpdate,
+    IntegrationSettingResponse,
+    SyncHistoryResponse,
+    NotificationTemplateCreate,
+    NotificationTemplateResponse,
+    NotificationResponse,
+    WebhookEndpointCreate,
+    WebhookEndpointUpdate,
+    WebhookEndpointResponse,
+    WebhookLogResponse,
+    ManualSyncRequest,
+    SendNotificationRequest,
 )
 
 router = APIRouter()
@@ -53,6 +71,7 @@ logger = logging.getLogger(__name__)
 # INTEGRATION SETTINGS
 # ════════════════════════════════════════════════════════════════════════════
 
+
 @router.get("/settings", response_model=List[IntegrationSettingResponse])
 async def list_integration_settings(
     current_user: User = Depends(verify_compliance_officer),
@@ -60,7 +79,9 @@ async def list_integration_settings(
 ):
     """List all integration provider settings. Compliance Officers and Admins only."""
     await ensure_phase14_schema(db)
-    res = await db.execute(select(IntegrationSetting).order_by(IntegrationSetting.provider_name))
+    res = await db.execute(
+        select(IntegrationSetting).order_by(IntegrationSetting.provider_name)
+    )
     settings = res.scalars().all()
     # Mask sensitive keys in response
     result = []
@@ -81,10 +102,15 @@ async def create_integration_setting(
 
     # Check uniqueness
     res = await db.execute(
-        select(IntegrationSetting).where(IntegrationSetting.provider_name == payload.provider_name)
+        select(IntegrationSetting).where(
+            IntegrationSetting.provider_name == payload.provider_name
+        )
     )
     if res.scalars().first():
-        raise HTTPException(status_code=409, detail=f"Provider '{payload.provider_name}' already configured.")
+        raise HTTPException(
+            status_code=409,
+            detail=f"Provider '{payload.provider_name}' already configured.",
+        )
 
     setting = IntegrationSetting(
         id=uuid4(),
@@ -99,8 +125,11 @@ async def create_integration_setting(
     )
     db.add(setting)
     await AuditService.log(
-        db=db, user_id=current_user.id, action="INTEGRATION_CREATED",
-        entity_name="integration_setting", entity_id=setting.id,
+        db=db,
+        user_id=current_user.id,
+        action="INTEGRATION_CREATED",
+        entity_name="integration_setting",
+        entity_id=setting.id,
         new_values={"provider": payload.provider_name, "type": payload.provider_type},
     )
     await db.commit()
@@ -117,7 +146,9 @@ async def update_integration_setting(
 ):
     """Update an existing integration setting. Admins only."""
     await ensure_phase14_schema(db)
-    res = await db.execute(select(IntegrationSetting).where(IntegrationSetting.id == id))
+    res = await db.execute(
+        select(IntegrationSetting).where(IntegrationSetting.id == id)
+    )
     setting = res.scalars().first()
     if not setting:
         raise HTTPException(status_code=404, detail="Integration setting not found.")
@@ -137,8 +168,11 @@ async def update_integration_setting(
     setting.updated_at = datetime.utcnow()
 
     await AuditService.log(
-        db=db, user_id=current_user.id, action="INTEGRATION_UPDATED",
-        entity_name="integration_setting", entity_id=id,
+        db=db,
+        user_id=current_user.id,
+        action="INTEGRATION_UPDATED",
+        entity_name="integration_setting",
+        entity_id=id,
         new_values={"enabled": setting.enabled},
     )
     await db.commit()
@@ -154,15 +188,20 @@ async def delete_integration_setting(
 ):
     """Delete an integration setting. Admins only."""
     await ensure_phase14_schema(db)
-    res = await db.execute(select(IntegrationSetting).where(IntegrationSetting.id == id))
+    res = await db.execute(
+        select(IntegrationSetting).where(IntegrationSetting.id == id)
+    )
     setting = res.scalars().first()
     if not setting:
         raise HTTPException(status_code=404, detail="Integration setting not found.")
 
     await db.delete(setting)
     await AuditService.log(
-        db=db, user_id=current_user.id, action="INTEGRATION_DELETED",
-        entity_name="integration_setting", entity_id=id,
+        db=db,
+        user_id=current_user.id,
+        action="INTEGRATION_DELETED",
+        entity_name="integration_setting",
+        entity_id=id,
     )
     await db.commit()
     return {"status": "success", "message": "Integration setting deleted."}
@@ -171,6 +210,7 @@ async def delete_integration_setting(
 # ════════════════════════════════════════════════════════════════════════════
 # SYNCHRONIZATION
 # ════════════════════════════════════════════════════════════════════════════
+
 
 @router.post("/sync/manual")
 async def manual_sync(
@@ -183,12 +223,14 @@ async def manual_sync(
     if payload.provider not in ALL_PROVIDER_NAMES:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown provider '{payload.provider}'. Valid: {ALL_PROVIDER_NAMES}"
+            detail=f"Unknown provider '{payload.provider}'. Valid: {ALL_PROVIDER_NAMES}",
         )
 
     result = await IntegrationService.run_sync(
-        db=db, provider_name=payload.provider,
-        sync_type="manual", user_id=current_user.id,
+        db=db,
+        provider_name=payload.provider,
+        sync_type="manual",
+        user_id=current_user.id,
     )
     return result
 
@@ -200,7 +242,9 @@ async def sync_all_providers(
 ):
     """Trigger synchronization for ALL compliance providers."""
     await ensure_phase14_schema(db)
-    results = await IntegrationService.run_all_syncs(db=db, sync_type="manual", user_id=current_user.id)
+    results = await IntegrationService.run_all_syncs(
+        db=db, sync_type="manual", user_id=current_user.id
+    )
     return {"providers_synced": len(results), "results": results}
 
 
@@ -213,12 +257,15 @@ async def get_sync_status(
 ):
     """Retrieve recent synchronization history, optionally filtered by provider."""
     await ensure_phase14_schema(db)
-    return await IntegrationService.get_sync_history(db=db, provider=provider, limit=limit)
+    return await IntegrationService.get_sync_history(
+        db=db, provider=provider, limit=limit
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # PROVIDER HEALTH
 # ════════════════════════════════════════════════════════════════════════════
+
 
 @router.get("/health/providers")
 async def provider_health(
@@ -238,14 +285,24 @@ async def provider_versions(
     """Return current data version for each provider."""
     await ensure_phase14_schema(db)
     health = await IntegrationService.get_all_health(db=db)
-    return [{"provider": h["provider"], "version": h.get("version"), "mock_mode": h.get("mock_mode")} for h in health]
+    return [
+        {
+            "provider": h["provider"],
+            "version": h.get("version"),
+            "mock_mode": h.get("mock_mode"),
+        }
+        for h in health
+    ]
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # NOTIFICATION TEMPLATES
 # ════════════════════════════════════════════════════════════════════════════
 
-@router.get("/notification-templates", response_model=List[NotificationTemplateResponse])
+
+@router.get(
+    "/notification-templates", response_model=List[NotificationTemplateResponse]
+)
 async def list_notification_templates(
     event_type: Optional[str] = Query(None),
     channel: Optional[str] = Query(None),
@@ -263,7 +320,11 @@ async def list_notification_templates(
     return res.scalars().all()
 
 
-@router.post("/notification-templates", response_model=NotificationTemplateResponse, status_code=201)
+@router.post(
+    "/notification-templates",
+    response_model=NotificationTemplateResponse,
+    status_code=201,
+)
 async def create_notification_template(
     payload: NotificationTemplateCreate,
     current_user: User = Depends(verify_admin),
@@ -283,9 +344,16 @@ async def create_notification_template(
     )
     db.add(tmpl)
     await AuditService.log(
-        db=db, user_id=current_user.id, action="TEMPLATE_CREATED",
-        entity_name="notification_template", entity_id=tmpl.id,
-        new_values={"name": payload.name, "event_type": payload.event_type, "channel": payload.channel},
+        db=db,
+        user_id=current_user.id,
+        action="TEMPLATE_CREATED",
+        entity_name="notification_template",
+        entity_id=tmpl.id,
+        new_values={
+            "name": payload.name,
+            "event_type": payload.event_type,
+            "channel": payload.channel,
+        },
     )
     await db.commit()
     await db.refresh(tmpl)
@@ -301,7 +369,9 @@ async def update_notification_template(
 ):
     """Update a notification template. Admins only."""
     await ensure_phase14_schema(db)
-    res = await db.execute(select(NotificationTemplate).where(NotificationTemplate.id == id))
+    res = await db.execute(
+        select(NotificationTemplate).where(NotificationTemplate.id == id)
+    )
     tmpl = res.scalars().first()
     if not tmpl:
         raise HTTPException(status_code=404, detail="Notification template not found.")
@@ -316,8 +386,11 @@ async def update_notification_template(
     tmpl.updated_at = datetime.utcnow()
 
     await AuditService.log(
-        db=db, user_id=current_user.id, action="TEMPLATE_UPDATED",
-        entity_name="notification_template", entity_id=id,
+        db=db,
+        user_id=current_user.id,
+        action="TEMPLATE_UPDATED",
+        entity_name="notification_template",
+        entity_id=id,
         new_values={"name": payload.name, "event_type": payload.event_type},
     )
     await db.commit()
@@ -333,15 +406,20 @@ async def delete_notification_template(
 ):
     """Delete a notification template. Admins only."""
     await ensure_phase14_schema(db)
-    res = await db.execute(select(NotificationTemplate).where(NotificationTemplate.id == id))
+    res = await db.execute(
+        select(NotificationTemplate).where(NotificationTemplate.id == id)
+    )
     tmpl = res.scalars().first()
     if not tmpl:
         raise HTTPException(status_code=404, detail="Notification template not found.")
 
     await db.delete(tmpl)
     await AuditService.log(
-        db=db, user_id=current_user.id, action="TEMPLATE_DELETED",
-        entity_name="notification_template", entity_id=id,
+        db=db,
+        user_id=current_user.id,
+        action="TEMPLATE_DELETED",
+        entity_name="notification_template",
+        entity_id=id,
     )
     await db.commit()
     return {"status": "success", "message": "Notification template deleted."}
@@ -350,6 +428,7 @@ async def delete_notification_template(
 # ════════════════════════════════════════════════════════════════════════════
 # NOTIFICATION DISPATCH & HISTORY
 # ════════════════════════════════════════════════════════════════════════════
+
 
 @router.post("/notifications/send")
 async def send_notification(
@@ -381,7 +460,9 @@ async def notification_history(
 ):
     """Retrieve notification delivery history."""
     await ensure_phase14_schema(db)
-    return await NotificationService.get_history(db=db, channel=channel, status=status, limit=limit)
+    return await NotificationService.get_history(
+        db=db, channel=channel, status=status, limit=limit
+    )
 
 
 @router.get("/notifications/unread-count")
@@ -399,6 +480,7 @@ async def unread_count(
 # WEBHOOK ENDPOINTS
 # ════════════════════════════════════════════════════════════════════════════
 
+
 @router.get("/webhooks", response_model=List[WebhookEndpointResponse])
 async def list_webhooks(
     current_user: User = Depends(verify_compliance_officer),
@@ -406,7 +488,9 @@ async def list_webhooks(
 ):
     """List all registered outgoing webhook endpoints."""
     await ensure_phase14_schema(db)
-    res = await db.execute(select(WebhookEndpoint).order_by(desc(WebhookEndpoint.created_at)))
+    res = await db.execute(
+        select(WebhookEndpoint).order_by(desc(WebhookEndpoint.created_at))
+    )
     return res.scalars().all()
 
 
@@ -429,8 +513,11 @@ async def create_webhook(
     )
     db.add(ep)
     await AuditService.log(
-        db=db, user_id=current_user.id, action="WEBHOOK_ADDED",
-        entity_name="webhook_endpoint", entity_id=ep.id,
+        db=db,
+        user_id=current_user.id,
+        action="WEBHOOK_ADDED",
+        entity_name="webhook_endpoint",
+        entity_id=ep.id,
         new_values={"name": payload.name, "url": payload.url, "events": payload.events},
     )
     await db.commit()
@@ -465,8 +552,11 @@ async def update_webhook(
     ep.updated_at = datetime.utcnow()
 
     await AuditService.log(
-        db=db, user_id=current_user.id, action="WEBHOOK_UPDATED",
-        entity_name="webhook_endpoint", entity_id=id,
+        db=db,
+        user_id=current_user.id,
+        action="WEBHOOK_UPDATED",
+        entity_name="webhook_endpoint",
+        entity_id=id,
         new_values={"enabled": ep.enabled},
     )
     await db.commit()
@@ -489,8 +579,11 @@ async def delete_webhook(
 
     await db.delete(ep)
     await AuditService.log(
-        db=db, user_id=current_user.id, action="WEBHOOK_DELETED",
-        entity_name="webhook_endpoint", entity_id=id,
+        db=db,
+        user_id=current_user.id,
+        action="WEBHOOK_DELETED",
+        entity_name="webhook_endpoint",
+        entity_id=id,
     )
     await db.commit()
     return {"status": "success", "message": "Webhook endpoint removed."}
@@ -526,6 +619,7 @@ async def test_webhook(
 # ════════════════════════════════════════════════════════════════════════════
 # WEBHOOK LOGS
 # ════════════════════════════════════════════════════════════════════════════
+
 
 @router.get("/webhooks/{id}/logs", response_model=List[WebhookLogResponse])
 async def webhook_logs(

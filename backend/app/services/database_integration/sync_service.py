@@ -9,7 +9,16 @@ from redis import Redis
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.core.config import settings
-from app.models.models import Customer, Account, Transaction, Company, Director, UBO, User, KYCProfile
+from app.models.models import (
+    Customer,
+    Account,
+    Transaction,
+    Company,
+    Director,
+    UBO,
+    User,
+    KYCProfile,
+)
 from app.services.database_integration.connector import DatabaseConnector
 from app.services.database_integration.mapper import DataMapper
 from app.services.database_integration.validator import IngestionValidator
@@ -19,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Redis tracking keys
 REDIS_SYNC_STATUS = "sync:status"
 REDIS_SYNC_LOGS = "sync:logs"
+
 
 class SyncService:
     def __init__(self, db_session: Session):
@@ -31,13 +41,20 @@ class SyncService:
         self.redis.rpush(REDIS_SYNC_LOGS, log_entry)
         logger.info(message)
 
-    def _set_status(self, task_name: str, status: str, progress: float = 0.0, stats: Optional[Dict[str, int]] = None):
+    def _set_status(
+        self,
+        task_name: str,
+        status: str,
+        progress: float = 0.0,
+        stats: Optional[Dict[str, int]] = None,
+    ):
         payload = {
             "task": task_name,
             "status": status,
             "progress_pct": progress,
             "updated_at": datetime.utcnow().isoformat(),
-            "stats": stats or {"imported": 0, "failed": 0, "duplicate": 0, "validation_errors": 0}
+            "stats": stats
+            or {"imported": 0, "failed": 0, "duplicate": 0, "validation_errors": 0},
         }
         self.redis.set(REDIS_SYNC_STATUS, json.dumps(payload))
 
@@ -60,7 +77,9 @@ class SyncService:
         stats = {"imported": 0, "failed": 0, "duplicate": 0, "validation_errors": 0}
 
         # Cache existing records for validation
-        emails = [r[0] for r in self.db.execute(select(Customer.phone_number)).all() if r[0]] # actually fetch email/phones
+        emails = [
+            r[0] for r in self.db.execute(select(Customer.phone_number)).all() if r[0]
+        ]  # actually fetch email/phones
         emails_res = self.db.execute(select(User.email)).scalars().all()
         phones_res = self.db.execute(select(Customer.phone_number)).scalars().all()
 
@@ -70,13 +89,19 @@ class SyncService:
         for idx, ext_c in enumerate(ext_customers):
             # Update progress
             progress = 10.0 + (idx / len(ext_customers)) * 80.0
-            self._set_status("sync_customers", "running", progress=progress, stats=stats)
+            self._set_status(
+                "sync_customers", "running", progress=progress, stats=stats
+            )
 
             # 1. Validation
-            is_valid, errors = IngestionValidator.validate_customer(ext_c, existing_emails, existing_phones)
+            is_valid, errors = IngestionValidator.validate_customer(
+                ext_c, existing_emails, existing_phones
+            )
             if not is_valid:
                 stats["validation_errors"] += len(errors)
-                self._log_to_redis(f"Validation failure for customer {ext_c.get('email')}: {', '.join(errors)}")
+                self._log_to_redis(
+                    f"Validation failure for customer {ext_c.get('email')}: {', '.join(errors)}"
+                )
                 continue
 
             try:
@@ -85,7 +110,7 @@ class SyncService:
                 user = User(
                     email=ext_c["email"].strip().lower(),
                     password_hash="pbkdf2:sha256:dummy",
-                    role="customer"
+                    role="customer",
                 )
                 self.db.add(user)
                 self.db.flush()
@@ -103,7 +128,7 @@ class SyncService:
                     nationality=customer.nationality,
                     address=f"{customer.street_address}, {customer.city}, {customer.postal_code}",
                     source_of_funds="salaried",
-                    source_of_wealth="salaried savings"
+                    source_of_wealth="salaried savings",
                 )
                 self.db.add(kyc)
                 self.db.commit()
@@ -112,14 +137,18 @@ class SyncService:
                 existing_emails.append(user.email)
                 if customer.phone_number:
                     existing_phones.append(customer.phone_number)
-                
+
             except Exception as e:
                 self.db.rollback()
                 stats["failed"] += 1
-                self._log_to_redis(f"Failed to ingest customer {ext_c.get('email')}: {str(e)}")
+                self._log_to_redis(
+                    f"Failed to ingest customer {ext_c.get('email')}: {str(e)}"
+                )
 
         duration = round(time.time() - start_time, 2)
-        self._log_to_redis(f"Finished CUSTOMERS sync job in {duration}s. Stats: {stats}")
+        self._log_to_redis(
+            f"Finished CUSTOMERS sync job in {duration}s. Stats: {stats}"
+        )
         self._set_status("sync_customers", "completed", progress=100.0, stats=stats)
         return stats
 
@@ -140,29 +169,43 @@ class SyncService:
             self._set_status("sync_accounts", "running", progress=progress, stats=stats)
 
             # Validation
-            is_valid, errors = IngestionValidator.validate_account(ext_acc, existing_acc_numbers)
+            is_valid, errors = IngestionValidator.validate_account(
+                ext_acc, existing_acc_numbers
+            )
             if not is_valid:
                 stats["validation_errors"] += len(errors)
-                self._log_to_redis(f"Validation failure for account {ext_acc.get('account_number')}: {', '.join(errors)}")
+                self._log_to_redis(
+                    f"Validation failure for account {ext_acc.get('account_number')}: {', '.join(errors)}"
+                )
                 continue
 
             try:
                 # Find matching customer (by external reference map or just pick the first)
                 cust_email = f"{ext_acc['customer_ext_id'].replace('ext-cust-', '')}@externalbank.com"
-                if "101" in ext_acc['customer_ext_id']:
+                if "101" in ext_acc["customer_ext_id"]:
                     cust_email = "jack.roberts@externalbank.com"
-                elif "102" in ext_acc['customer_ext_id']:
+                elif "102" in ext_acc["customer_ext_id"]:
                     cust_email = "charlie.brown@peanuts.org"
-                elif "103" in ext_acc['customer_ext_id']:
+                elif "103" in ext_acc["customer_ext_id"]:
                     cust_email = "isabella.thomas@gmail.com"
 
-                user = self.db.execute(select(User).where(User.email == cust_email)).scalars().first()
+                user = (
+                    self.db.execute(select(User).where(User.email == cust_email))
+                    .scalars()
+                    .first()
+                )
                 if not user:
                     stats["validation_errors"] += 1
-                    self._log_to_redis(f"Broken Reference: Customer user {cust_email} not found.")
+                    self._log_to_redis(
+                        f"Broken Reference: Customer user {cust_email} not found."
+                    )
                     continue
 
-                customer = self.db.execute(select(Customer).where(Customer.user_id == user.id)).scalars().first()
+                customer = (
+                    self.db.execute(select(Customer).where(Customer.user_id == user.id))
+                    .scalars()
+                    .first()
+                )
                 if not customer:
                     stats["validation_errors"] += 1
                     continue
@@ -176,7 +219,9 @@ class SyncService:
             except Exception as e:
                 self.db.rollback()
                 stats["failed"] += 1
-                self._log_to_redis(f"Failed to ingest account {ext_acc.get('account_number')}: {str(e)}")
+                self._log_to_redis(
+                    f"Failed to ingest account {ext_acc.get('account_number')}: {str(e)}"
+                )
 
         duration = round(time.time() - start_time, 2)
         self._log_to_redis(f"Finished ACCOUNTS sync job in {duration}s. Stats: {stats}")
@@ -197,21 +242,31 @@ class SyncService:
 
         for idx, ext_tx in enumerate(ext_txs):
             progress = 10.0 + (idx / len(ext_txs)) * 80.0
-            self._set_status("sync_transactions", "running", progress=progress, stats=stats)
+            self._set_status(
+                "sync_transactions", "running", progress=progress, stats=stats
+            )
 
             # Validation
-            is_valid, errors = IngestionValidator.validate_transaction(ext_tx, active_account_numbers)
+            is_valid, errors = IngestionValidator.validate_transaction(
+                ext_tx, active_account_numbers
+            )
             if not is_valid:
                 stats["validation_errors"] += len(errors)
-                self._log_to_redis(f"Validation failure for transaction {ext_tx.get('ext_id')}: {', '.join(errors)}")
+                self._log_to_redis(
+                    f"Validation failure for transaction {ext_tx.get('ext_id')}: {', '.join(errors)}"
+                )
                 continue
 
             try:
                 # Find matching sender account
                 sender_acc_num = ext_tx["account_number"]
-                account = self.db.execute(
-                    select(Account).where(Account.account_number == sender_acc_num)
-                ).scalars().first()
+                account = (
+                    self.db.execute(
+                        select(Account).where(Account.account_number == sender_acc_num)
+                    )
+                    .scalars()
+                    .first()
+                )
                 if not account:
                     stats["validation_errors"] += 1
                     continue
@@ -224,10 +279,14 @@ class SyncService:
             except Exception as e:
                 self.db.rollback()
                 stats["failed"] += 1
-                self._log_to_redis(f"Failed to ingest transaction {ext_tx.get('ext_id')}: {str(e)}")
+                self._log_to_redis(
+                    f"Failed to ingest transaction {ext_tx.get('ext_id')}: {str(e)}"
+                )
 
         duration = round(time.time() - start_time, 2)
-        self._log_to_redis(f"Finished TRANSACTIONS sync job in {duration}s. Stats: {stats}")
+        self._log_to_redis(
+            f"Finished TRANSACTIONS sync job in {duration}s. Stats: {stats}"
+        )
         self._set_status("sync_transactions", "completed", progress=100.0, stats=stats)
         return stats
 
@@ -241,30 +300,46 @@ class SyncService:
         directors_ubos = self.connector.get_mock_directors_ubos()
         stats = {"imported": 0, "failed": 0, "duplicate": 0, "validation_errors": 0}
 
-        comp_reg_res = self.db.execute(select(Company.registration_number)).scalars().all()
+        comp_reg_res = (
+            self.db.execute(select(Company.registration_number)).scalars().all()
+        )
         existing_reg_numbers = list(comp_reg_res)
 
         for idx, ext_comp in enumerate(ext_comps):
             progress = 10.0 + (idx / len(ext_comps)) * 80.0
-            self._set_status("sync_companies", "running", progress=progress, stats=stats)
+            self._set_status(
+                "sync_companies", "running", progress=progress, stats=stats
+            )
 
             # Validation
-            is_valid, errors = IngestionValidator.validate_company(ext_comp, existing_reg_numbers)
+            is_valid, errors = IngestionValidator.validate_company(
+                ext_comp, existing_reg_numbers
+            )
             if not is_valid:
                 stats["validation_errors"] += len(errors)
-                self._log_to_redis(f"Validation failure for company {ext_comp.get('company_name')}: {', '.join(errors)}")
+                self._log_to_redis(
+                    f"Validation failure for company {ext_comp.get('company_name')}: {', '.join(errors)}"
+                )
                 continue
 
             try:
                 # Find matching customer (by external reference map)
-                user = self.db.execute(
-                    select(User).where(User.email == "isabella.thomas@gmail.com")
-                ).scalars().first()
+                user = (
+                    self.db.execute(
+                        select(User).where(User.email == "isabella.thomas@gmail.com")
+                    )
+                    .scalars()
+                    .first()
+                )
                 if not user:
                     stats["validation_errors"] += 1
                     continue
 
-                customer = self.db.execute(select(Customer).where(Customer.user_id == user.id)).scalars().first()
+                customer = (
+                    self.db.execute(select(Customer).where(Customer.user_id == user.id))
+                    .scalars()
+                    .first()
+                )
                 if not customer:
                     stats["validation_errors"] += 1
                     continue
@@ -275,13 +350,21 @@ class SyncService:
 
                 # Add directors associated with this company
                 company_ext_id = ext_comp["ext_id"]
-                dirs = [d for d in directors_ubos["directors"] if d["company_ext_id"] == company_ext_id]
+                dirs = [
+                    d
+                    for d in directors_ubos["directors"]
+                    if d["company_ext_id"] == company_ext_id
+                ]
                 for d_data in dirs:
                     director = DataMapper.map_external_director(d_data, company.id)
                     self.db.add(director)
 
                 # Add UBOs associated with this company
-                ubs = [u for u in directors_ubos["ubos"] if u["company_ext_id"] == company_ext_id]
+                ubs = [
+                    u
+                    for u in directors_ubos["ubos"]
+                    if u["company_ext_id"] == company_ext_id
+                ]
                 for u_data in ubs:
                     ubo = DataMapper.map_external_ubo(u_data, company.id)
                     self.db.add(ubo)
@@ -292,10 +375,14 @@ class SyncService:
             except Exception as e:
                 self.db.rollback()
                 stats["failed"] += 1
-                self._log_to_redis(f"Failed to ingest company {ext_comp.get('company_name')}: {str(e)}")
+                self._log_to_redis(
+                    f"Failed to ingest company {ext_comp.get('company_name')}: {str(e)}"
+                )
 
         duration = round(time.time() - start_time, 2)
-        self._log_to_redis(f"Finished COMPANIES sync job in {duration}s. Stats: {stats}")
+        self._log_to_redis(
+            f"Finished COMPANIES sync job in {duration}s. Stats: {stats}"
+        )
         self._set_status("sync_companies", "completed", progress=100.0, stats=stats)
         return stats
 
@@ -303,7 +390,7 @@ class SyncService:
         """Runs sequence: Customers -> Accounts -> Transactions -> Companies."""
         start = time.time()
         self._log_to_redis("Starting FULL sync execution pipeline.")
-        
+
         c_stats = self.sync_customers()
         a_stats = self.sync_accounts()
         t_stats = self.sync_transactions()
@@ -311,18 +398,31 @@ class SyncService:
 
         duration = round(time.time() - start, 2)
         total_stats = {
-            "imported": c_stats["imported"] + a_stats["imported"] + t_stats["imported"] + co_stats["imported"],
-            "failed": c_stats["failed"] + a_stats["failed"] + t_stats["failed"] + co_stats["failed"],
-            "validation_errors": c_stats["validation_errors"] + a_stats["validation_errors"] + t_stats["validation_errors"] + co_stats["validation_errors"],
-            "duration_sec": duration
+            "imported": c_stats["imported"]
+            + a_stats["imported"]
+            + t_stats["imported"]
+            + co_stats["imported"],
+            "failed": c_stats["failed"]
+            + a_stats["failed"]
+            + t_stats["failed"]
+            + co_stats["failed"],
+            "validation_errors": c_stats["validation_errors"]
+            + a_stats["validation_errors"]
+            + t_stats["validation_errors"]
+            + co_stats["validation_errors"],
+            "duration_sec": duration,
         }
-        
-        self._log_to_redis(f"FULL sync finished in {duration}s. Total stats: {total_stats}")
+
+        self._log_to_redis(
+            f"FULL sync finished in {duration}s. Total stats: {total_stats}"
+        )
         return total_stats
 
     # ─── STEP 5: DATA QUALITY ENGINE ───────────────────────────────────────────
     @staticmethod
-    def calculate_data_quality_score(customer: Customer, kyc: Optional[KYCProfile], docs: List[Any]) -> Dict[str, Any]:
+    def calculate_data_quality_score(
+        customer: Customer, kyc: Optional[KYCProfile], docs: List[Any]
+    ) -> Dict[str, Any]:
         """Analyzes imported data and generates a quality score from 0-100."""
         score = 100.0
         reasons = []
@@ -352,17 +452,20 @@ class SyncService:
         score = max(score, 0.0)
         return {
             "quality_score": score,
-            "incomplete_profile": not customer.phone_number or not customer.street_address,
+            "incomplete_profile": not customer.phone_number
+            or not customer.street_address,
             "missing_kyc": kyc is None,
             "missing_docs": len(docs) == 0,
-            "flags": reasons
+            "flags": reasons,
         }
 
 
 # ─── STEP 13: AGENT DATA PROVIDERS ─────────────────────────────────────────────
 class CustomerProvider:
     @staticmethod
-    def get_normalized_customer(db: Session, customer_id: UUID) -> Optional[Dict[str, Any]]:
+    def get_normalized_customer(
+        db: Session, customer_id: UUID
+    ) -> Optional[Dict[str, Any]]:
         c = db.query(Customer).filter(Customer.id == customer_id).first()
         if not c:
             return None
@@ -376,8 +479,9 @@ class CustomerProvider:
             "address": f"{c.street_address or ''}, {c.city or ''}, {c.postal_code or ''}",
             "status": c.status,
             "kyc_complete": kyc is not None,
-            "risk_tier": kyc.risk_category if kyc else "low"
+            "risk_tier": kyc.risk_category if kyc else "low",
         }
+
 
 class AccountProvider:
     @staticmethod
@@ -390,15 +494,20 @@ class AccountProvider:
                 "sort_code": a.sort_code,
                 "currency": a.currency,
                 "balance": float(a.balance),
-                "status": a.status
+                "status": a.status,
             }
             for a in accs
         ]
 
+
 class TransactionProvider:
     @staticmethod
     def get_account_transactions(db: Session, account_id: UUID) -> List[Dict[str, Any]]:
-        txs = db.query(Transaction).filter(Transaction.sender_account_id == account_id).all()
+        txs = (
+            db.query(Transaction)
+            .filter(Transaction.sender_account_id == account_id)
+            .all()
+        )
         return [
             {
                 "id": str(t.id),
@@ -408,14 +517,17 @@ class TransactionProvider:
                 "currency": t.currency,
                 "tx_type": t.transaction_type,
                 "status": t.status,
-                "completed_at": str(t.completed_at) if t.completed_at else None
+                "completed_at": str(t.completed_at) if t.completed_at else None,
             }
             for t in txs
         ]
 
+
 class CompanyProvider:
     @staticmethod
-    def get_customer_company(db: Session, customer_id: UUID) -> Optional[Dict[str, Any]]:
+    def get_customer_company(
+        db: Session, customer_id: UUID
+    ) -> Optional[Dict[str, Any]]:
         comp = db.query(Company).filter(Company.customer_id == customer_id).first()
         if not comp:
             return None
@@ -426,5 +538,8 @@ class CompanyProvider:
             "registration_number": comp.registration_number,
             "registered_address": comp.registered_address,
             "directors": [f"{d.first_name} {d.last_name}" for d in dirs],
-            "ubos": [f"{u.first_name} {u.last_name} ({u.ownership_percentage}%)" for u in ubos]
+            "ubos": [
+                f"{u.first_name} {u.last_name} ({u.ownership_percentage}%)"
+                for u in ubos
+            ],
         }

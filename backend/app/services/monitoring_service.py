@@ -16,9 +16,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.schema_helpers import ensure_phase11_schema
 from app.models.models import (
-    Customer, KYCProfile, Document, Case, Alert, RiskScore,
-    MonitoringSchedule, MonitoringJob, MonitoringHistory, PolicyRule,
-    Transaction, Company, Director, UBO
+    Customer,
+    KYCProfile,
+    Document,
+    Case,
+    Alert,
+    RiskScore,
+    MonitoringSchedule,
+    MonitoringJob,
+    MonitoringHistory,
+    PolicyRule,
+    Transaction,
+    Company,
+    Director,
+    UBO,
 )
 from app.services.screening_service import ScreeningService
 from app.services.audit_service import AuditService
@@ -37,58 +48,79 @@ class MonitoringService:
         today_start = datetime.combine(date.today(), datetime.min.time())
 
         # 1. Customers Under Monitoring (Customers with a MonitoringSchedule active)
-        cust_monitoring = (await db.execute(
-            select(func.count(func.distinct(MonitoringSchedule.customer_id)))
-            .where(MonitoringSchedule.status == "scheduled")
-        )).scalar_one() or 0
+        cust_monitoring = (
+            await db.execute(
+                select(func.count(func.distinct(MonitoringSchedule.customer_id))).where(
+                    MonitoringSchedule.status == "scheduled"
+                )
+            )
+        ).scalar_one() or 0
 
         # 2. Today's Screenings (MonitoringHistory created today)
-        today_screenings = (await db.execute(
-            select(func.count(MonitoringHistory.id))
-            .where(MonitoringHistory.screening_date >= today_start)
-        )).scalar_one() or 0
+        today_screenings = (
+            await db.execute(
+                select(func.count(MonitoringHistory.id)).where(
+                    MonitoringHistory.screening_date >= today_start
+                )
+            )
+        ).scalar_one() or 0
 
         # 3. Queued Jobs
-        queued = (await db.execute(
-            select(func.count(MonitoringJob.id))
-            .where(MonitoringJob.status == "queued")
-        )).scalar_one() or 0
+        queued = (
+            await db.execute(
+                select(func.count(MonitoringJob.id)).where(
+                    MonitoringJob.status == "queued"
+                )
+            )
+        ).scalar_one() or 0
 
         # 4. Running Jobs
-        running = (await db.execute(
-            select(func.count(MonitoringJob.id))
-            .where(MonitoringJob.status == "running")
-        )).scalar_one() or 0
+        running = (
+            await db.execute(
+                select(func.count(MonitoringJob.id)).where(
+                    MonitoringJob.status == "running"
+                )
+            )
+        ).scalar_one() or 0
 
         # 5. Failed Jobs
-        failed = (await db.execute(
-            select(func.count(MonitoringJob.id))
-            .where(MonitoringJob.status == "failed")
-        )).scalar_one() or 0
+        failed = (
+            await db.execute(
+                select(func.count(MonitoringJob.id)).where(
+                    MonitoringJob.status == "failed"
+                )
+            )
+        ).scalar_one() or 0
 
         # 6. Upcoming Reviews (MonitoringSchedule due in next 30 days)
         thirty_days_later = date.today() + timedelta(days=30)
-        upcoming = (await db.execute(
-            select(func.count(MonitoringSchedule.id))
-            .where(and_(
-                MonitoringSchedule.next_review_date <= thirty_days_later,
-                MonitoringSchedule.status == "scheduled"
-            ))
-        )).scalar_one() or 0
+        upcoming = (
+            await db.execute(
+                select(func.count(MonitoringSchedule.id)).where(
+                    and_(
+                        MonitoringSchedule.next_review_date <= thirty_days_later,
+                        MonitoringSchedule.status == "scheduled",
+                    )
+                )
+            )
+        ).scalar_one() or 0
 
         # 7. Risk Changes Today (RiskScore changes tracked in history today)
-        risk_changes = (await db.execute(
-            select(func.count(MonitoringHistory.id))
-            .where(and_(
-                MonitoringHistory.screening_date >= today_start,
-                MonitoringHistory.risk_delta != 0
-            ))
-        )).scalar_one() or 0
+        risk_changes = (
+            await db.execute(
+                select(func.count(MonitoringHistory.id)).where(
+                    and_(
+                        MonitoringHistory.screening_date >= today_start,
+                        MonitoringHistory.risk_delta != 0,
+                    )
+                )
+            )
+        ).scalar_one() or 0
 
         # 8. Completed Reviews (Successful runs in history)
-        completed_reviews = (await db.execute(
-            select(func.count(MonitoringHistory.id))
-        )).scalar_one() or 0
+        completed_reviews = (
+            await db.execute(select(func.count(MonitoringHistory.id)))
+        ).scalar_one() or 0
 
         return {
             "customers_under_monitoring": cust_monitoring,
@@ -98,14 +130,12 @@ class MonitoringService:
             "failed_jobs": failed,
             "upcoming_reviews": upcoming,
             "risk_changes_today": risk_changes,
-            "completed_reviews": completed_reviews
+            "completed_reviews": completed_reviews,
         }
 
     @staticmethod
     async def create_monitoring_job(
-        db: AsyncSession,
-        customer_id: UUID,
-        trigger_reason: str
+        db: AsyncSession, customer_id: UUID, trigger_reason: str
     ) -> MonitoringJob:
         """Create and queue a monitoring job."""
         await ensure_phase11_schema(db)
@@ -115,7 +145,7 @@ class MonitoringService:
             customer_id=customer_id,
             status="queued",
             trigger_reason=trigger_reason,
-            retry_count=0
+            retry_count=0,
         )
         db.add(job)
         await db.commit()
@@ -127,7 +157,7 @@ class MonitoringService:
         db: AsyncSession,
         customer_id: UUID,
         trigger_reason: str,
-        job_id: Optional[UUID] = None
+        job_id: Optional[UUID] = None,
     ) -> Dict[str, Any]:
         """
         Runs automated re-screening for a customer.
@@ -139,7 +169,9 @@ class MonitoringService:
         # Update or create monitoring job status to running
         job = None
         if job_id:
-            res = await db.execute(select(MonitoringJob).where(MonitoringJob.id == job_id))
+            res = await db.execute(
+                select(MonitoringJob).where(MonitoringJob.id == job_id)
+            )
             job = res.scalars().first()
 
         if not job:
@@ -149,7 +181,7 @@ class MonitoringService:
                 status="running",
                 trigger_reason=trigger_reason,
                 retry_count=0,
-                worker_name="celery-worker"
+                worker_name="celery-worker",
             )
             db.add(job)
         else:
@@ -193,7 +225,11 @@ class MonitoringService:
                 .limit(1)
             )
             new_risk = new_score_res.scalars().first()
-            new_score = float(new_risk.overall_score) if new_risk else float(result.get("score", 0.0))
+            new_score = (
+                float(new_risk.overall_score)
+                if new_risk
+                else float(result.get("score", 0.0))
+            )
 
             new_decision = result.get("decision", "MANUAL_REVIEW")
             case_uuid = UUID(result["case_id"]) if result.get("case_id") else None
@@ -210,8 +246,9 @@ class MonitoringService:
             # Query active alerts for this customer
             alert_count = 0
             alerts_res = await db.execute(
-                select(func.count(Alert.id))
-                .where(and_(Alert.customer_id == customer_id, Alert.status == "open"))
+                select(func.count(Alert.id)).where(
+                    and_(Alert.customer_id == customer_id, Alert.status == "open")
+                )
             )
             alert_count = alerts_res.scalar_one() or 0
 
@@ -231,7 +268,7 @@ class MonitoringService:
                 agents_executed=result.get("agents_completed", []),
                 execution_time_ms=int((time.time() - start_time) * 1000),
                 case_id=case_uuid,
-                risk_score_id=new_risk.id if new_risk else None
+                risk_score_id=new_risk.id if new_risk else None,
             )
             db.add(history)
 
@@ -243,13 +280,16 @@ class MonitoringService:
 
             # Update MonitoringSchedule review date
             sched_res = await db.execute(
-                select(MonitoringSchedule)
-                .where(MonitoringSchedule.customer_id == customer_id)
+                select(MonitoringSchedule).where(
+                    MonitoringSchedule.customer_id == customer_id
+                )
             )
             sched = sched_res.scalars().first()
             if sched:
                 sched.last_review_date = date.today()
-                sched.next_review_date = date.today() + timedelta(days=sched.review_frequency_months * 30)
+                sched.next_review_date = date.today() + timedelta(
+                    days=sched.review_frequency_months * 30
+                )
                 sched.status = "scheduled"
 
             # Part 8: Alert Automation
@@ -262,14 +302,16 @@ class MonitoringService:
                 new_score=new_score,
                 new_decision=new_decision,
                 trigger_reason=trigger_reason,
-                result=result
+                result=result,
             )
 
             await db.commit()
             return result
 
         except Exception as exc:
-            logger.error(f"MonitoringService: Automated re-screening failed for customer {customer_id}: {exc}")
+            logger.error(
+                f"MonitoringService: Automated re-screening failed for customer {customer_id}: {exc}"
+            )
             job.status = "failed"
             job.error_message = str(exc)
             job.retry_count += 1
@@ -285,63 +327,75 @@ class MonitoringService:
         new_score: float,
         new_decision: str,
         trigger_reason: str,
-        result: Dict[str, Any]
+        result: Dict[str, Any],
     ):
         """Part 8 - Automatically generate alerts for compliance operations."""
         alert_triggers = []
 
         # 1. Risk increase
         if risk_delta >= 10.0:
-            alert_triggers.append({
-                "type": "risk_increase",
-                "desc": f"Risk score increased by {risk_delta:.1f} points (new score: {new_score:.1f})."
-            })
+            alert_triggers.append(
+                {
+                    "type": "risk_increase",
+                    "desc": f"Risk score increased by {risk_delta:.1f} points (new score: {new_score:.1f}).",
+                }
+            )
 
         # 2. High-risk customer
         if new_score >= 70.0:
-            alert_triggers.append({
-                "type": "high_risk_tier",
-                "desc": f"Customer risk level evaluated in High tier (score: {new_score:.1f})."
-            })
+            alert_triggers.append(
+                {
+                    "type": "high_risk_tier",
+                    "desc": f"Customer risk level evaluated in High tier (score: {new_score:.1f}).",
+                }
+            )
 
         # 3. Policy violation
         if new_decision in ("REJECT", "EDD_REQUIRED"):
-            alert_triggers.append({
-                "type": "policy_violation",
-                "desc": f"Automatic screening result flag: {new_decision}."
-            })
+            alert_triggers.append(
+                {
+                    "type": "policy_violation",
+                    "desc": f"Automatic screening result flag: {new_decision}.",
+                }
+            )
 
         # 4. Large transactions / Anomalies
         if trigger_reason == "new_transaction":
-            alert_triggers.append({
-                "type": "transaction_anomaly",
-                "desc": "Re-screen triggered due to high value or anomaly transaction."
-            })
+            alert_triggers.append(
+                {
+                    "type": "transaction_anomaly",
+                    "desc": "Re-screen triggered due to high value or anomaly transaction.",
+                }
+            )
 
         # 5. Sanctions or PEP hit detection
         if "sanctions_agent" in result.get("agents_completed", []):
-            alert_triggers.append({
-                "type": "sanctions_hit",
-                "desc": "Periodic scan included sanctions screening verify loop."
-            })
+            alert_triggers.append(
+                {
+                    "type": "sanctions_hit",
+                    "desc": "Periodic scan included sanctions screening verify loop.",
+                }
+            )
 
         # Insert alerts into the database
         for trigger in alert_triggers:
             alert_id = uuid4()
-            db.add(Alert(
-                id=alert_id,
-                customer_id=customer_id,
-                transaction_id=None,
-                alert_type=trigger["type"],
-                risk_score=new_score,
-                status="open",
-                alert_metadata={
-                    "severity": "high" if new_score >= 70.0 else "medium",
-                    "description": trigger["desc"],
-                    "case_id": str(case_id) if case_id else None,
-                    "notes": f"Auto-generated alert via Phase 11 Continuous Monitoring Engine ({trigger_reason})."
-                }
-            ))
+            db.add(
+                Alert(
+                    id=alert_id,
+                    customer_id=customer_id,
+                    transaction_id=None,
+                    alert_type=trigger["type"],
+                    risk_score=new_score,
+                    status="open",
+                    alert_metadata={
+                        "severity": "high" if new_score >= 70.0 else "medium",
+                        "description": trigger["desc"],
+                        "case_id": str(case_id) if case_id else None,
+                        "notes": f"Auto-generated alert via Phase 11 Continuous Monitoring Engine ({trigger_reason}).",
+                    },
+                )
+            )
 
     @staticmethod
     async def cancel_job(db: AsyncSession, job_id: UUID) -> bool:
@@ -372,9 +426,7 @@ class MonitoringService:
 
     @staticmethod
     async def detect_and_trigger_rescreen(
-        db: AsyncSession,
-        customer_id: UUID,
-        trigger_reason: str
+        db: AsyncSession, customer_id: UUID, trigger_reason: str
     ) -> Optional[MonitoringJob]:
         """
         Part 5 - Change Detection.
@@ -384,16 +436,21 @@ class MonitoringService:
 
         # Check if there is already a running/queued job to avoid duplicate screenings
         exist_res = await db.execute(
-            select(MonitoringJob)
-            .where(and_(
-                MonitoringJob.customer_id == customer_id,
-                MonitoringJob.status.in_(["queued", "running"])
-            ))
+            select(MonitoringJob).where(
+                and_(
+                    MonitoringJob.customer_id == customer_id,
+                    MonitoringJob.status.in_(["queued", "running"]),
+                )
+            )
         )
         existing = exist_res.scalars().first()
         if existing:
-            logger.info(f"Screening already pending/running for customer {customer_id}. Skipping duplicate trigger.")
+            logger.info(
+                f"Screening already pending/running for customer {customer_id}. Skipping duplicate trigger."
+            )
             return existing
 
-        job = await MonitoringService.create_monitoring_job(db, customer_id, trigger_reason)
+        job = await MonitoringService.create_monitoring_job(
+            db, customer_id, trigger_reason
+        )
         return job

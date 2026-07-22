@@ -13,18 +13,36 @@ from datetime import date, datetime
 from typing import List, Optional
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, Request, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    UploadFile,
+    File,
+    Form,
+    Request,
+    status,
+)
 from sqlalchemy import func, and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.schema_helpers import ensure_phase10_schema
-from app.dependencies.auth import get_current_user, verify_compliance_officer, verify_admin
+from app.dependencies.auth import (
+    get_current_user,
+    verify_compliance_officer,
+    verify_admin,
+)
 from app.models.models import User, Regulation, PolicyRule, RegulationVersion
 from app.schemas.schemas import (
-    RegulationResponse, PaginatedRegulations, RegulationUpdate,
-    RegulationVersionResponse, RollbackRequest, PolicyRuleResponse,
+    RegulationResponse,
+    PaginatedRegulations,
+    RegulationUpdate,
+    RegulationVersionResponse,
+    RollbackRequest,
+    PolicyRuleResponse,
 )
 from app.services.audit_service import AuditService
 from app.services.text_extraction_service import TextExtractionService
@@ -36,10 +54,15 @@ router = APIRouter()
 
 def _get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
-    return forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+    return (
+        forwarded.split(",")[0].strip()
+        if forwarded
+        else (request.client.host if request.client else "unknown")
+    )
 
 
 # ── GET /regulations ──────────────────────────────────────────────────────────
+
 
 @router.get("/", response_model=PaginatedRegulations)
 async def list_regulations(
@@ -53,7 +76,7 @@ async def list_regulations(
 ):
     """List all regulations with pagination and filters."""
     await ensure_phase10_schema(db)
-    
+
     q = select(Regulation)
     if search:
         q = q.where(
@@ -68,16 +91,28 @@ async def list_regulations(
     if status:
         q = q.where(Regulation.status == status)
 
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
-    items = (await db.execute(
-        q.order_by(Regulation.created_at.desc())
-        .offset((page - 1) * page_size).limit(page_size)
-    )).scalars().all()
+    total = (
+        await db.execute(select(func.count()).select_from(q.subquery()))
+    ).scalar_one()
+    items = (
+        (
+            await db.execute(
+                q.order_by(Regulation.created_at.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
-    return PaginatedRegulations(total=total, page=page, page_size=page_size, items=items)
+    return PaginatedRegulations(
+        total=total, page=page, page_size=page_size, items=items
+    )
 
 
 # ── POST /regulations ─────────────────────────────────────────────────────────
+
 
 @router.post("/", response_model=RegulationResponse, status_code=201)
 async def upload_regulation(
@@ -122,7 +157,7 @@ async def upload_regulation(
             os.remove(saved_path)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Could not extract text from document: {str(exc)}"
+            detail=f"Could not extract text from document: {str(exc)}",
         )
 
     # Parse dates
@@ -146,7 +181,10 @@ async def upload_regulation(
         expiry_date=exp_date,
         status="active",
         extracted_text=extracted_text,
-        document_metadata={"original_filename": file.filename, "size": os.path.getsize(saved_path)}
+        document_metadata={
+            "original_filename": file.filename,
+            "size": os.path.getsize(saved_path),
+        },
     )
     db.add(regulation)
     await db.flush()
@@ -160,7 +198,7 @@ async def upload_regulation(
         extracted_text=extracted_text,
         rules_snapshot={},
         change_description="Initial upload and ingestion",
-        author_id=current_user.id
+        author_id=current_user.id,
     )
     db.add(initial_version)
 
@@ -174,13 +212,14 @@ async def upload_regulation(
         new_values={"title": title, "version": version, "file_name": file.filename},
         ip_address=_get_client_ip(request),
     )
-    
+
     await db.commit()
     await db.refresh(regulation)
     return regulation
 
 
 # ── GET /regulations/{id} ─────────────────────────────────────────────────────
+
 
 @router.get("/{regulation_id}", response_model=RegulationResponse)
 async def get_regulation(
@@ -198,6 +237,7 @@ async def get_regulation(
 
 # ── PUT /regulations/{id} ─────────────────────────────────────────────────────
 
+
 @router.put("/{regulation_id}", response_model=RegulationResponse)
 async def update_regulation(
     regulation_id: UUID,
@@ -214,7 +254,7 @@ async def update_regulation(
 
     old_values = {"title": regulation.title, "status": regulation.status}
     update_data = req_body.model_dump(exclude_unset=True)
-    
+
     for field, value in update_data.items():
         setattr(regulation, field, value)
 
@@ -228,7 +268,7 @@ async def update_regulation(
             extracted_text=regulation.extracted_text or "",
             rules_snapshot={},
             change_description=f"Manual update: {list(update_data.keys())}",
-            author_id=current_user.id
+            author_id=current_user.id,
         )
         db.add(new_version)
 
@@ -249,6 +289,7 @@ async def update_regulation(
 
 
 # ── DELETE /regulations/{id} ──────────────────────────────────────────────────
+
 
 @router.delete("/{regulation_id}", status_code=204)
 async def delete_regulation(
@@ -287,6 +328,7 @@ async def delete_regulation(
 
 # ── POST /regulations/{id}/extract-rules ──────────────────────────────────────
 
+
 @router.post("/{regulation_id}/extract-rules", response_model=List[PolicyRuleResponse])
 async def extract_regulation_rules(
     regulation_id: UUID,
@@ -296,20 +338,24 @@ async def extract_regulation_rules(
 ):
     """Triggers AI or deterministic rule extraction and populates PolicyRules table."""
     await ensure_phase10_schema(db)
-    
+
     result = await db.execute(select(Regulation).where(Regulation.id == regulation_id))
     regulation = result.scalars().first()
     if not regulation:
         raise HTTPException(status_code=404, detail="Regulation not found.")
 
     # 1. Extract rules
-    extracted_rules = await RuleExtractionService.extract_rules(regulation.extracted_text)
+    extracted_rules = await RuleExtractionService.extract_rules(
+        regulation.extracted_text
+    )
 
     # 2. De-activate old rules from this regulation (overwrite model)
     await db.execute(
         select(PolicyRule).where(PolicyRule.regulation_id == regulation_id)
     )
-    old_rules_res = await db.execute(select(PolicyRule).where(PolicyRule.regulation_id == regulation_id))
+    old_rules_res = await db.execute(
+        select(PolicyRule).where(PolicyRule.regulation_id == regulation_id)
+    )
     for r in old_rules_res.scalars().all():
         await db.delete(r)
 
@@ -328,7 +374,7 @@ async def extract_regulation_rules(
             expression=rule_data.get("expression"),
             threshold=rule_data.get("threshold"),
             country=rule_data.get("country") or regulation.country,
-            version=regulation.version
+            version=regulation.version,
         )
         db.add(rule)
         created_rules.append(rule)
@@ -356,7 +402,7 @@ async def extract_regulation_rules(
             extracted_text=regulation.extracted_text or "",
             rules_snapshot=snapshot,
             change_description="Extracted policy rules snapshot",
-            author_id=current_user.id
+            author_id=current_user.id,
         )
         db.add(new_version)
 
@@ -376,6 +422,7 @@ async def extract_regulation_rules(
 
 # ── GET /regulations/{id}/versions ────────────────────────────────────────────
 
+
 @router.get("/{regulation_id}/versions", response_model=List[RegulationVersionResponse])
 async def list_regulation_versions(
     regulation_id: UUID,
@@ -393,6 +440,7 @@ async def list_regulation_versions(
 
 # ── POST /regulations/{id}/rollback ───────────────────────────────────────────
 
+
 @router.post("/{regulation_id}/rollback", response_model=RegulationResponse)
 async def rollback_regulation(
     regulation_id: UUID,
@@ -405,7 +453,9 @@ async def rollback_regulation(
     await ensure_phase10_schema(db)
 
     # 1. Fetch regulation
-    reg_result = await db.execute(select(Regulation).where(Regulation.id == regulation_id))
+    reg_result = await db.execute(
+        select(Regulation).where(Regulation.id == regulation_id)
+    )
     regulation = reg_result.scalars().first()
     if not regulation:
         raise HTTPException(status_code=404, detail="Regulation not found.")
@@ -415,7 +465,7 @@ async def rollback_regulation(
         select(RegulationVersion).where(
             and_(
                 RegulationVersion.id == rollback_req.version_id,
-                RegulationVersion.regulation_id == regulation_id
+                RegulationVersion.regulation_id == regulation_id,
             )
         )
     )
@@ -424,7 +474,7 @@ async def rollback_regulation(
         raise HTTPException(status_code=404, detail="Version snapshot not found.")
 
     old_version = regulation.version
-    
+
     # 3. Rollback metadata and text
     regulation.title = historical.title
     regulation.extracted_text = historical.extracted_text
@@ -432,7 +482,9 @@ async def rollback_regulation(
 
     # 4. Rollback policy rules to the snapshot
     # Clear current policy rules
-    old_rules_res = await db.execute(select(PolicyRule).where(PolicyRule.regulation_id == regulation_id))
+    old_rules_res = await db.execute(
+        select(PolicyRule).where(PolicyRule.regulation_id == regulation_id)
+    )
     for r in old_rules_res.scalars().all():
         await db.delete(r)
 
@@ -443,12 +495,16 @@ async def rollback_regulation(
             id=uuid4(),
             regulation_id=regulation_id,
             rule_name=name,
-            rule_type=conditions.get("rule_type", "threshold") if isinstance(conditions, dict) else "threshold",
+            rule_type=(
+                conditions.get("rule_type", "threshold")
+                if isinstance(conditions, dict)
+                else "threshold"
+            ),
             conditions=conditions if isinstance(conditions, dict) else {},
             is_active=True,
             severity="medium",
             version=historical.version,
-            country=regulation.country
+            country=regulation.country,
         )
         db.add(rule)
         restored_rules.append(rule)
@@ -462,7 +518,7 @@ async def rollback_regulation(
         extracted_text=historical.extracted_text,
         rules_snapshot=historical.rules_snapshot,
         change_description=f"Rollback from version {old_version} to {historical.version}. Reason: {rollback_req.reason}",
-        author_id=current_user.id
+        author_id=current_user.id,
     )
     db.add(rollback_version)
 

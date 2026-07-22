@@ -23,12 +23,12 @@ from app.agents.base.exceptions import AgentValidationError
 logger = logging.getLogger(__name__)
 
 # Thresholds
-DORMANCY_DAYS           = 180
-RAPID_TX_COUNT          = 10         # Transactions within 24h
-RAPID_TX_WINDOW_HOURS   = 24
-MULE_INBOUND_RATIO      = 0.7        # >70% inbound small transactions
-MULE_SMALL_AMOUNT       = 1000.0     # £1,000 threshold for "small"
-LINKED_ACCOUNT_MIN      = 3          # Same receiver seen 3+ times
+DORMANCY_DAYS = 180
+RAPID_TX_COUNT = 10  # Transactions within 24h
+RAPID_TX_WINDOW_HOURS = 24
+MULE_INBOUND_RATIO = 0.7  # >70% inbound small transactions
+MULE_SMALL_AMOUNT = 1000.0  # £1,000 threshold for "small"
+LINKED_ACCOUNT_MIN = 3  # Same receiver seen 3+ times
 
 
 @AgentRegistry.register("account_behavior_agent")
@@ -72,19 +72,19 @@ class AccountBehaviorAgent(BaseAgent):
         state.logs.append(f"[{self.get_name()}] Starting account behavior analysis...")
 
         transactions: List[Dict[str, Any]] = state.transactions or []
-        accounts:     List[Dict[str, Any]] = state.accounts     or []
+        accounts: List[Dict[str, Any]] = state.accounts or []
 
-        findings:        List[str] = []
-        warnings:        List[str] = []
-        errors:          List[str] = []
+        findings: List[str] = []
+        warnings: List[str] = []
+        errors: List[str] = []
         recommendations: List[str] = []
 
         flags: Dict[str, bool] = {
-            "dormant_account":    False,
+            "dormant_account": False,
             "account_reactivated": False,
             "rapid_transactions": False,
-            "mule_indicators":    False,
-            "linked_accounts":    False,
+            "mule_indicators": False,
+            "linked_accounts": False,
         }
 
         if not transactions:
@@ -92,7 +92,9 @@ class AccountBehaviorAgent(BaseAgent):
             state.shared_metadata["account_behavior_score"] = 80.0
             state.risk_breakdown["account_behavior"] = 80.0
             execution_duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
-            state.logs.append("AccountBehaviorAgent: No transactions — score=80 (neutral).")
+            state.logs.append(
+                "AccountBehaviorAgent: No transactions — score=80 (neutral)."
+            )
             return {
                 "_status": "success",
                 "_reason": "No transaction history. Neutral behavior score assigned.",
@@ -116,18 +118,22 @@ class AccountBehaviorAgent(BaseAgent):
             try:
                 created_raw = tx.get("created_at")
                 if isinstance(created_raw, str):
-                    created_at = datetime.fromisoformat(created_raw.replace("Z", "+00:00"))
+                    created_at = datetime.fromisoformat(
+                        created_raw.replace("Z", "+00:00")
+                    )
                     created_at = created_at.replace(tzinfo=None)
                 elif isinstance(created_raw, datetime):
                     created_at = created_raw.replace(tzinfo=None)
                 else:
                     created_at = now
-                parsed_txs.append({
-                    **tx,
-                    "_created_at": created_at,
-                    "_amount": float(tx.get("amount") or 0),
-                    "_type": str(tx.get("transaction_type") or "").lower(),
-                })
+                parsed_txs.append(
+                    {
+                        **tx,
+                        "_created_at": created_at,
+                        "_amount": float(tx.get("amount") or 0),
+                        "_type": str(tx.get("transaction_type") or "").lower(),
+                    }
+                )
             except Exception:
                 pass
 
@@ -136,12 +142,14 @@ class AccountBehaviorAgent(BaseAgent):
         # ── Check 1: Dormant account ──────────────────────────────────────────
         if len(parsed_txs) >= 2:
             first_tx = parsed_txs[0]["_created_at"]
-            last_tx  = parsed_txs[-1]["_created_at"]
+            last_tx = parsed_txs[-1]["_created_at"]
             # Check for large gap in middle
             for i in range(1, len(parsed_txs)):
-                gap = (parsed_txs[i]["_created_at"] - parsed_txs[i-1]["_created_at"]).days
+                gap = (
+                    parsed_txs[i]["_created_at"] - parsed_txs[i - 1]["_created_at"]
+                ).days
                 if gap >= DORMANCY_DAYS:
-                    flags["dormant_account"]     = True
+                    flags["dormant_account"] = True
                     flags["account_reactivated"] = True
                     warnings.append(
                         f"Account dormancy detected: {gap}-day gap between transactions "
@@ -150,25 +158,31 @@ class AccountBehaviorAgent(BaseAgent):
                     break
 
         # ── Check 2: Rapid transactions ───────────────────────────────────────
-        window_end   = now
+        window_end = now
         window_start = window_end - timedelta(hours=RAPID_TX_WINDOW_HOURS)
-        recent_txs   = [t for t in parsed_txs if window_start <= t["_created_at"] <= window_end]
+        recent_txs = [
+            t for t in parsed_txs if window_start <= t["_created_at"] <= window_end
+        ]
         if len(recent_txs) >= RAPID_TX_COUNT:
             flags["rapid_transactions"] = True
             warnings.append(
                 f"Rapid transaction velocity detected: {len(recent_txs)} transactions in last "
                 f"{RAPID_TX_WINDOW_HOURS} hours."
             )
-            recommendations.append("Investigate rapid transaction activity for potential layering.")
+            recommendations.append(
+                "Investigate rapid transaction activity for potential layering."
+            )
 
         # ── Check 3: Mule account indicators ─────────────────────────────────
         inbound_small = [
-            t for t in parsed_txs
+            t
+            for t in parsed_txs
             if t["_type"] in ("credit", "receive", "transfer_in")
             and t["_amount"] <= MULE_SMALL_AMOUNT
         ]
         outbound_large = [
-            t for t in parsed_txs
+            t
+            for t in parsed_txs
             if t["_type"] in ("debit", "send", "transfer_out")
             and t["_amount"] > MULE_SMALL_AMOUNT
         ]
@@ -190,14 +204,20 @@ class AccountBehaviorAgent(BaseAgent):
             for t in parsed_txs
             if t.get("receiver_account_number")
         )
-        frequent_receivers = {acc: cnt for acc, cnt in receiver_accounts.items() if cnt >= LINKED_ACCOUNT_MIN}
+        frequent_receivers = {
+            acc: cnt
+            for acc, cnt in receiver_accounts.items()
+            if cnt >= LINKED_ACCOUNT_MIN
+        }
         if frequent_receivers:
             flags["linked_accounts"] = True
             for acc, cnt in list(frequent_receivers.items())[:3]:
                 findings.append(
                     f"Frequent transfers to receiver account '{acc}': {cnt} transaction(s)."
                 )
-            recommendations.append("Verify legitimacy of frequently used receiver accounts.")
+            recommendations.append(
+                "Verify legitimacy of frequently used receiver accounts."
+            )
 
         # ── Summary findings ──────────────────────────────────────────────────
         active_flags = [k for k, v in flags.items() if v]
@@ -208,11 +228,11 @@ class AccountBehaviorAgent(BaseAgent):
 
         # ── Score ─────────────────────────────────────────────────────────────
         score = 100.0
-        score -= flags["dormant_account"]    * 15.0
+        score -= flags["dormant_account"] * 15.0
         score -= flags["account_reactivated"] * 10.0
         score -= flags["rapid_transactions"] * 20.0
-        score -= flags["mule_indicators"]    * 30.0
-        score -= flags["linked_accounts"]    * 10.0
+        score -= flags["mule_indicators"] * 30.0
+        score -= flags["linked_accounts"] * 10.0
         score = round(max(0.0, min(100.0, score)), 2)
         risk_level = "high" if score < 40 else "medium" if score < 70 else "low"
 
@@ -220,7 +240,7 @@ class AccountBehaviorAgent(BaseAgent):
 
         state.risk_breakdown["account_behavior"] = score
         state.shared_metadata["account_behavior_score"] = score
-        state.shared_metadata["account_behavior_risk"]  = risk_level
+        state.shared_metadata["account_behavior_risk"] = risk_level
         state.shared_metadata["account_behavior_flags"] = flags
 
         state.logs.append(
@@ -234,12 +254,12 @@ class AccountBehaviorAgent(BaseAgent):
             "confidence": score / 100.0,
             "risk_score": score,
             "risk_level": risk_level,
-            "findings":   findings,
-            "warnings":   warnings,
+            "findings": findings,
+            "warnings": warnings,
             "recommendations": recommendations,
-            "errors":     errors,
+            "errors": errors,
             "account_behavior_score": score,
-            "behavior_flags":         flags,
-            "transactions_analysed":  len(parsed_txs),
-            "execution_duration_ms":  execution_duration_ms,
+            "behavior_flags": flags,
+            "transactions_analysed": len(parsed_txs),
+            "execution_duration_ms": execution_duration_ms,
         }

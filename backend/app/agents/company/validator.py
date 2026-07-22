@@ -15,7 +15,9 @@ class CompanyValidator:
     # 1. Company Registration
     # ─────────────────────────────────────────────────────────
     @staticmethod
-    def validate_registration(company: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
+    def validate_registration(
+        company: Dict[str, Any],
+    ) -> Tuple[float, List[str], List[str]]:
         """
         Checks: company_registration_number, incorporation_date.
         Max score: WEIGHT_REGISTRATION (20 pts — 10 per field).
@@ -79,10 +81,10 @@ class CompanyValidator:
         passed: List[str] = []
 
         address_fields = {
-            "registered_street":   "registered_street",
-            "registered_city":     "registered_city",
+            "registered_street": "registered_street",
+            "registered_city": "registered_city",
             "registered_postcode": "registered_postcode",
-            "registered_country":  "registered_country",
+            "registered_country": "registered_country",
         }
         per_field = WEIGHT_ADDRESS / len(address_fields)
 
@@ -100,15 +102,17 @@ class CompanyValidator:
     # 4. Business / Industry Classification
     # ─────────────────────────────────────────────────────────
     @staticmethod
-    def validate_industry(company: Dict[str, Any]) -> Tuple[float, List[str], List[str]]:
+    def validate_industry(
+        company: Dict[str, Any],
+    ) -> Tuple[float, List[str], List[str]]:
         """Checks: industry_code or business_type (10 pts)."""
         score = 0.0
         missing: List[str] = []
         passed: List[str] = []
 
         industry = (
-            str(company.get("industry_code") or "").strip() or
-            str(company.get("business_type") or "").strip()
+            str(company.get("industry_code") or "").strip()
+            or str(company.get("business_type") or "").strip()
         )
         if industry:
             score += WEIGHT_INDUSTRY
@@ -122,7 +126,9 @@ class CompanyValidator:
     # 5. Directors
     # ─────────────────────────────────────────────────────────
     @staticmethod
-    def validate_directors(directors: List[Dict[str, Any]]) -> Tuple[float, List[str], List[str]]:
+    def validate_directors(
+        directors: List[Dict[str, Any]],
+    ) -> Tuple[float, List[str], List[str]]:
         """
         Checks: at least one director entry in state.directors (15 pts).
         Each director entry must have a name field to count.
@@ -132,7 +138,8 @@ class CompanyValidator:
         passed: List[str] = []
 
         valid_directors = [
-            d for d in directors
+            d
+            for d in directors
             if str(d.get("name") or d.get("first_name") or "").strip()
         ]
 
@@ -148,14 +155,17 @@ class CompanyValidator:
     # 6. Shareholders
     # ─────────────────────────────────────────────────────────
     @staticmethod
-    def validate_shareholders(shareholders: List[Dict[str, Any]]) -> Tuple[float, List[str], List[str]]:
+    def validate_shareholders(
+        shareholders: List[Dict[str, Any]],
+    ) -> Tuple[float, List[str], List[str]]:
         """Checks: at least one shareholder entry (10 pts)."""
         score = 0.0
         missing: List[str] = []
         passed: List[str] = []
 
         valid_shareholders = [
-            s for s in shareholders
+            s
+            for s in shareholders
             if str(s.get("name") or s.get("shareholder_name") or "").strip()
         ]
 
@@ -181,7 +191,8 @@ class CompanyValidator:
         passed: List[str] = []
 
         qualifying_ubos = [
-            u for u in ubos
+            u
+            for u in ubos
             if str(u.get("name") or "").strip()
             and float(u.get("ownership_percentage") or 0.0) >= 25.0
         ]
@@ -198,7 +209,9 @@ class CompanyValidator:
     # 8. Company Documents
     # ─────────────────────────────────────────────────────────
     @staticmethod
-    def validate_company_documents(documents: List[Dict[str, Any]]) -> Tuple[float, List[str], List[str]]:
+    def validate_company_documents(
+        documents: List[Dict[str, Any]],
+    ) -> Tuple[float, List[str], List[str]]:
         """
         Checks: at least one company incorporation document uploaded (5 pts).
         Recognised types: certificate_of_incorporation, memorandum_of_association,
@@ -217,7 +230,8 @@ class CompanyValidator:
         }
 
         found = [
-            d for d in documents
+            d
+            for d in documents
             if str(d.get("document_type") or "").strip().lower() in COMPANY_DOC_TYPES
         ]
 

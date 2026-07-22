@@ -8,14 +8,11 @@ from app.services.ocr.tesseract import TesseractOcr
 
 logger = logging.getLogger(__name__)
 
+
 class OcrOrchestrator:
     def __init__(self, engines: List[BaseOcrEngine] = None):
         if engines is None:
-            self.engines = [
-                GeminiVisionOcr(),
-                DocTrOcr(),
-                TesseractOcr()
-            ]
+            self.engines = [GeminiVisionOcr(), DocTrOcr(), TesseractOcr()]
         else:
             self.engines = engines
 
@@ -37,4 +34,6 @@ class OcrOrchestrator:
                 logger.warning(f"Engine {engine.get_name()} failed with error: {e}")
                 errors.append(f"{engine.get_name()}: {str(e)}")
 
-        raise RuntimeError(f"All OCR Engines failed to process document: {', '.join(errors)}")
+        raise RuntimeError(
+            f"All OCR Engines failed to process document: {', '.join(errors)}"
+        )

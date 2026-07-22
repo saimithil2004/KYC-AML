@@ -17,7 +17,9 @@ from app.agents.base.registry import AgentRegistry
 from app.agents.base.exceptions import AgentValidationError
 
 from app.agents.transaction.constants import (
-    RISK_LOW, NEXT_AGENT, TRANSACTION_STATUS_CLEAR
+    RISK_LOW,
+    NEXT_AGENT,
+    TRANSACTION_STATUS_CLEAR,
 )
 from app.agents.transaction.models import TransactionAuditTrail
 from app.agents.transaction.validator import TransactionValidator
@@ -59,7 +61,7 @@ class TransactionAgent(BaseAgent):
             "dormant_reactivation_check",
             "cash_intensive_check",
             "rules_evaluation",
-            "langgraph_routing_output"
+            "langgraph_routing_output",
         ]
 
     # ── Input Validation ──────────────────────────────────────────────────────
@@ -70,7 +72,7 @@ class TransactionAgent(BaseAgent):
         if not state.customer:
             raise AgentValidationError(
                 message="Customer profile is missing in AgentState. Cannot run Transaction Agent.",
-                details={"customer": None}
+                details={"customer": None},
             )
         return True
 
@@ -81,7 +83,9 @@ class TransactionAgent(BaseAgent):
 
         # ── Step 1: Validate and Normalize Transactions ───────────────────────
         raw_txs = state.transactions or []
-        valid_records, val_warnings, val_errors = TransactionValidator.validate_and_normalize(raw_txs)
+        valid_records, val_warnings, val_errors = (
+            TransactionValidator.validate_and_normalize(raw_txs)
+        )
 
         # ── Step 2: Extract country risk contexts from Country Risk Agent ─────
         high_risk_countries = state.shared_metadata.get("high_risk_countries") or []
@@ -91,14 +95,14 @@ class TransactionAgent(BaseAgent):
         pattern_results = TransactionAnalyzer.analyze(
             transactions=valid_records,
             high_risk_countries=high_risk_countries,
-            prohibited_countries=prohibited_countries
+            prohibited_countries=prohibited_countries,
         )
 
         triggered_patterns = [p for p in pattern_results if p.triggered]
 
         # ── Step 4: Run Business Rules ────────────────────────────────────────
         eval_result = TransactionRulesEngine.evaluate(pattern_results)
-        
+
         tx_status = eval_result["transaction_status"]
         findings = eval_result["findings"]
         warnings = eval_result["warnings"] + val_warnings
@@ -121,7 +125,7 @@ class TransactionAgent(BaseAgent):
             rules_triggered=rules_triggered,
             risk_score=tx_score,
             risk_level=risk_level,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
         # Calculate metrics for metadata
@@ -129,7 +133,11 @@ class TransactionAgent(BaseAgent):
         avg_val = round(sum(amounts) / len(amounts), 2) if amounts else 0.0
         max_val = max(amounts) if amounts else 0.0
         min_val = min(amounts) if amounts else 0.0
-        speed = round(len(valid_records) / (execution_duration_ms / 1000.0), 2) if execution_duration_ms > 0 else 0.0
+        speed = (
+            round(len(valid_records) / (execution_duration_ms / 1000.0), 2)
+            if execution_duration_ms > 0
+            else 0.0
+        )
         success_rate = round(len(valid_records) / len(raw_txs), 2) if raw_txs else 1.0
 
         metrics = {
@@ -141,7 +149,7 @@ class TransactionAgent(BaseAgent):
             "execution_time_ms": execution_duration_ms,
             "processing_speed_tx_per_sec": speed,
             "success_rate": success_rate,
-            "failure_rate": round(1.0 - success_rate, 2)
+            "failure_rate": round(1.0 - success_rate, 2),
         }
 
         # ── Step 7: Update AgentState ─────────────────────────────────────────
@@ -150,8 +158,12 @@ class TransactionAgent(BaseAgent):
         state.shared_metadata["transaction_score"] = tx_score
         state.shared_metadata["transaction_risk"] = risk_level
         state.shared_metadata["transaction_findings"] = findings
-        state.shared_metadata["transaction_alerts"] = [p.pattern_name for p in triggered_patterns]
-        state.shared_metadata["transaction_patterns"] = [p.model_dump() for p in pattern_results]
+        state.shared_metadata["transaction_alerts"] = [
+            p.pattern_name for p in triggered_patterns
+        ]
+        state.shared_metadata["transaction_patterns"] = [
+            p.model_dump() for p in pattern_results
+        ]
         state.shared_metadata["transaction_recommendations"] = recommendations
         state.shared_metadata["transaction_audit"] = audit.model_dump()
         state.shared_metadata["next_agent"] = NEXT_AGENT
@@ -182,5 +194,5 @@ class TransactionAgent(BaseAgent):
             "rules_triggered": rules_triggered,
             "next_agent": NEXT_AGENT,
             "metrics": metrics,
-            "audit_trail": audit.model_dump()
+            "audit_trail": audit.model_dump(),
         }

@@ -26,18 +26,33 @@ from app.agents.base.agent_state import AgentState
 from app.agents.base.exceptions import AgentValidationError
 from app.agents.screening.models import ScreeningSubject, CompanyScreeningSubject
 from app.agents.screening.constants import (
-    MATCH_CONFIRMED, MATCH_POSSIBLE, MATCH_NONE,
-    RISK_LOW, RISK_MEDIUM, RISK_HIGH, RISK_CRITICAL,
-    ROLE_CUSTOMER, ROLE_DIRECTOR, ROLE_UBO, ROLE_COMPANY
+    MATCH_CONFIRMED,
+    MATCH_POSSIBLE,
+    MATCH_NONE,
+    RISK_LOW,
+    RISK_MEDIUM,
+    RISK_HIGH,
+    RISK_CRITICAL,
+    ROLE_CUSTOMER,
+    ROLE_DIRECTOR,
+    ROLE_UBO,
+    ROLE_COMPANY,
 )
 from app.agents.sanctions.agent import SanctionsAgent
 from app.agents.sanctions.models import SanctionRecord, SanctionMatchResult
 from app.agents.sanctions.provider import BaseSanctionsProvider
 from app.agents.sanctions.constants import (
-    SANCTIONS_STATUS_CLEAR, SANCTIONS_STATUS_POSSIBLE, SANCTIONS_STATUS_CONFIRMED,
-    SANCTION_CATEGORY_INDIVIDUAL, SANCTION_CATEGORY_COMPANY,
-    SANCTION_CATEGORY_ASSET_FREEZE, SANCTION_CATEGORY_TRAVEL_BAN,
-    SANCTION_CATEGORY_TERRORIST, LIST_OFAC, LIST_UK_SANCTIONS, LIST_UN
+    SANCTIONS_STATUS_CLEAR,
+    SANCTIONS_STATUS_POSSIBLE,
+    SANCTIONS_STATUS_CONFIRMED,
+    SANCTION_CATEGORY_INDIVIDUAL,
+    SANCTION_CATEGORY_COMPANY,
+    SANCTION_CATEGORY_ASSET_FREEZE,
+    SANCTION_CATEGORY_TRAVEL_BAN,
+    SANCTION_CATEGORY_TERRORIST,
+    LIST_OFAC,
+    LIST_UK_SANCTIONS,
+    LIST_UN,
 )
 
 
@@ -47,10 +62,14 @@ class EmptySanctionsProvider(BaseSanctionsProvider):
     def provider_name(self) -> str:
         return "EmptySanctionsProvider"
 
-    async def search_individuals(self, subject: ScreeningSubject) -> List[SanctionRecord]:
+    async def search_individuals(
+        self, subject: ScreeningSubject
+    ) -> List[SanctionRecord]:
         return []
 
-    async def search_companies(self, subject: CompanyScreeningSubject) -> List[SanctionRecord]:
+    async def search_companies(
+        self, subject: CompanyScreeningSubject
+    ) -> List[SanctionRecord]:
         return []
 
 
@@ -59,10 +78,14 @@ class FailingSanctionsProvider(BaseSanctionsProvider):
     def provider_name(self) -> str:
         return "FailingSanctionsProvider"
 
-    async def search_individuals(self, subject: ScreeningSubject) -> List[SanctionRecord]:
+    async def search_individuals(
+        self, subject: ScreeningSubject
+    ) -> List[SanctionRecord]:
         raise ConnectionError("Sanctions watchlists lookup timeout")
 
-    async def search_companies(self, subject: CompanyScreeningSubject) -> List[SanctionRecord]:
+    async def search_companies(
+        self, subject: CompanyScreeningSubject
+    ) -> List[SanctionRecord]:
         raise ConnectionError("Sanctions watchlists lookup timeout")
 
 
@@ -74,10 +97,14 @@ class CustomSanctionsProvider(BaseSanctionsProvider):
     def provider_name(self) -> str:
         return "CustomSanctionsProvider"
 
-    async def search_individuals(self, subject: ScreeningSubject) -> List[SanctionRecord]:
+    async def search_individuals(
+        self, subject: ScreeningSubject
+    ) -> List[SanctionRecord]:
         return [r for r in self._records if r.entity_type == "INDIVIDUAL"]
 
-    async def search_companies(self, subject: CompanyScreeningSubject) -> List[SanctionRecord]:
+    async def search_companies(
+        self, subject: CompanyScreeningSubject
+    ) -> List[SanctionRecord]:
         return [r for r in self._records if r.entity_type == "COMPANY"]
 
 
@@ -90,7 +117,7 @@ def individual_customer(name: str = "Ahmed Al-Masri") -> Dict[str, Any]:
         "dob": "1978-11-12",
         "nationality": "Syria",
         "customer_type": "individual",
-        "passport_number": "SYR-987654-A"
+        "passport_number": "SYR-987654-A",
     }
 
 
@@ -104,10 +131,12 @@ def make_state(
     ubos: Optional[List] = None,
     customer_profile: Optional[Dict] = None,
     companies: Optional[List] = None,
-    use_empty_customer: bool = False
+    use_empty_customer: bool = False,
 ) -> AgentState:
-    resolved = {} if use_empty_customer else (
-        customer if customer is not None else individual_customer()
+    resolved = (
+        {}
+        if use_empty_customer
+        else (customer if customer is not None else individual_customer())
     )
     return AgentState(
         customer_id="test-cust-123",
@@ -116,7 +145,7 @@ def make_state(
         directors=directors or [],
         ubos=ubos or [],
         customer_profile=customer_profile or {},
-        companies=companies or []
+        companies=companies or [],
     )
 
 
@@ -141,8 +170,16 @@ async def test_individual_no_match_is_clear():
 async def test_business_no_match_is_clear():
     state = make_state(
         customer=business_customer(),
-        companies=[{"name": "Safe Shipping Corp", "registration_number": "REG-123", "country": "UK"}],
-        directors=[{"name": "John Doe", "dob": "1970-01-01", "passport_number": "UK-1122"}]
+        companies=[
+            {
+                "name": "Safe Shipping Corp",
+                "registration_number": "REG-123",
+                "country": "UK",
+            }
+        ],
+        directors=[
+            {"name": "John Doe", "dob": "1970-01-01", "passport_number": "UK-1122"}
+        ],
     )
     agent = SanctionsAgent(provider=EmptySanctionsProvider())
     result = await agent.execute(state)
@@ -161,15 +198,17 @@ async def test_possible_match_manual_review():
     record = SanctionRecord(
         record_id="SANC-123",
         entity_type="INDIVIDUAL",
-        full_name="Ahmeeed Al-Masssri", # Fuzzy name similarity
+        full_name="Ahmeeed Al-Masssri",  # Fuzzy name similarity
         dob="1960-01-01",
         nationality="Egypt",
         sanction_category=SANCTION_CATEGORY_INDIVIDUAL,
         sanction_list=LIST_OFAC,
-        is_active=True
+        is_active=True,
     )
     agent = SanctionsAgent(provider=CustomSanctionsProvider([record]))
-    result = await agent.execute(make_state(customer=individual_customer("Ahmed Al-Masri")))
+    result = await agent.execute(
+        make_state(customer=individual_customer("Ahmed Al-Masri"))
+    )
 
     assert result.metadata["sanctions_status"] == SANCTIONS_STATUS_POSSIBLE
     assert result.risk_level == RISK_MEDIUM
@@ -187,10 +226,12 @@ async def test_confirmed_individual_match():
         nationality="Syria",
         sanction_category=SANCTION_CATEGORY_INDIVIDUAL,
         sanction_list=LIST_UN,
-        is_active=True
+        is_active=True,
     )
     agent = SanctionsAgent(provider=CustomSanctionsProvider([record]))
-    result = await agent.execute(make_state(customer=individual_customer("Ahmed Al-Masri")))
+    result = await agent.execute(
+        make_state(customer=individual_customer("Ahmed Al-Masri"))
+    )
 
     assert result.metadata["sanctions_status"] == SANCTIONS_STATUS_CONFIRMED
     assert result.risk_level == RISK_CRITICAL
@@ -207,11 +248,11 @@ async def test_confirmed_company_match():
         country="Iran",
         sanction_category=SANCTION_CATEGORY_COMPANY,
         sanction_list=LIST_OFAC,
-        is_active=True
+        is_active=True,
     )
     state = make_state(
         customer=business_customer(),
-        companies=[{"name": "Target Shipping Corp", "country": "Iran"}]
+        companies=[{"name": "Target Shipping Corp", "country": "Iran"}],
     )
     agent = SanctionsAgent(provider=CustomSanctionsProvider([record]))
     result = await agent.execute(state)
@@ -231,7 +272,7 @@ async def test_passport_match():
         passport_number="SYR-987654-A",
         sanction_category=SANCTION_CATEGORY_INDIVIDUAL,
         sanction_list=LIST_UN,
-        is_active=True
+        is_active=True,
     )
     agent = SanctionsAgent(provider=CustomSanctionsProvider([record]))
     result = await agent.execute(make_state(customer=individual_customer()))
@@ -250,11 +291,13 @@ async def test_registration_number_match():
         registration_number="REG-991188",
         sanction_category=SANCTION_CATEGORY_COMPANY,
         sanction_list=LIST_OFAC,
-        is_active=True
+        is_active=True,
     )
     state = make_state(
         customer=business_customer(),
-        companies=[{"name": "Target Shipping Corp", "registration_number": "REG-991188"}]
+        companies=[
+            {"name": "Target Shipping Corp", "registration_number": "REG-991188"}
+        ],
     )
     agent = SanctionsAgent(provider=CustomSanctionsProvider([record]))
     result = await agent.execute(state)
@@ -275,14 +318,16 @@ async def test_terrorist_financing_match_immediate_escalation():
         dob="1978-11-12",
         sanction_category=SANCTION_CATEGORY_TERRORIST,
         sanction_list=LIST_UN,
-        is_active=True
+        is_active=True,
     )
     agent = SanctionsAgent(provider=CustomSanctionsProvider([record]))
     result = await agent.execute(make_state())
 
     assert "SAN005" in result.metadata["rules_triggered"]
     assert result.risk_level == RISK_CRITICAL
-    assert any("escalate to compliance officer" in r.lower() for r in result.recommendations)
+    assert any(
+        "escalate to compliance officer" in r.lower() for r in result.recommendations
+    )
 
 
 @pytest.mark.anyio
@@ -294,7 +339,7 @@ async def test_asset_freeze_match():
         dob="1978-11-12",
         sanction_category=SANCTION_CATEGORY_ASSET_FREEZE,
         sanction_list=LIST_UK_SANCTIONS,
-        is_active=True
+        is_active=True,
     )
     agent = SanctionsAgent(provider=CustomSanctionsProvider([record]))
     result = await agent.execute(make_state())
@@ -312,7 +357,7 @@ async def test_travel_ban_match():
         dob="1978-11-12",
         sanction_category=SANCTION_CATEGORY_TRAVEL_BAN,
         sanction_list=LIST_UK_SANCTIONS,
-        is_active=True
+        is_active=True,
     )
     agent = SanctionsAgent(provider=CustomSanctionsProvider([record]))
     result = await agent.execute(make_state())
@@ -331,7 +376,7 @@ async def test_multiple_matches():
         dob="1978-11-12",
         sanction_category=SANCTION_CATEGORY_INDIVIDUAL,
         sanction_list=LIST_UN,
-        is_active=True
+        is_active=True,
     )
     record2 = SanctionRecord(
         record_id="SANC-456",
@@ -340,11 +385,11 @@ async def test_multiple_matches():
         dob="1970-01-01",
         sanction_category=SANCTION_CATEGORY_INDIVIDUAL,
         sanction_list=LIST_OFAC,
-        is_active=True
+        is_active=True,
     )
     state = make_state(
         customer=individual_customer("Ahmed Al-Masri"),
-        directors=[{"name": "John Director", "dob": "1970-01-01"}]
+        directors=[{"name": "John Director", "dob": "1970-01-01"}],
     )
     # We want both to match
     agent = SanctionsAgent(provider=CustomSanctionsProvider([record1, record2]))
@@ -364,17 +409,17 @@ async def test_provider_failure_graceful_degradation():
     result = await agent.execute(state)
 
     assert result.success is True
-    assert any("provider failure" in w.lower() or "timeout" in w.lower() for w in result.warnings)
+    assert any(
+        "provider failure" in w.lower() or "timeout" in w.lower()
+        for w in result.warnings
+    )
 
 
 @pytest.mark.anyio
 async def test_duplicate_screening_subjects():
     """Director listed twice should only be screened once."""
     same = {"name": "Duplicate Director", "dob": "1970-01-01"}
-    state = make_state(
-        customer=business_customer(),
-        directors=[same, same]
-    )
+    state = make_state(customer=business_customer(), directors=[same, same])
     agent = SanctionsAgent(provider=EmptySanctionsProvider())
     result = await agent.execute(state)
 

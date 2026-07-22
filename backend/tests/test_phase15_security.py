@@ -32,15 +32,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # ─── Mock DB Helper ───────────────────────────────────────────────────────────
 
+
 class _ScalarResult:
     def __init__(self, items):
         self._items = items
+
     def first(self):
         return self._items[0] if self._items else None
+
     def all(self):
         return list(self._items)
+
     def scalars(self):
         return self
+
 
 def make_mock_db(rows=None):
     db = AsyncMock(spec=AsyncSession)
@@ -57,7 +62,9 @@ def make_mock_db(rows=None):
     db.bind.dialect.name = "sqlite"
     return db
 
+
 # ─── 1. Password Complexity Rules ────────────────────────────────────────────
+
 
 class TestPasswordComplexity:
     def test_valid_complex_password(self):
@@ -93,13 +100,14 @@ class TestPasswordComplexity:
 
 # ─── 2. AES-256 GCM Field Encryption ──────────────────────────────────────────
 
+
 class TestFieldEncryption:
     def test_encryption_decryption_roundtrip(self):
         secret_value = "SecretNationalID_1234567"
         encrypted = encrypt(secret_value)
         assert encrypted != secret_value
         assert encrypted.startswith("enc:") or encrypted.startswith("plain:")
-        
+
         decrypted = decrypt(encrypted)
         assert decrypted == secret_value
 
@@ -118,6 +126,7 @@ class TestFieldEncryption:
 
 # ─── 3. Lockout & Brute Force ─────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 class TestLockoutMechanisms:
     async def test_authentication_with_lockout(self):
@@ -127,7 +136,7 @@ class TestLockoutMechanisms:
         user.email = "locked@test.com"
         user.is_active = True
         user.locked_until = datetime.utcnow() + timedelta(minutes=5)
-        
+
         db = make_mock_db([user])
         with pytest.raises(Exception) as exc:
             await AuthService.authenticate_user(db, "locked@test.com", "SomePassword!")
@@ -144,12 +153,15 @@ class TestLockoutMechanisms:
         user.password_changed_at = datetime.utcnow()
 
         db = make_mock_db([user])
-        authenticated_user = await AuthService.authenticate_user(db, "test@test.com", "PassComplex99!")
+        authenticated_user = await AuthService.authenticate_user(
+            db, "test@test.com", "PassComplex99!"
+        )
         assert authenticated_user.failed_login_count == 0
         assert authenticated_user.locked_until is None
 
 
 # ─── 4. Token Revocation Blacklist ───────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 class TestTokenRevocation:
@@ -164,7 +176,7 @@ class TestTokenRevocation:
     async def test_is_token_revoked_check(self):
         revoked_token = MagicMock()
         revoked_token.jti = "blacklisted-jti"
-        
+
         db = make_mock_db([revoked_token])
         is_rev = await AuthService.is_token_revoked(db, "blacklisted-jti")
         assert is_rev is True
@@ -176,13 +188,14 @@ class TestTokenRevocation:
 
 # ─── 5. TOTP Multi-Factor Authentication ──────────────────────────────────────
 
+
 @pytest.mark.asyncio
 class TestMultiFactorAuthentication:
     async def test_enroll_mfa_flow(self):
         user = MagicMock()
         user.id = uuid4()
         user.email = "mfa@test.com"
-        
+
         db = make_mock_db([])
         secret, uri, qr_b64, backup_codes = await AuthService.enroll_mfa(db, user)
         assert len(secret) > 10
@@ -193,7 +206,7 @@ class TestMultiFactorAuthentication:
     async def test_verify_mfa_login_disabled(self):
         user = MagicMock()
         user.id = uuid4()
-        
+
         # User without MFA enabled settings
         db = make_mock_db([])
         res = await AuthService.verify_mfa_login(db, user, "123456")
@@ -201,6 +214,7 @@ class TestMultiFactorAuthentication:
 
 
 # ─── 6. Observability Metrics ────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 class TestObservabilityMetrics:
@@ -213,7 +227,7 @@ class TestObservabilityMetrics:
     async def test_record_and_read_api_stats(self):
         ObservabilityService.record_request("/api/v1/auth/login", "POST", 200, 150.0)
         ObservabilityService.record_request("/api/v1/customers", "GET", 400, 20.0)
-        
+
         stats = await ObservabilityService.get_api_stats()
         assert stats["request_count_1h"] >= 2
         assert stats["average_latency_ms"] > 0
@@ -221,6 +235,7 @@ class TestObservabilityMetrics:
 
 
 # ─── 7. Cache Service ─────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 class TestCacheService:
@@ -239,7 +254,7 @@ class TestCacheService:
         await cache.set("pat:one", "1")
         await cache.set("pat:two", "2")
         await cache.set("other:three", "3")
-        
+
         count = await cache.delete_pattern("pat:*")
         assert count >= 2
         assert await cache.get("pat:one") is None
@@ -248,15 +263,18 @@ class TestCacheService:
 
 # ─── 8. Backup & Integrity ────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 class TestBackupService:
     async def test_list_and_integrity_fallback(self):
         db = make_mock_db()
-        record = await BackupService.create_backup(db, backup_type="config", triggered_by="manual")
+        record = await BackupService.create_backup(
+            db, backup_type="config", triggered_by="manual"
+        )
         assert record.status == "completed"
         assert record.backup_type == "config"
         assert len(record.sha256_checksum) == 64
-        
+
         # Verify integrity
         db_with_record = make_mock_db([record])
         is_ok = await BackupService.verify_backup_integrity(record.id, db_with_record)

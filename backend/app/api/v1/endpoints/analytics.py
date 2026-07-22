@@ -23,7 +23,7 @@ router = APIRouter()
 async def get_kpis(
     period: str = Query("monthly", regex="^(daily|weekly|monthly|quarterly|yearly)$"),
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Retrieve generic compliance KPIs for the period."""
     await ensure_phase13_schema(db)
@@ -33,7 +33,7 @@ async def get_kpis(
 @router.get("/dashboard")
 async def get_dashboard_summary(
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get high-level dashboard KPIs for charts and metrics list."""
     await ensure_phase13_schema(db)
@@ -43,7 +43,7 @@ async def get_dashboard_summary(
 @router.get("/risk")
 async def get_risk_metrics(
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get risk score averages and tier distributions."""
     await ensure_phase13_schema(db)
@@ -53,7 +53,7 @@ async def get_risk_metrics(
 @router.get("/cases")
 async def get_case_metrics(
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get case status statistics and investigator workloads."""
     await ensure_phase13_schema(db)
@@ -63,18 +63,19 @@ async def get_case_metrics(
 @router.get("/investigations")
 async def get_investigation_metrics(
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get active investigation workload logs (reusing workspace service if needed)."""
     await ensure_phase13_schema(db)
     from app.services.investigation_service import InvestigationService
+
     return await InvestigationService.get_dashboard_metrics(db)
 
 
 @router.get("/transactions")
 async def get_transaction_metrics(
     current_user: User = Depends(verify_compliance_officer),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Get transactions statistics for line chart volumes."""
     await ensure_phase13_schema(db)

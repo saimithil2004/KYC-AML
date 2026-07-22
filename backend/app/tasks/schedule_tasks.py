@@ -20,6 +20,7 @@ def run_async(coro):
         asyncio.set_event_loop(loop)
     if loop.is_running():
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor() as pool:
             return pool.submit(asyncio.run, coro).result()
     else:
@@ -27,9 +28,13 @@ def run_async(coro):
 
 
 @celery_app.task(name="tasks.schedule_tasks.run_monitoring_screening_task")
-def run_monitoring_screening_task(job_id_str: str, customer_id_str: str, trigger_reason: str):
+def run_monitoring_screening_task(
+    job_id_str: str, customer_id_str: str, trigger_reason: str
+):
     """Executes a re-screening job asynchronously for a customer."""
-    logger.info(f"[CELERY] Executing monitoring screening for Customer {customer_id_str} (Job: {job_id_str})")
+    logger.info(
+        f"[CELERY] Executing monitoring screening for Customer {customer_id_str} (Job: {job_id_str})"
+    )
 
     async def _execute():
         async with SessionLocal() as db:
@@ -37,7 +42,7 @@ def run_monitoring_screening_task(job_id_str: str, customer_id_str: str, trigger
                 db=db,
                 customer_id=UUID(customer_id_str),
                 trigger_reason=trigger_reason,
-                job_id=UUID(job_id_str)
+                job_id=UUID(job_id_str),
             )
 
     return run_async(_execute())
@@ -54,7 +59,7 @@ def dispatch_periodic_reviews():
             q = select(MonitoringSchedule).where(
                 and_(
                     MonitoringSchedule.next_review_date <= date.today(),
-                    MonitoringSchedule.status == "scheduled"
+                    MonitoringSchedule.status == "scheduled",
                 )
             )
             res = await db.execute(q)
@@ -66,14 +71,16 @@ def dispatch_periodic_reviews():
                 job = await MonitoringService.detect_and_trigger_rescreen(
                     db=db,
                     customer_id=sched.customer_id,
-                    trigger_reason="schedule_expired"
+                    trigger_reason="schedule_expired",
                 )
                 if job:
                     # Mark schedule status as processing
                     sched.status = "reviewing"
                     dispatched_count += 1
                     # Dispatch Celery task for execution
-                    run_monitoring_screening_task.delay(str(job.id), str(sched.customer_id), "schedule_expired")
+                    run_monitoring_screening_task.delay(
+                        str(job.id), str(sched.customer_id), "schedule_expired"
+                    )
 
             await db.commit()
             return {"reviews_dispatched": dispatched_count}
@@ -124,12 +131,12 @@ def risk_refresh():
             refreshed = 0
             for cust in customers:
                 job = await MonitoringService.detect_and_trigger_rescreen(
-                    db=db,
-                    customer_id=cust.id,
-                    trigger_reason="risk_change"
+                    db=db, customer_id=cust.id, trigger_reason="risk_change"
                 )
                 if job:
-                    run_monitoring_screening_task.delay(str(job.id), str(cust.id), "risk_change")
+                    run_monitoring_screening_task.delay(
+                        str(job.id), str(cust.id), "risk_change"
+                    )
                     refreshed += 1
             return {"risk_refreshed_count": refreshed}
 
@@ -173,10 +180,7 @@ def retry_failed_screenings():
         async with SessionLocal() as db:
             # Select failed jobs with retry counts less than 3
             q = select(MonitoringJob).where(
-                and_(
-                    MonitoringJob.status == "failed",
-                    MonitoringJob.retry_count < 3
-                )
+                and_(MonitoringJob.status == "failed", MonitoringJob.retry_count < 3)
             )
             res = await db.execute(q)
             failed_jobs = res.scalars().all()
@@ -186,7 +190,9 @@ def retry_failed_screenings():
                 job.status = "queued"
                 job.retry_count += 1
                 job.error_message = None
-                run_monitoring_screening_task.delay(str(job.id), str(job.customer_id), job.trigger_reason)
+                run_monitoring_screening_task.delay(
+                    str(job.id), str(job.customer_id), job.trigger_reason
+                )
                 retried_count += 1
 
             await db.commit()
@@ -202,7 +208,12 @@ def execute_scheduled_reports():
 
     async def _execute():
         async with SessionLocal() as db:
-            from app.models.models import ScheduledReport, ReportTemplate, Report, ReportExecution
+            from app.models.models import (
+                ScheduledReport,
+                ReportTemplate,
+                Report,
+                ReportExecution,
+            )
             from app.services.report_service import ReportService
             from app.services.audit_service import AuditService
             from uuid import uuid4
@@ -213,8 +224,7 @@ def execute_scheduled_reports():
             now = datetime.utcnow()
             q = select(ScheduledReport).where(
                 and_(
-                    ScheduledReport.next_run <= now,
-                    ScheduledReport.status == "active"
+                    ScheduledReport.next_run <= now, ScheduledReport.status == "active"
                 )
             )
             res = await db.execute(q)
@@ -231,12 +241,17 @@ def execute_scheduled_reports():
 
                     # Compile data
                     report_type = filters.get("report_type", "customer_summary")
-                    data = await ReportService.compile_report_data(db, report_type, filters)
+                    data = await ReportService.compile_report_data(
+                        db, report_type, filters
+                    )
 
                     # Storage path
-                    reports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "generated_reports")
+                    reports_dir = os.path.join(
+                        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                        "generated_reports",
+                    )
                     os.makedirs(reports_dir, exist_ok=True)
-                    
+
                     file_id = uuid4()
                     filename = f"scheduled_{sched.name.lower().replace(' ', '_')}_{file_id}.{fmt}"
                     filepath = os.path.join(reports_dir, filename)
@@ -249,7 +264,9 @@ def execute_scheduled_reports():
                     elif fmt == "json":
                         content = ReportService.generate_json_bytes(data)
                     else:  # pdf
-                        content = ReportService.generate_pdf_bytes(data, report_name, filters)
+                        content = ReportService.generate_pdf_bytes(
+                            data, report_name, filters
+                        )
 
                     with open(filepath, "wb") as f:
                         f.write(content)
@@ -263,7 +280,7 @@ def execute_scheduled_reports():
                         status="completed",
                         format=fmt,
                         file_path=filepath,
-                        filters=filters
+                        filters=filters,
                     )
                     db.add(rep)
                     await db.flush()
@@ -274,7 +291,7 @@ def execute_scheduled_reports():
                         schedule_id=sched.id,
                         report_id=rep.id,
                         status="success",
-                        executed_at=datetime.utcnow()
+                        executed_at=datetime.utcnow(),
                     )
                     db.add(exec_log)
 
@@ -296,7 +313,7 @@ def execute_scheduled_reports():
                         action="REPORT_GENERATED",
                         entity_name="report",
                         entity_id=rep.id,
-                        new_values={"name": report_name, "trigger": "schedule"}
+                        new_values={"name": report_name, "trigger": "schedule"},
                     )
                     executed_count += 1
                 except Exception as ex:
@@ -307,7 +324,7 @@ def execute_scheduled_reports():
                         schedule_id=sched.id,
                         status="failed",
                         error_message=str(ex),
-                        executed_at=datetime.utcnow()
+                        executed_at=datetime.utcnow(),
                     )
                     db.add(exec_log)
 
@@ -330,13 +347,22 @@ def sync_compliance_lists_task():
             from app.services.integration_service import IntegrationService
             from app.services.audit_service import AuditService
             from uuid import uuid4 as _uuid4
-            results = await IntegrationService.run_all_syncs(db=db, sync_type="scheduled", user_id=None)
+
+            results = await IntegrationService.run_all_syncs(
+                db=db, sync_type="scheduled", user_id=None
+            )
             success_count = sum(1 for r in results if r.get("status") == "completed")
             fail_count = sum(1 for r in results if r.get("status") == "failed")
             await AuditService.log(
-                db=db, user_id=None, action="COMPLIANCE_SYNC_COMPLETED",
-                entity_name="sync_history", entity_id=_uuid4(),
-                new_values={"providers_synced": success_count, "providers_failed": fail_count},
+                db=db,
+                user_id=None,
+                action="COMPLIANCE_SYNC_COMPLETED",
+                entity_name="sync_history",
+                entity_id=_uuid4(),
+                new_values={
+                    "providers_synced": success_count,
+                    "providers_failed": fail_count,
+                },
             )
             await db.commit()
             return {"providers_synced": success_count, "providers_failed": fail_count}
@@ -355,15 +381,25 @@ def dispatch_notification_task():
             from app.services.webhook_service import WebhookService
             from app.services.audit_service import AuditService
             from uuid import uuid4 as _uuid4
+
             notif_retried = await NotificationService.retry_failed(db=db, max_retries=3)
             webhook_retried = await WebhookService.retry_failed_webhooks(db=db)
             await AuditService.log(
-                db=db, user_id=None, action="RETRY_DISPATCHED",
-                entity_name="notification", entity_id=_uuid4(),
-                new_values={"notifications_retried": notif_retried, "webhooks_retried": webhook_retried},
+                db=db,
+                user_id=None,
+                action="RETRY_DISPATCHED",
+                entity_name="notification",
+                entity_id=_uuid4(),
+                new_values={
+                    "notifications_retried": notif_retried,
+                    "webhooks_retried": webhook_retried,
+                },
             )
             await db.commit()
-            return {"notifications_retried": notif_retried, "webhooks_retried": webhook_retried}
+            return {
+                "notifications_retried": notif_retried,
+                "webhooks_retried": webhook_retried,
+            }
 
     return run_async(_execute())
 
@@ -379,10 +415,15 @@ def daily_system_backup_task():
     async def _execute():
         async with SessionLocal() as db:
             from app.services.backup_service import BackupService
+
             # Create standard database backup
-            record = await BackupService.create_backup(db, backup_type="database", triggered_by="scheduled")
+            record = await BackupService.create_backup(
+                db, backup_type="database", triggered_by="scheduled"
+            )
             # Auto cleanup backups exceeding retention settings
-            purged_count = await BackupService.cleanup_expired_backups(db, settings.BACKUP_RETENTION_DAYS)
+            purged_count = await BackupService.cleanup_expired_backups(
+                db, settings.BACKUP_RETENTION_DAYS
+            )
             return {"backup_status": record.status, "purged_count": purged_count}
 
     return run_async(_execute())
@@ -397,6 +438,7 @@ def persist_system_metrics_task():
         async with SessionLocal() as db:
             from app.services.observability_service import ObservabilityService
             from app.services.auth_service import AuthService
+
             # Save system metrics snapshot
             await ObservabilityService.persist_system_metrics(db)
             # Cleanup revoked tokens that expired
@@ -417,6 +459,7 @@ def aggregate_ai_usage_stats_task():
     async def _execute():
         async with SessionLocal() as db:
             from app.services.ai_governance_service import AIGovernanceService
+
             target_date = datetime.utcnow().date()
             await AIGovernanceService.run_daily_usage_aggregation(db, target_date)
             return {"status": "success", "date": target_date.isoformat()}
@@ -433,13 +476,14 @@ def verify_ai_provider_health_task():
         async with SessionLocal() as db:
             # Performs ping validations and alerts if providers are offline
             from app.services.audit_service import AuditService
+
             # Mock check: alert if error simulation happens
             await AuditService.log(
                 db=db,
                 user_id=None,
                 action="AI_PROVIDER_HEALTH_CHECKED",
                 details="LLM Providers health checks run completed.",
-                status="success"
+                status="success",
             )
             return {"status": "success"}
 
@@ -455,6 +499,7 @@ def prune_execution_history_task():
         async with SessionLocal() as db:
             from sqlalchemy import select, delete
             from app.models.models import AIExecution
+
             # Prune executions older than 90 days
             cutoff = datetime.utcnow() - timedelta(days=90)
             stmt = delete(AIExecution).where(AIExecution.created_at < cutoff)
@@ -463,5 +508,3 @@ def prune_execution_history_task():
             return {"status": "success", "deleted_rows": res.rowcount}
 
     return run_async(_execute())
-
-

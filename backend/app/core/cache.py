@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 # ─── In-Memory Fallback ────────────────────────────────────────────────────────
 
+
 class _InMemoryStore:
     """Simple TTL-aware in-memory cache for when Redis is unavailable."""
 
@@ -90,6 +91,7 @@ class _InMemoryStore:
 
 # ─── Redis Cache Client ────────────────────────────────────────────────────────
 
+
 class CacheService:
     """
     Async Redis cache service with transparent in-memory fallback.
@@ -124,7 +126,9 @@ class CacheService:
                     socket_timeout=2,
                 )
             elif settings.REDIS_SENTINELS:
-                logger.info(f"[CACHE] Initializing Redis Sentinel mode with: {settings.REDIS_SENTINELS}")
+                logger.info(
+                    f"[CACHE] Initializing Redis Sentinel mode with: {settings.REDIS_SENTINELS}"
+                )
                 sentinel_nodes = []
                 for item in settings.REDIS_SENTINELS.split(","):
                     if not item.strip():
@@ -134,7 +138,7 @@ class CacheService:
                         sentinel_nodes.append((host, int(port)))
                     else:
                         sentinel_nodes.append((item, 26379))
-                
+
                 sentinel = Sentinel(
                     sentinel_nodes,
                     socket_timeout=2,
@@ -154,14 +158,16 @@ class CacheService:
                     socket_timeout=2,
                     socket_connect_timeout=2,
                 )
-            
+
             await self._redis.ping()
             self._redis_available = True
             logger.info("[CACHE] Redis connected successfully.")
         except Exception as exc:
             self._redis_available = False
             self._redis = None
-            logger.warning(f"[CACHE] Redis unavailable, using in-memory fallback: {exc}")
+            logger.warning(
+                f"[CACHE] Redis unavailable, using in-memory fallback: {exc}"
+            )
         return self._redis_available
 
     async def get(self, key: str) -> Optional[Any]:
@@ -185,6 +191,7 @@ class CacheService:
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
         """Store a value in cache with optional TTL (seconds)."""
         from app.core.config import settings
+
         effective_ttl = ttl or settings.REDIS_CACHE_TTL
         await self._init_redis()
         if self._redis_available:
@@ -245,6 +252,7 @@ class CacheService:
     async def stats(self) -> Dict[str, Any]:
         """Return cache statistics."""
         from app.core.config import settings
+
         await self._init_redis()
         base = {
             "backend": "redis" if self._redis_available else "memory",
@@ -254,12 +262,14 @@ class CacheService:
             "sets": self._sets,
             "deletes": self._deletes,
             "sentinel_active": bool(settings.REDIS_SENTINELS and self._redis_available),
-            "cluster_active": bool(settings.REDIS_CLUSTER_MODE and self._redis_available),
+            "cluster_active": bool(
+                settings.REDIS_CLUSTER_MODE and self._redis_available
+            ),
             "latency_ms": 0.0,
         }
         total = self._hits + self._misses
         base["hit_rate"] = round(self._hits / total * 100, 2) if total else 0.0
-        
+
         if not self._redis_available:
             base.update(self._fallback.stats())
         elif self._redis:
@@ -267,15 +277,19 @@ class CacheService:
                 start = time.perf_counter()
                 await self._redis.ping()
                 base["latency_ms"] = round((time.perf_counter() - start) * 1000, 2)
-                
+
                 if settings.REDIS_CLUSTER_MODE:
                     try:
                         info = await self._redis.info()
-                        first_node = list(info.keys())[0] if isinstance(info, dict) else None
+                        first_node = (
+                            list(info.keys())[0] if isinstance(info, dict) else None
+                        )
                         node_info = info[first_node] if first_node else info
                         base["redis_hits"] = node_info.get("keyspace_hits", 0)
                         base["redis_misses"] = node_info.get("keyspace_misses", 0)
-                        base["connected_clients"] = node_info.get("connected_clients", 0)
+                        base["connected_clients"] = node_info.get(
+                            "connected_clients", 0
+                        )
                     except Exception:
                         base["redis_hits"] = 0
                         base["redis_misses"] = 0
@@ -315,6 +329,7 @@ cache = CacheService()
 
 # ─── Cache Decorator ──────────────────────────────────────────────────────────
 
+
 def cached(key_template: str, ttl: int = 300):
     """
     Decorator to cache async function results.
@@ -324,6 +339,7 @@ def cached(key_template: str, ttl: int = 300):
         @cached("dashboard:{args[0]}", ttl=60)
         async def get_dashboard_metrics(user_id: str): ...
     """
+
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -337,5 +353,7 @@ def cached(key_template: str, ttl: int = 300):
             result = await func(*args, **kwargs)
             await cache.set(key, result, ttl=ttl)
             return result
+
         return wrapper
+
     return decorator

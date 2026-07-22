@@ -13,12 +13,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
+
 async def ensure_phase10_schema(db: AsyncSession):
     """Executes DDL statements to ensure all Phase 10 columns and tables exist."""
     try:
         bind = db.bind
         dialect_name = bind.dialect.name
-        
+
         # 1. REGULATIONS Table Extension
         reg_cols = [
             ("description", "TEXT"),
@@ -31,15 +32,23 @@ async def ensure_phase10_schema(db: AsyncSession):
             ("expiry_date", "DATE"),
             ("status", "VARCHAR(50) DEFAULT 'active'"),
             ("extracted_text", "TEXT"),
-            ("document_metadata", "JSONB" if dialect_name == "postgresql" else "TEXT")
+            ("document_metadata", "JSONB" if dialect_name == "postgresql" else "TEXT"),
         ]
-        
+
         for col_name, col_type in reg_cols:
             try:
                 if dialect_name == "sqlite":
-                    await db.execute(text(f"ALTER TABLE regulations ADD COLUMN {col_name} {col_type}"))
+                    await db.execute(
+                        text(
+                            f"ALTER TABLE regulations ADD COLUMN {col_name} {col_type}"
+                        )
+                    )
                 else:
-                    await db.execute(text(f"ALTER TABLE regulations ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+                    await db.execute(
+                        text(
+                            f"ALTER TABLE regulations ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
+                        )
+                    )
             except Exception as e:
                 # Alter column might already exist, which is fine
                 pass
@@ -51,15 +60,23 @@ async def ensure_phase10_schema(db: AsyncSession):
             ("expression", "TEXT"),
             ("threshold", "NUMERIC(15,4)"),
             ("country", "VARCHAR(100)"),
-            ("version", "VARCHAR(50) DEFAULT '1.0.0'")
+            ("version", "VARCHAR(50) DEFAULT '1.0.0'"),
         ]
-        
+
         for col_name, col_type in rule_cols:
             try:
                 if dialect_name == "sqlite":
-                    await db.execute(text(f"ALTER TABLE policy_rules ADD COLUMN {col_name} {col_type}"))
+                    await db.execute(
+                        text(
+                            f"ALTER TABLE policy_rules ADD COLUMN {col_name} {col_type}"
+                        )
+                    )
                 else:
-                    await db.execute(text(f"ALTER TABLE policy_rules ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+                    await db.execute(
+                        text(
+                            f"ALTER TABLE policy_rules ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
+                        )
+                    )
             except Exception as e:
                 pass
 
@@ -567,7 +584,7 @@ async def ensure_phase14_schema(db: AsyncSession):
     try:
         bind = db.bind
         dialect_name = bind.dialect.name
-        pg = (dialect_name == "postgresql")
+        pg = dialect_name == "postgresql"
         uuid_type = "UUID" if pg else "VARCHAR(36)"
         json_type = "JSONB" if pg else "TEXT"
         ts_type = "TIMESTAMP WITHOUT TIME ZONE" if pg else "TIMESTAMP"
@@ -718,7 +735,7 @@ async def ensure_phase15_schema(db: AsyncSession):
     try:
         bind = db.bind
         dialect_name = bind.dialect.name
-        pg = (dialect_name == "postgresql")
+        pg = dialect_name == "postgresql"
         uuid_type = "UUID" if pg else "VARCHAR(36)"
         json_type = "JSONB" if pg else "TEXT"
         ts_type = "TIMESTAMP WITHOUT TIME ZONE" if pg else "TIMESTAMP"
@@ -730,14 +747,20 @@ async def ensure_phase15_schema(db: AsyncSession):
             ("locked_until", ts_type),
             ("password_changed_at", f"{ts_type} DEFAULT {now_expr}"),
             ("last_login_at", ts_type),
-            ("mfa_secret", "VARCHAR(500)")
+            ("mfa_secret", "VARCHAR(500)"),
         ]
         for col_name, col_type in user_cols:
             try:
                 if pg:
-                    await db.execute(text(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+                    await db.execute(
+                        text(
+                            f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
+                        )
+                    )
                 else:
-                    await db.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
+                    await db.execute(
+                        text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}")
+                    )
             except Exception:
                 pass
 
@@ -876,7 +899,7 @@ async def ensure_phase17_schema(db: AsyncSession):
     try:
         bind = db.bind
         dialect_name = bind.dialect.name
-        pg = (dialect_name == "postgresql")
+        pg = dialect_name == "postgresql"
         uuid_type = "UUID" if pg else "VARCHAR(36)"
         json_type = "JSONB" if pg else "TEXT"
         ts_type = "TIMESTAMP WITHOUT TIME ZONE" if pg else "TIMESTAMP"
@@ -1190,6 +1213,3 @@ async def ensure_phase17_schema(db: AsyncSession):
     except Exception as exc:
         logger.error(f"Error ensuring Phase 17 schema: {exc}")
         await db.rollback()
-
-
-

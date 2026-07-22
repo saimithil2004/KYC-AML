@@ -2,6 +2,7 @@ from typing import Dict, Any, List, Set, Tuple
 from app.agents.kyc.constants import *
 from app.agents.base.exceptions import AgentValidationError
 
+
 class KycRulesEngine:
     """
     Evaluates rule criteria, adds structured warnings/recommendations,
@@ -13,14 +14,14 @@ class KycRulesEngine:
         customer: Dict[str, Any],
         kyc_profile: Dict[str, Any],
         documents: List[Dict[str, Any]],
-        missing_fields: List[str]
+        missing_fields: List[str],
     ) -> Dict[str, Any]:
         passed_rules: List[str] = []
         failed_rules: List[str] = []
         errors: List[str] = []
         warnings: List[str] = []
         recommendations: List[str] = []
-        
+
         # Track risk impact
         risk_influences: Set[str] = set()
 
@@ -42,20 +43,24 @@ class KycRulesEngine:
         if errors:
             raise AgentValidationError(
                 message="Critical KYC validation failure: mandatory fields missing.",
-                details={"errors": errors}
+                details={"errors": errors},
             )
 
         # Rule 3: Missing Nationality -> Warning
         if "nationality" in missing_fields:
             failed_rules.append(RULE_MISSING_NATIONALITY)
-            warnings.append(f"[{RULE_MISSING_NATIONALITY}] Nationality is missing from customer profile.")
+            warnings.append(
+                f"[{RULE_MISSING_NATIONALITY}] Nationality is missing from customer profile."
+            )
         else:
             passed_rules.append(RULE_MISSING_NATIONALITY)
 
         # Rule 4: No Identity Document uploaded -> High Risk
         if "passport_or_national_id_or_driving_licence" in missing_fields:
             failed_rules.append(RULE_MISSING_DOCS)
-            warnings.append(f"[{RULE_MISSING_DOCS}] No identity verification document (passport, national ID, driving licence) uploaded.")
+            warnings.append(
+                f"[{RULE_MISSING_DOCS}] No identity verification document (passport, national ID, driving licence) uploaded."
+            )
             risk_influences.add(RISK_HIGH)
         else:
             passed_rules.append(RULE_MISSING_DOCS)
@@ -63,14 +68,18 @@ class KycRulesEngine:
         # Rule 5: Source of Wealth missing -> Manual Review
         if "source_of_wealth" in missing_fields:
             failed_rules.append(RULE_MISSING_SOW)
-            recommendations.append(f"[{RULE_MISSING_SOW}] Recommend Manual Review due to missing Source of Wealth declaration.")
+            recommendations.append(
+                f"[{RULE_MISSING_SOW}] Recommend Manual Review due to missing Source of Wealth declaration."
+            )
         else:
             passed_rules.append(RULE_MISSING_SOW)
 
         # Rule 6: Source of Funds missing -> Medium Risk
         if "source_of_funds" in missing_fields:
             failed_rules.append(RULE_MISSING_SOF)
-            warnings.append(f"[{RULE_MISSING_SOF}] Source of Funds is missing from declaration.")
+            warnings.append(
+                f"[{RULE_MISSING_SOF}] Source of Funds is missing from declaration."
+            )
             risk_influences.add(RISK_MEDIUM)
         else:
             passed_rules.append(RULE_MISSING_SOF)
@@ -80,7 +89,9 @@ class KycRulesEngine:
         is_address_incomplete = any(part in missing_fields for part in address_parts)
         if is_address_incomplete:
             failed_rules.append(RULE_MISSING_ADDRESS)
-            warnings.append(f"[{RULE_MISSING_ADDRESS}] Residential address is incomplete.")
+            warnings.append(
+                f"[{RULE_MISSING_ADDRESS}] Residential address is incomplete."
+            )
             risk_influences.add(RISK_MEDIUM)
         else:
             passed_rules.append(RULE_MISSING_ADDRESS)
@@ -113,7 +124,9 @@ class KycRulesEngine:
         customer_type = str(customer.get("customer_type") or "").strip().lower()
         if customer_type == "business":
             next_agent = "company_agent"
-            recommendations.append("Business customer detected. Forwarding workflow to Company Agent.")
+            recommendations.append(
+                "Business customer detected. Forwarding workflow to Company Agent."
+            )
         else:
             next_agent = "pep_agent"
 
@@ -123,5 +136,5 @@ class KycRulesEngine:
             "warnings": warnings,
             "recommendations": recommendations,
             "risk_level": risk_level,
-            "next_agent": next_agent
+            "next_agent": next_agent,
         }

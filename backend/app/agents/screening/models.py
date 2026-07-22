@@ -31,14 +31,15 @@ class ScreeningSubject(BaseModel):
       • Sanctions Agent    — individual sanctions screening
       • Country Risk Agent — nationality / country risk scoring
     """
-    subject_id:      str              # Unique within a case run
-    role:            str              # ROLE_* constant from screening.constants
-    full_name:       str
-    dob:             Optional[str]  = None   # ISO-8601, e.g. "1970-01-15"
-    nationality:     Optional[str]  = None
-    country:         Optional[str]  = None
-    company_name:    Optional[str]  = None   # For directors/UBOs
-    passport_number: Optional[str]  = None   # For enhanced sanctions matching
+
+    subject_id: str  # Unique within a case run
+    role: str  # ROLE_* constant from screening.constants
+    full_name: str
+    dob: Optional[str] = None  # ISO-8601, e.g. "1970-01-15"
+    nationality: Optional[str] = None
+    country: Optional[str] = None
+    company_name: Optional[str] = None  # For directors/UBOs
+    passport_number: Optional[str] = None  # For enhanced sanctions matching
 
     def display(self) -> str:
         return (
@@ -57,12 +58,13 @@ class CompanyScreeningSubject(BaseModel):
     Used by the Sanctions Agent for company-level sanctions screening.
     Future Country Risk Agent can use it for country-of-incorporation risk.
     """
-    subject_id:          str
-    role:                str              # ROLE_COMPANY
-    company_name:        str
-    registration_number: Optional[str]  = None
-    country:             Optional[str]  = None
-    business_address:    Optional[str]  = None
+
+    subject_id: str
+    role: str  # ROLE_COMPANY
+    company_name: str
+    registration_number: Optional[str] = None
+    country: Optional[str] = None
+    business_address: Optional[str] = None
 
     def display(self) -> str:
         return (

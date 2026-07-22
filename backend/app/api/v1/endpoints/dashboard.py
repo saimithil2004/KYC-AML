@@ -22,6 +22,7 @@ router = APIRouter()
 
 # ── GET /dashboard/overview ───────────────────────────────────────────────────
 
+
 @router.get("/overview", response_model=Dict[str, Any])
 async def get_overview(
     current_user: User = Depends(verify_compliance_officer),
@@ -34,11 +35,12 @@ async def get_overview(
         logger.error(f"Failed to fetch overview: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch overview: {str(exc)}"
+            detail=f"Failed to fetch overview: {str(exc)}",
         )
 
 
 # ── GET /dashboard/charts ─────────────────────────────────────────────────────
+
 
 @router.get("/charts", response_model=Dict[str, Any])
 async def get_charts(
@@ -52,11 +54,12 @@ async def get_charts(
         logger.error(f"Failed to fetch charts: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch charts: {str(exc)}"
+            detail=f"Failed to fetch charts: {str(exc)}",
         )
 
 
 # ── GET /dashboard/activity ───────────────────────────────────────────────────
+
 
 @router.get("/activity", response_model=List[Dict[str, Any]])
 async def get_activity(
@@ -71,11 +74,12 @@ async def get_activity(
         logger.error(f"Failed to fetch activity: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch activity: {str(exc)}"
+            detail=f"Failed to fetch activity: {str(exc)}",
         )
 
 
 # ── GET /dashboard/risk ───────────────────────────────────────────────────────
+
 
 @router.get("/risk", response_model=List[Dict[str, Any]])
 async def get_risk(
@@ -90,11 +94,12 @@ async def get_risk(
         logger.error(f"Failed to fetch high risk: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch high risk: {str(exc)}"
+            detail=f"Failed to fetch high risk: {str(exc)}",
         )
 
 
 # ── GET /dashboard/alerts ─────────────────────────────────────────────────────
+
 
 @router.get("/alerts", response_model=Dict[str, Any])
 async def get_alerts_summary(
@@ -108,11 +113,12 @@ async def get_alerts_summary(
         logger.error(f"Failed to fetch alerts summary: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch alerts summary: {str(exc)}"
+            detail=f"Failed to fetch alerts summary: {str(exc)}",
         )
 
 
 # ── GET /dashboard/cases ──────────────────────────────────────────────────────
+
 
 @router.get("/cases", response_model=Dict[str, Any])
 async def get_cases_summary(
@@ -126,11 +132,12 @@ async def get_cases_summary(
         logger.error(f"Failed to fetch cases summary: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch cases summary: {str(exc)}"
+            detail=f"Failed to fetch cases summary: {str(exc)}",
         )
 
 
 # ── GET /dashboard/monitoring ─────────────────────────────────────────────────
+
 
 @router.get("/monitoring", response_model=Dict[str, Any])
 async def get_monitoring(
@@ -144,11 +151,12 @@ async def get_monitoring(
         logger.error(f"Failed to fetch monitoring: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch monitoring: {str(exc)}"
+            detail=f"Failed to fetch monitoring: {str(exc)}",
         )
 
 
 # ── GET /dashboard/search ─────────────────────────────────────────────────────
+
 
 @router.get("/search", response_model=Dict[str, Any])
 async def search(
@@ -164,11 +172,12 @@ async def search(
         logger.error(f"Failed to search: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to search: {str(exc)}"
+            detail=f"Failed to search: {str(exc)}",
         )
 
 
 # ── GET /dashboard/ai ─────────────────────────────────────────────────────────
+
 
 @router.get("/ai", response_model=Dict[str, Any])
 async def get_ai_summary(
@@ -182,5 +191,5 @@ async def get_ai_summary(
         logger.error(f"Failed to fetch AI summary: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch AI summary: {str(exc)}"
+            detail=f"Failed to fetch AI summary: {str(exc)}",
         )

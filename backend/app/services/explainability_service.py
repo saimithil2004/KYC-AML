@@ -7,6 +7,7 @@ from app.models.models import AIExplanation, AIExecution
 
 logger = logging.getLogger(__name__)
 
+
 class ExplainabilityService:
     """Responsible for generating explainability reports for AI compliance decisions."""
 
@@ -15,7 +16,7 @@ class ExplainabilityService:
         agent_name: str,
         risk_score: float,
         rules_evaluated: List[Dict[str, Any]],
-        triggers: List[str]
+        triggers: List[str],
     ) -> Dict[str, Any]:
         """Generate a hierarchical decision tree mapping logic nodes."""
         return {
@@ -27,16 +28,13 @@ class ExplainabilityService:
                     "rule": rule.get("code", "RULE"),
                     "name": rule.get("name", "Rule Check"),
                     "outcome": "triggered" if rule.get("triggered") else "clear",
-                    "details": rule.get("details", "")
+                    "details": rule.get("details", ""),
                 }
                 for rule in rules_evaluated
             ],
             "children": [
-                {
-                    "node": trigger,
-                    "status": "flagged"
-                } for trigger in triggers
-            ]
+                {"node": trigger, "status": "flagged"} for trigger in triggers
+            ],
         }
 
     @staticmethod
@@ -49,10 +47,10 @@ class ExplainabilityService:
         rules_triggered: List[str],
         matched_entities: List[str],
         missing_evidence: List[str] = None,
-        alternative_outcomes: List[str] = None
+        alternative_outcomes: List[str] = None,
     ) -> AIExplanation:
         """Create and persist an explainability report linked to an AI execution record."""
-        
+
         # 1. Executive Summary formulation
         summary_text = (
             f"Agent '{agent_name}' evaluated the subject and assessed a risk score of {overall_score}/100. "
@@ -62,7 +60,9 @@ class ExplainabilityService:
 
         # 2. Risk factor level and recommendations
         if overall_score >= 80.0:
-            rec_actions = "Route to standard automated processing. No further action needed."
+            rec_actions = (
+                "Route to standard automated processing. No further action needed."
+            )
             confidence = 95.0
         elif overall_score >= 50.0:
             rec_actions = "Requires manual compliance desk analysis. Perform secondary PII and PEP checking."
@@ -72,12 +72,14 @@ class ExplainabilityService:
             confidence = 55.0
 
         # Construct alternatives details
-        tree_evals = [{"code": r, "name": f"Rule {r}", "triggered": True} for r in rules_triggered]
+        tree_evals = [
+            {"code": r, "name": f"Rule {r}", "triggered": True} for r in rules_triggered
+        ]
         reasoning_tree = ExplainabilityService.compile_reasoning_tree(
             agent_name=agent_name,
             risk_score=overall_score,
             rules_evaluated=tree_evals,
-            triggers=findings
+            triggers=findings,
         )
 
         if alternative_outcomes:
@@ -90,11 +92,16 @@ class ExplainabilityService:
             decision_summary=summary_text,
             reasoning_tree=reasoning_tree,
             confidence=confidence,
-            supporting_evidence="Matched triggers:\n" + "\n".join([f"- {f}" for f in findings]),
+            supporting_evidence="Matched triggers:\n"
+            + "\n".join([f"- {f}" for f in findings]),
             matched_rules="; ".join(rules_triggered) if rules_triggered else "None",
-            matched_entities="; ".join(matched_entities) if matched_entities else "None",
-            missing_evidence="; ".join(missing_evidence) if missing_evidence else "None",
-            recommended_actions=rec_actions
+            matched_entities=(
+                "; ".join(matched_entities) if matched_entities else "None"
+            ),
+            missing_evidence=(
+                "; ".join(missing_evidence) if missing_evidence else "None"
+            ),
+            recommended_actions=rec_actions,
         )
 
         db.add(explanation)

@@ -19,7 +19,10 @@ from app.core.database import get_db
 from app.dependencies.auth import get_current_user, verify_compliance_officer
 from app.models.models import Alert, Customer, User
 from app.schemas.schemas import (
-    AlertCreate, AlertUpdate, AlertResponse, PaginatedAlerts,
+    AlertCreate,
+    AlertUpdate,
+    AlertResponse,
+    PaginatedAlerts,
 )
 from app.services.audit_service import AuditService
 
@@ -31,10 +34,15 @@ VALID_STATUSES = {"open", "under_review", "dismissed", "escalated", "closed"}
 
 def _get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
-    return forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+    return (
+        forwarded.split(",")[0].strip()
+        if forwarded
+        else (request.client.host if request.client else "unknown")
+    )
 
 
 # ── GET /alerts ───────────────────────────────────────────────────────────────
+
 
 @router.get("/", response_model=PaginatedAlerts)
 async def list_alerts(
@@ -66,11 +74,15 @@ async def list_alerts(
     if max_risk_score is not None:
         q = q.where(Alert.risk_score <= max_risk_score)
     if date_from:
-        q = q.where(Alert.created_at >= datetime.combine(date_from, datetime.min.time()))
+        q = q.where(
+            Alert.created_at >= datetime.combine(date_from, datetime.min.time())
+        )
     if date_to:
         q = q.where(Alert.created_at <= datetime.combine(date_to, datetime.max.time()))
 
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
+    total = (
+        await db.execute(select(func.count()).select_from(q.subquery()))
+    ).scalar_one()
 
     sort_col = getattr(Alert, sort_by, Alert.created_at)
     q = q.order_by(sort_col.asc() if sort_dir == "asc" else sort_col.desc())
@@ -81,6 +93,7 @@ async def list_alerts(
 
 
 # ── GET /alerts/{id} ─────────────────────────────────────────────────────────
+
 
 @router.get("/{alert_id}", response_model=AlertResponse)
 async def get_alert(
@@ -97,6 +110,7 @@ async def get_alert(
 
 # ── POST /alerts ──────────────────────────────────────────────────────────────
 
+
 @router.post("/", response_model=AlertResponse, status_code=201)
 async def create_alert(
     alert_in: AlertCreate,
@@ -105,7 +119,9 @@ async def create_alert(
     db: AsyncSession = Depends(get_db),
 ):
     # Verify customer exists
-    result = await db.execute(select(Customer).where(Customer.id == alert_in.customer_id))
+    result = await db.execute(
+        select(Customer).where(Customer.id == alert_in.customer_id)
+    )
     if not result.scalars().first():
         raise HTTPException(status_code=404, detail="Customer not found.")
 
@@ -140,6 +156,7 @@ async def create_alert(
 
 
 # ── PUT /alerts/{id} ─────────────────────────────────────────────────────────
+
 
 @router.put("/{alert_id}", response_model=AlertResponse)
 async def update_alert(
@@ -185,6 +202,7 @@ async def update_alert(
 
 # ── DELETE /alerts/{id} ───────────────────────────────────────────────────────
 
+
 @router.delete("/{alert_id}", status_code=204)
 async def delete_alert(
     alert_id: UUID,
@@ -214,6 +232,7 @@ async def delete_alert(
 
 # ── GET /alerts/customer/{customer_id} ────────────────────────────────────────
 
+
 @router.get("/customer/{customer_id}", response_model=PaginatedAlerts)
 async def get_customer_alerts(
     customer_id: UUID,
@@ -227,9 +246,19 @@ async def get_customer_alerts(
     if status:
         q = q.where(Alert.status == status)
 
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
-    items = (await db.execute(
-        q.order_by(Alert.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
-    )).scalars().all()
+    total = (
+        await db.execute(select(func.count()).select_from(q.subquery()))
+    ).scalar_one()
+    items = (
+        (
+            await db.execute(
+                q.order_by(Alert.created_at.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     return PaginatedAlerts(total=total, page=page, page_size=page_size, items=items)

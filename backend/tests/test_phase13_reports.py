@@ -12,7 +12,13 @@ from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock, AsyncMock
 
 from fastapi import status
-from app.models.models import User, Report, ReportTemplate, ScheduledReport, ReportExecution
+from app.models.models import (
+    User,
+    Report,
+    ReportTemplate,
+    ScheduledReport,
+    ReportExecution,
+)
 from app.services.report_service import ReportService
 from app.services.analytics_service import AnalyticsService
 from app.api.v1.endpoints.reports import verify_compliance_officer, verify_admin
@@ -76,7 +82,9 @@ async def test_analytics_service_kpis():
     mock_res.all.return_value = [("low", 12), ("medium", 45)]
     mock_db.execute = AsyncMock(return_value=mock_res)
 
-    with patch("app.services.analytics_service.ensure_phase13_schema", return_value=None):
+    with patch(
+        "app.services.analytics_service.ensure_phase13_schema", return_value=None
+    ):
         res = await AnalyticsService.get_kpi_metrics(mock_db, "monthly")
         assert res["period"] == "monthly"
         assert "metrics" in res
@@ -87,7 +95,7 @@ async def test_analytics_service_kpis():
 async def test_celery_report_execution_task():
     """Verify Celery task execute_scheduled_reports queries due schedules."""
     from app.tasks.schedule_tasks import execute_scheduled_reports
-    
+
     mock_db = AsyncMock()
     mock_db.__aenter__.return_value = mock_db
 
@@ -98,19 +106,29 @@ async def test_celery_report_execution_task():
     mock_schedule.next_run = datetime.utcnow() - timedelta(hours=1)
     mock_schedule.status = "active"
     mock_schedule.template = MagicMock()
-    mock_schedule.template.config = {"format": "csv", "filters": {"report_type": "risk_distribution"}}
+    mock_schedule.template.config = {
+        "format": "csv",
+        "filters": {"report_type": "risk_distribution"},
+    }
 
     mock_res = MagicMock()
     mock_res.scalars.return_value.all.return_value = [mock_schedule]
     mock_db.execute = AsyncMock(return_value=mock_res)
 
-    with patch("app.tasks.schedule_tasks.SessionLocal", return_value=mock_db), \
-         patch("app.services.report_service.ReportService.compile_report_data", return_value=[{"col": 1}]), \
-         patch("app.services.report_service.ReportService.generate_csv_bytes", return_value=b"col\n1"), \
-         patch("app.services.audit_service.AuditService.log", return_value=None), \
-         patch("builtins.open", MagicMock()), \
-         patch("os.makedirs", return_value=None):
-        
+    with patch("app.tasks.schedule_tasks.SessionLocal", return_value=mock_db), patch(
+        "app.services.report_service.ReportService.compile_report_data",
+        return_value=[{"col": 1}],
+    ), patch(
+        "app.services.report_service.ReportService.generate_csv_bytes",
+        return_value=b"col\n1",
+    ), patch(
+        "app.services.audit_service.AuditService.log", return_value=None
+    ), patch(
+        "builtins.open", MagicMock()
+    ), patch(
+        "os.makedirs", return_value=None
+    ):
+
         status = execute_scheduled_reports()
         assert status["executed_count"] == 1
         assert mock_schedule.status == "active"

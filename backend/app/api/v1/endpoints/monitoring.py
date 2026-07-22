@@ -17,12 +17,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.schema_helpers import ensure_phase11_schema
 from app.dependencies.auth import verify_compliance_officer, verify_admin
-from app.models.models import User, Customer, MonitoringSchedule, MonitoringJob, MonitoringHistory, RiskScore, Case
+from app.models.models import (
+    User,
+    Customer,
+    MonitoringSchedule,
+    MonitoringJob,
+    MonitoringHistory,
+    RiskScore,
+    Case,
+)
 from app.schemas.schemas import (
-    PaginatedMonitoringSchedules, MonitoringScheduleResponse,
-    PaginatedMonitoringJobs, MonitoringJobResponse,
-    PaginatedMonitoringHistory, MonitoringHistoryResponse,
-    MonitoringStatistics, RiskDeltaResponse
+    PaginatedMonitoringSchedules,
+    MonitoringScheduleResponse,
+    PaginatedMonitoringJobs,
+    MonitoringJobResponse,
+    PaginatedMonitoringHistory,
+    MonitoringHistoryResponse,
+    MonitoringStatistics,
+    RiskDeltaResponse,
 )
 from app.services.monitoring_service import MonitoringService
 from app.services.audit_service import AuditService
@@ -34,7 +46,11 @@ router = APIRouter()
 
 def _get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
-    return forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+    return (
+        forwarded.split(",")[0].strip()
+        if forwarded
+        else (request.client.host if request.client else "unknown")
+    )
 
 
 # ── GET /monitoring ──────────────────────────────────────────────────────────
@@ -48,18 +64,29 @@ async def list_monitoring_schedules(
 ):
     """List customer monitoring review schedules."""
     await ensure_phase11_schema(db)
-    
+
     q = select(MonitoringSchedule)
     if status:
         q = q.where(MonitoringSchedule.status == status)
 
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
-    items = (await db.execute(
-        q.order_by(MonitoringSchedule.next_review_date.asc())
-        .offset((page - 1) * page_size).limit(page_size)
-    )).scalars().all()
+    total = (
+        await db.execute(select(func.count()).select_from(q.subquery()))
+    ).scalar_one()
+    items = (
+        (
+            await db.execute(
+                q.order_by(MonitoringSchedule.next_review_date.asc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
-    return PaginatedMonitoringSchedules(total=total, page=page, page_size=page_size, items=items)
+    return PaginatedMonitoringSchedules(
+        total=total, page=page, page_size=page_size, items=items
+    )
 
 
 # ── GET /monitoring/history ───────────────────────────────────────────────────
@@ -73,18 +100,29 @@ async def list_monitoring_history(
 ):
     """Fetch history logs of re-screening executions."""
     await ensure_phase11_schema(db)
-    
+
     q = select(MonitoringHistory)
     if customer_id:
         q = q.where(MonitoringHistory.customer_id == customer_id)
 
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
-    items = (await db.execute(
-        q.order_by(MonitoringHistory.screening_date.desc())
-        .offset((page - 1) * page_size).limit(page_size)
-    )).scalars().all()
+    total = (
+        await db.execute(select(func.count()).select_from(q.subquery()))
+    ).scalar_one()
+    items = (
+        (
+            await db.execute(
+                q.order_by(MonitoringHistory.screening_date.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
-    return PaginatedMonitoringHistory(total=total, page=page, page_size=page_size, items=items)
+    return PaginatedMonitoringHistory(
+        total=total, page=page, page_size=page_size, items=items
+    )
 
 
 # ── GET /monitoring/jobs ──────────────────────────────────────────────────────
@@ -98,22 +136,35 @@ async def list_monitoring_jobs(
 ):
     """Fetch queued, running, completed, or failed background jobs."""
     await ensure_phase11_schema(db)
-    
+
     q = select(MonitoringJob)
     if status:
         q = q.where(MonitoringJob.status == status)
 
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
-    items = (await db.execute(
-        q.order_by(MonitoringJob.created_at.desc())
-        .offset((page - 1) * page_size).limit(page_size)
-    )).scalars().all()
+    total = (
+        await db.execute(select(func.count()).select_from(q.subquery()))
+    ).scalar_one()
+    items = (
+        (
+            await db.execute(
+                q.order_by(MonitoringJob.created_at.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
-    return PaginatedMonitoringJobs(total=total, page=page, page_size=page_size, items=items)
+    return PaginatedMonitoringJobs(
+        total=total, page=page, page_size=page_size, items=items
+    )
 
 
 # ── POST /monitoring/run/{customer_id} ───────────────────────────────────────
-@router.post("/run/{customer_id}", response_model=MonitoringJobResponse, status_code=202)
+@router.post(
+    "/run/{customer_id}", response_model=MonitoringJobResponse, status_code=202
+)
 async def trigger_manual_rescreen(
     customer_id: UUID,
     request: Request,
@@ -129,11 +180,15 @@ async def trigger_manual_rescreen(
         raise HTTPException(status_code=404, detail="Customer not found.")
 
     # Detect duplicate queued/running jobs
-    job = await MonitoringService.detect_and_trigger_rescreen(db, customer_id, "manual_rescreen")
+    job = await MonitoringService.detect_and_trigger_rescreen(
+        db, customer_id, "manual_rescreen"
+    )
     if job.status == "queued":
         # Dispatch Celery background worker
-        run_monitoring_screening_task.delay(str(job.id), str(customer_id), "manual_rescreen")
-        
+        run_monitoring_screening_task.delay(
+            str(job.id), str(customer_id), "manual_rescreen"
+        )
+
         await AuditService.log(
             db=db,
             user_id=current_user.id,
@@ -141,7 +196,7 @@ async def trigger_manual_rescreen(
             entity_name="monitoring_job",
             entity_id=job.id,
             new_values={"customer_id": str(customer_id), "trigger": "manual"},
-            ip_address=_get_client_ip(request)
+            ip_address=_get_client_ip(request),
         )
         await db.commit()
 
@@ -158,7 +213,7 @@ async def retry_failed_job(
 ):
     """Retry a failed screening job."""
     await ensure_phase11_schema(db)
-    
+
     res = await db.execute(select(MonitoringJob).where(MonitoringJob.id == job_id))
     job = res.scalars().first()
     if not job:
@@ -170,15 +225,17 @@ async def retry_failed_job(
     success = await MonitoringService.retry_job(db, job_id)
     if success:
         # Dispatch Celery task
-        run_monitoring_screening_task.delay(str(job.id), str(job.customer_id), job.trigger_reason)
-        
+        run_monitoring_screening_task.delay(
+            str(job.id), str(job.customer_id), job.trigger_reason
+        )
+
         await AuditService.log(
             db=db,
             user_id=current_user.id,
             action="RETRY_MONITORING_JOB",
             entity_name="monitoring_job",
             entity_id=job_id,
-            ip_address=_get_client_ip(request)
+            ip_address=_get_client_ip(request),
         )
         return {"status": "success", "message": "Failed job dispatched for retry."}
 
@@ -209,7 +266,7 @@ async def cancel_job(
             action="CANCEL_MONITORING_JOB",
             entity_name="monitoring_job",
             entity_id=job_id,
-            ip_address=_get_client_ip(request)
+            ip_address=_get_client_ip(request),
         )
         return {"status": "success", "message": "Job cancelled successfully."}
 
@@ -230,17 +287,28 @@ async def list_pending_reviews(
     q = select(MonitoringSchedule).where(
         and_(
             MonitoringSchedule.next_review_date <= func.current_date(),
-            MonitoringSchedule.status == "scheduled"
+            MonitoringSchedule.status == "scheduled",
         )
     )
 
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
-    items = (await db.execute(
-        q.order_by(MonitoringSchedule.next_review_date.asc())
-        .offset((page - 1) * page_size).limit(page_size)
-    )).scalars().all()
+    total = (
+        await db.execute(select(func.count()).select_from(q.subquery()))
+    ).scalar_one()
+    items = (
+        (
+            await db.execute(
+                q.order_by(MonitoringSchedule.next_review_date.asc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
-    return PaginatedMonitoringSchedules(total=total, page=page, page_size=page_size, items=items)
+    return PaginatedMonitoringSchedules(
+        total=total, page=page, page_size=page_size, items=items
+    )
 
 
 # ── GET /monitoring/statistics ────────────────────────────────────────────────
@@ -273,7 +341,9 @@ async def get_risk_delta(
     scores = scores_res.scalars().all()
 
     if not scores:
-        raise HTTPException(status_code=404, detail="No risk score history found for customer.")
+        raise HTTPException(
+            status_code=404, detail="No risk score history found for customer."
+        )
 
     latest_score = float(scores[0].overall_score)
     previous_score = float(scores[1].overall_score) if len(scores) > 1 else latest_score
@@ -307,5 +377,5 @@ async def get_risk_delta(
         previous_score=previous_score,
         delta=delta,
         risk_trend=trend,
-        new_alerts_count=new_alerts
+        new_alerts_count=new_alerts,
     )

@@ -6,9 +6,18 @@ from sqlalchemy import select, update, delete, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import (
-    AIModel, ModelVersion, PromptTemplate, PromptVersion,
-    AIExecution, AIFeedback, AIExplanation, ModelEvaluation,
-    PromptTest, AIPolicy, AIApproval, AIUsageStatistics
+    AIModel,
+    ModelVersion,
+    PromptTemplate,
+    PromptVersion,
+    AIExecution,
+    AIFeedback,
+    AIExplanation,
+    ModelEvaluation,
+    PromptTest,
+    AIPolicy,
+    AIApproval,
+    AIUsageStatistics,
 )
 
 logger = logging.getLogger(__name__)
@@ -18,8 +27,9 @@ PRICING_TABLE = {
     "gemini": {"input": 0.000075, "output": 0.000300},
     "openai": {"input": 0.002500, "output": 0.010000},
     "claude": {"input": 0.003000, "output": 0.015000},
-    "default": {"input": 0.001000, "output": 0.003000}
+    "default": {"input": 0.001000, "output": 0.003000},
 }
+
 
 class AIGovernanceService:
     """Enterprise AI Governance, prompt version control, model registry, cost metrics and policy gate checks."""
@@ -27,7 +37,9 @@ class AIGovernanceService:
     # ─── Model Registry Operations ─────────────────────────────────────────────
 
     @staticmethod
-    async def register_model(db: AsyncSession, name: str, provider: str, is_active: bool = True) -> AIModel:
+    async def register_model(
+        db: AsyncSession, name: str, provider: str, is_active: bool = True
+    ) -> AIModel:
         """Register a new LLM model inside governance registry."""
         model = AIModel(id=uuid4(), name=name, provider=provider, is_active=is_active)
         db.add(model)
@@ -37,7 +49,10 @@ class AIGovernanceService:
 
     @staticmethod
     async def register_model_version(
-        db: AsyncSession, model_id: UUID, version: str, metadata_json: Optional[Dict[str, Any]] = None
+        db: AsyncSession,
+        model_id: UUID,
+        version: str,
+        metadata_json: Optional[Dict[str, Any]] = None,
     ) -> ModelVersion:
         """Register specific snapshot versions under a model."""
         mv = ModelVersion(
@@ -45,7 +60,7 @@ class AIGovernanceService:
             model_id=model_id,
             version=version,
             metadata_json=metadata_json or {},
-            is_active=True
+            is_active=True,
         )
         db.add(mv)
         await db.commit()
@@ -53,7 +68,9 @@ class AIGovernanceService:
         return mv
 
     @staticmethod
-    async def get_active_model_version(db: AsyncSession, model_name: str) -> Optional[Tuple[AIModel, ModelVersion]]:
+    async def get_active_model_version(
+        db: AsyncSession, model_name: str
+    ) -> Optional[Tuple[AIModel, ModelVersion]]:
         """Fetch the active model and version snapshot for routing."""
         stmt = (
             select(AIModel, ModelVersion)
@@ -69,7 +86,9 @@ class AIGovernanceService:
     # ─── Prompt Registry & Control ─────────────────────────────────────────────
 
     @staticmethod
-    async def create_prompt_template(db: AsyncSession, name: str, description: Optional[str] = None) -> PromptTemplate:
+    async def create_prompt_template(
+        db: AsyncSession, name: str, description: Optional[str] = None
+    ) -> PromptTemplate:
         """Create new template block grouping versions of prompts."""
         template = PromptTemplate(id=uuid4(), name=name, description=description)
         db.add(template)
@@ -79,7 +98,11 @@ class AIGovernanceService:
 
     @staticmethod
     async def create_prompt_version(
-        db: AsyncSession, template_id: UUID, content: str, version: str, status: str = "draft"
+        db: AsyncSession,
+        template_id: UUID,
+        content: str,
+        version: str,
+        status: str = "draft",
     ) -> PromptVersion:
         """Append a new prompt draft revision content under template."""
         pv = PromptVersion(
@@ -88,7 +111,7 @@ class AIGovernanceService:
             version=version,
             content=content,
             approved_status=status,
-            is_active=False
+            is_active=False,
         )
         db.add(pv)
         await db.commit()
@@ -96,7 +119,9 @@ class AIGovernanceService:
         return pv
 
     @staticmethod
-    async def get_active_prompt_version(db: AsyncSession, template_name: str) -> Optional[PromptVersion]:
+    async def get_active_prompt_version(
+        db: AsyncSession, template_name: str
+    ) -> Optional[PromptVersion]:
         """Fetch the current published active prompt version content for runtimes."""
         stmt = (
             select(PromptVersion)
@@ -109,7 +134,9 @@ class AIGovernanceService:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def switch_active_prompt_version(db: AsyncSession, template_id: UUID, version_id: UUID) -> PromptVersion:
+    async def switch_active_prompt_version(
+        db: AsyncSession, template_id: UUID, version_id: UUID
+    ) -> PromptVersion:
         """Set the active version under a prompt template. Only approved versions can be made active."""
         # 1. Verify prompt is approved
         stmt = select(PromptVersion).where(PromptVersion.id == version_id)
@@ -118,7 +145,9 @@ class AIGovernanceService:
         if not pv:
             raise ValueError("Prompt version not found.")
         if pv.approved_status not in ("approved", "published"):
-            raise ValueError(f"Cannot switch active prompt version. Status is currently: '{pv.approved_status}' (must be approved first).")
+            raise ValueError(
+                f"Cannot switch active prompt version. Status is currently: '{pv.approved_status}' (must be approved first)."
+            )
 
         # 2. Deactivate other versions under this template
         deact_stmt = (
@@ -137,16 +166,20 @@ class AIGovernanceService:
         return pv
 
     @staticmethod
-    async def rollback_prompt_version(db: AsyncSession, template_id: UUID, target_version_id: UUID, reviewer_id: UUID) -> PromptVersion:
+    async def rollback_prompt_version(
+        db: AsyncSession, template_id: UUID, target_version_id: UUID, reviewer_id: UUID
+    ) -> PromptVersion:
         """Roll back prompt template config to a legacy revision version."""
         # Logs rollback audit record
-        pv = await AIGovernanceService.switch_active_prompt_version(db, template_id, target_version_id)
+        pv = await AIGovernanceService.switch_active_prompt_version(
+            db, template_id, target_version_id
+        )
         approval = AIApproval(
             id=uuid4(),
             prompt_version_id=target_version_id,
             reviewer_id=reviewer_id,
             status="rollback",
-            comments=f"Automated config rollback to version {pv.version}."
+            comments=f"Automated config rollback to version {pv.version}.",
         )
         db.add(approval)
         await db.commit()
@@ -156,22 +189,25 @@ class AIGovernanceService:
     def compare_prompt_contents(old_content: str, new_content: str) -> Dict[str, Any]:
         """Performs simple diff alignment comparisons between templates versions content."""
         import difflib
+
         diff = difflib.unified_diff(
             old_content.splitlines(),
             new_content.splitlines(),
-            fromfile='current',
-            tofile='target',
-            lineterm=''
+            fromfile="current",
+            tofile="target",
+            lineterm="",
         )
-        return {
-            "diff_raw": "\n".join(list(diff)),
-            "equal": old_content == new_content
-        }
+        return {"diff_raw": "\n".join(list(diff)), "equal": old_content == new_content}
 
     # ─── Approval Workflow States ──────────────────────────────────────────────
 
     @staticmethod
-    async def approve_prompt_version(db: AsyncSession, version_id: UUID, reviewer_id: UUID, comments: Optional[str] = None) -> PromptVersion:
+    async def approve_prompt_version(
+        db: AsyncSession,
+        version_id: UUID,
+        reviewer_id: UUID,
+        comments: Optional[str] = None,
+    ) -> PromptVersion:
         """Transition status: pending -> approved."""
         stmt = select(PromptVersion).where(PromptVersion.id == version_id)
         res = await db.execute(stmt)
@@ -185,7 +221,7 @@ class AIGovernanceService:
             prompt_version_id=version_id,
             reviewer_id=reviewer_id,
             status="approved",
-            comments=comments
+            comments=comments,
         )
         db.add(approval)
         await db.commit()
@@ -193,7 +229,12 @@ class AIGovernanceService:
         return pv
 
     @staticmethod
-    async def reject_prompt_version(db: AsyncSession, version_id: UUID, reviewer_id: UUID, comments: Optional[str] = None) -> PromptVersion:
+    async def reject_prompt_version(
+        db: AsyncSession,
+        version_id: UUID,
+        reviewer_id: UUID,
+        comments: Optional[str] = None,
+    ) -> PromptVersion:
         """Transition status: pending -> rejected."""
         stmt = select(PromptVersion).where(PromptVersion.id == version_id)
         res = await db.execute(stmt)
@@ -207,7 +248,7 @@ class AIGovernanceService:
             prompt_version_id=version_id,
             reviewer_id=reviewer_id,
             status="rejected",
-            comments=comments
+            comments=comments,
         )
         db.add(approval)
         await db.commit()
@@ -217,16 +258,22 @@ class AIGovernanceService:
     # ─── AI Test Suite Runs ───────────────────────────────────────────────────
 
     @staticmethod
-    async def run_prompt_test(db: AsyncSession, version_id: UUID, test_input: str, expected_output: str, mock_llm_response: str) -> PromptTest:
+    async def run_prompt_test(
+        db: AsyncSession,
+        version_id: UUID,
+        test_input: str,
+        expected_output: str,
+        mock_llm_response: str,
+    ) -> PromptTest:
         """Register validation test runs to verify output conforms to expected checks prior to publishing."""
-        is_passed = (expected_output.lower() in mock_llm_response.lower())
+        is_passed = expected_output.lower() in mock_llm_response.lower()
         test = PromptTest(
             id=uuid4(),
             prompt_version_id=version_id,
             test_input=test_input,
             expected_output=expected_output,
             actual_output=mock_llm_response,
-            is_passed=is_passed
+            is_passed=is_passed,
         )
         db.add(test)
         await db.commit()
@@ -260,7 +307,7 @@ class AIGovernanceService:
         risk_score_id: Optional[UUID] = None,
         monitoring_job_id: Optional[UUID] = None,
         report_id: Optional[UUID] = None,
-        audit_log_id: Optional[UUID] = None
+        audit_log_id: Optional[UUID] = None,
     ) -> AIExecution:
         """Create persistent record of AI execution, calculating pricing costs."""
         # 1. Lookup active model version ID
@@ -301,7 +348,7 @@ class AIGovernanceService:
             latency_ms=latency_ms,
             tokens_used=total_tokens,
             input_tokens=input_tokens,
-            output_tokens=output_tokens
+            output_tokens=output_tokens,
         )
         db.add(exec_log)
         await db.commit()
@@ -320,7 +367,7 @@ class AIGovernanceService:
         is_helpful: bool = True,
         comments: Optional[str] = None,
         decision_override: Optional[str] = None,
-        escalation_reason: Optional[str] = None
+        escalation_reason: Optional[str] = None,
     ) -> AIFeedback:
         """Submit feedback override checks for executions."""
         fb = AIFeedback(
@@ -332,7 +379,7 @@ class AIGovernanceService:
             is_helpful=is_helpful,
             comments=comments,
             decision_override=decision_override,
-            escalation_reason=escalation_reason
+            escalation_reason=escalation_reason,
         )
         db.add(fb)
         await db.commit()
@@ -342,14 +389,27 @@ class AIGovernanceService:
     # ─── Policy Guardrails & Compliance Validation ─────────────────────────────
 
     @staticmethod
-    async def get_active_policy(db: AsyncSession, policy_name: str) -> Optional[AIPolicy]:
+    async def get_active_policy(
+        db: AsyncSession, policy_name: str
+    ) -> Optional[AIPolicy]:
         """Fetch active governance policy configurations."""
-        stmt = select(AIPolicy).where(AIPolicy.name == policy_name).where(AIPolicy.is_active == True).limit(1)
+        stmt = (
+            select(AIPolicy)
+            .where(AIPolicy.name == policy_name)
+            .where(AIPolicy.is_active == True)
+            .limit(1)
+        )
         res = await db.execute(stmt)
         return res.scalar_one_or_none()
 
     @staticmethod
-    async def check_policy_guardrails(db: AsyncSession, policy_name: str, confidence: float, latency_ms: int, cost: float) -> Tuple[bool, List[str]]:
+    async def check_policy_guardrails(
+        db: AsyncSession,
+        policy_name: str,
+        confidence: float,
+        latency_ms: int,
+        cost: float,
+    ) -> Tuple[bool, List[str]]:
         """Validate AI metrics against active guardrails. Returns is_compliant flag and list of violations."""
         policy = await AIGovernanceService.get_active_policy(db, policy_name)
         if not policy:
@@ -361,12 +421,16 @@ class AIGovernanceService:
         # Min confidence gate
         min_conf = float(rules.get("min_confidence_threshold") or 0.0)
         if confidence < min_conf:
-            violations.append(f"Confidence score {confidence}% is below policy minimum {min_conf}%")
+            violations.append(
+                f"Confidence score {confidence}% is below policy minimum {min_conf}%"
+            )
 
         # Max latency gate
         max_lat = int(rules.get("max_latency_ms") or 0)
         if max_lat > 0 and latency_ms > max_lat:
-            violations.append(f"Execution latency {latency_ms}ms exceeds policy maximum {max_lat}ms")
+            violations.append(
+                f"Execution latency {latency_ms}ms exceeds policy maximum {max_lat}ms"
+            )
 
         # Max cost gate
         max_c = float(rules.get("max_cost") or 0.0)
@@ -376,7 +440,9 @@ class AIGovernanceService:
         return len(violations) == 0, violations
 
     @staticmethod
-    def detect_hallucinations(response_text: str, ground_truth_entities: List[str]) -> Tuple[bool, float]:
+    def detect_hallucinations(
+        response_text: str, ground_truth_entities: List[str]
+    ) -> Tuple[bool, float]:
         """Verify LLM outputs against customer data. Returns has_hallucinations flag and entities compliance score."""
         if not response_text or not ground_truth_entities:
             return False, 100.0
@@ -388,13 +454,15 @@ class AIGovernanceService:
 
         accuracy_rate = (matches / len(ground_truth_entities)) * 100.0
         # If less than 60% of original reference entities are matched in summary, flag as potential hallucination
-        has_hallucinations = (accuracy_rate < 60.0)
+        has_hallucinations = accuracy_rate < 60.0
         return has_hallucinations, round(accuracy_rate, 2)
 
     # ─── Cost and Analytics Daily Aggregation ───────────────────────────────
 
     @staticmethod
-    async def run_daily_usage_aggregation(db: AsyncSession, aggregate_date: date) -> None:
+    async def run_daily_usage_aggregation(
+        db: AsyncSession, aggregate_date: date
+    ) -> None:
         """Celery batch task to compile daily executions cost statistics."""
         # Query total token costs grouped by model versions
         stmt = (
@@ -406,7 +474,7 @@ class AIGovernanceService:
                 func.sum(AIExecution.input_tokens).label("input_tokens"),
                 func.sum(AIExecution.output_tokens).label("output_tokens"),
                 func.sum(AIExecution.cost).label("total_cost"),
-                func.avg(AIExecution.latency_ms).label("avg_latency")
+                func.avg(AIExecution.latency_ms).label("avg_latency"),
             )
             .join(ModelVersion, AIExecution.model_version_id == ModelVersion.id)
             .join(AIModel, ModelVersion.model_id == AIModel.id)
@@ -421,7 +489,7 @@ class AIGovernanceService:
             stat_stmt = select(AIUsageStatistics).where(
                 and_(
                     AIUsageStatistics.date == aggregate_date,
-                    AIUsageStatistics.model_name == f"{row.name}:{row.version}"
+                    AIUsageStatistics.model_name == f"{row.name}:{row.version}",
                 )
             )
             stat_res = await db.execute(stat_stmt)
@@ -431,7 +499,7 @@ class AIGovernanceService:
                 stat = AIUsageStatistics(
                     id=uuid4(),
                     date=aggregate_date,
-                    model_name=f"{row.name}:{row.version}"
+                    model_name=f"{row.name}:{row.version}",
                 )
                 db.add(stat)
 

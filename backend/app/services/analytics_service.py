@@ -14,8 +14,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.schema_helpers import ensure_phase13_schema
 from app.models.models import (
-    Customer, KYCProfile, Case, Alert, Transaction, RiskScore,
-    MonitoringJob, AgentLog, User, Investigation, SAR
+    Customer,
+    KYCProfile,
+    Case,
+    Alert,
+    Transaction,
+    RiskScore,
+    MonitoringJob,
+    AgentLog,
+    User,
+    Investigation,
+    SAR,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,8 +35,7 @@ class AnalyticsService:
 
     @staticmethod
     async def get_kpi_metrics(
-        db: AsyncSession,
-        period: str = "monthly"
+        db: AsyncSession, period: str = "monthly"
     ) -> Dict[str, Any]:
         """Compile executive business intelligence metrics for dashboard charts."""
         await ensure_phase13_schema(db)
@@ -47,7 +55,9 @@ class AnalyticsService:
         start_time = now - delta
 
         # 1. Onboarding & KYC Growth
-        cust_q = select(func.count(Customer.id)).where(Customer.created_at >= start_time)
+        cust_q = select(func.count(Customer.id)).where(
+            Customer.created_at >= start_time
+        )
         new_custs = (await db.execute(cust_q)).scalar_one() or 0
 
         total_cust_q = select(func.count(Customer.id))
@@ -61,12 +71,15 @@ class AnalyticsService:
         kyc_rate = (appr_custs / new_custs * 100.0) if new_custs > 0 else 100.0
 
         # 2. Risk Metrics
-        avg_risk_q = select(func.avg(RiskScore.overall_score)).where(RiskScore.created_at >= start_time)
+        avg_risk_q = select(func.avg(RiskScore.overall_score)).where(
+            RiskScore.created_at >= start_time
+        )
         avg_risk = (await db.execute(avg_risk_q)).scalar_one() or 50.0
 
         risk_levels_res = await db.execute(
-            select(KYCProfile.risk_category, func.count(KYCProfile.id))
-            .group_by(KYCProfile.risk_category)
+            select(KYCProfile.risk_category, func.count(KYCProfile.id)).group_by(
+                KYCProfile.risk_category
+            )
         )
         risk_dist = {r[0]: r[1] for r in risk_levels_res.all()}
 
@@ -89,32 +102,43 @@ class AnalyticsService:
         sars_filed = (await db.execute(sar_q)).scalar_one() or 0
 
         # 5. Transactions Screened
-        tx_q = select(func.count(Transaction.id)).where(Transaction.created_at >= start_time)
+        tx_q = select(func.count(Transaction.id)).where(
+            Transaction.created_at >= start_time
+        )
         tx_count = (await db.execute(tx_q)).scalar_one() or 0
 
         # 6. Monitoring & AI Performance
-        jobs_q = select(func.count(MonitoringJob.id)).where(MonitoringJob.created_at >= start_time)
+        jobs_q = select(func.count(MonitoringJob.id)).where(
+            MonitoringJob.created_at >= start_time
+        )
         jobs_count = (await db.execute(jobs_q)).scalar_one() or 0
 
         # Agent Success Rate
-        agent_logs_q = select(AgentLog.output_state).where(AgentLog.created_at >= start_time)
+        agent_logs_q = select(AgentLog.output_state).where(
+            AgentLog.created_at >= start_time
+        )
         res_logs = await db.execute(agent_logs_q)
         out_states = res_logs.scalars().all()
-        
+
         agent_execs = len(out_states)
         agent_successes = 0
         for out_val in out_states:
             import json
+
             # Handle possible string JSON formatting under SQLite dialect
             if isinstance(out_val, str):
                 try:
                     out_val = json.loads(out_val)
                 except Exception:
                     out_val = {}
-            if out_val and (out_val.get("status") == "success" or out_val.get("status") is None):
+            if out_val and (
+                out_val.get("status") == "success" or out_val.get("status") is None
+            ):
                 agent_successes += 1
-                
-        agent_success_rate = (agent_successes / agent_execs * 100.0) if agent_execs > 0 else 100.0
+
+        agent_success_rate = (
+            (agent_successes / agent_execs * 100.0) if agent_execs > 0 else 100.0
+        )
 
         # Top Alert types
         alert_types_res = await db.execute(
@@ -133,7 +157,9 @@ class AnalyticsService:
             .order_by(desc(func.count(KYCProfile.id)))
             .limit(5)
         )
-        country_dist = [{"country": r[0] or "Unknown", "count": r[1]} for r in countries_res.all()]
+        country_dist = [
+            {"country": r[0] or "Unknown", "count": r[1]} for r in countries_res.all()
+        ]
 
         return {
             "period": period,
@@ -149,13 +175,13 @@ class AnalyticsService:
                 "transactions_screened": tx_count,
                 "monitoring_jobs": jobs_count,
                 "agent_executions": agent_execs,
-                "agent_success_rate": round(agent_success_rate, 1)
+                "agent_success_rate": round(agent_success_rate, 1),
             },
             "distributions": {
                 "risk_category": risk_dist,
                 "top_alerts": top_alerts,
-                "country_distribution": country_dist
-            }
+                "country_distribution": country_dist,
+            },
         }
 
     @staticmethod
@@ -166,10 +192,7 @@ class AnalyticsService:
         # Historical scores group by month (last 6 months)
         # Select average risk score grouped by month
         res = await db.execute(
-            select(
-                func.avg(RiskScore.overall_score),
-                func.count(RiskScore.id)
-            )
+            select(func.avg(RiskScore.overall_score), func.count(RiskScore.id))
         )
         overall_avg = res.first()
         avg_score = float(overall_avg[0]) if overall_avg and overall_avg[0] else 50.0
@@ -178,12 +201,7 @@ class AnalyticsService:
         return {
             "average_risk_score": round(avg_score, 1),
             "total_risk_assessments": total_scores,
-            "risk_distribution": {
-                "critical": 0,
-                "high": 0,
-                "medium": 0,
-                "low": 0
-            }
+            "risk_distribution": {"critical": 0, "high": 0, "medium": 0, "low": 0},
         }
 
     @staticmethod
@@ -191,8 +209,16 @@ class AnalyticsService:
         """Case flow dashboard analytics."""
         await ensure_phase13_schema(db)
 
-        open_cases = (await db.execute(select(func.count(Case.id)).where(Case.status != "resolved"))).scalar_one() or 0
-        closed_cases = (await db.execute(select(func.count(Case.id)).where(Case.status == "resolved"))).scalar_one() or 0
+        open_cases = (
+            await db.execute(
+                select(func.count(Case.id)).where(Case.status != "resolved")
+            )
+        ).scalar_one() or 0
+        closed_cases = (
+            await db.execute(
+                select(func.count(Case.id)).where(Case.status == "resolved")
+            )
+        ).scalar_one() or 0
 
         # Investigators Leaderboard
         investigators_res = await db.execute(
@@ -203,10 +229,12 @@ class AnalyticsService:
             .order_by(desc(func.count(Case.id)))
             .limit(5)
         )
-        leaderboard = [{"email": r[0], "resolved_cases": r[1]} for r in investigators_res.all()]
+        leaderboard = [
+            {"email": r[0], "resolved_cases": r[1]} for r in investigators_res.all()
+        ]
 
         return {
             "open_cases": open_cases,
             "closed_cases": closed_cases,
-            "investigators_leaderboard": leaderboard
+            "investigators_leaderboard": leaderboard,
         }

@@ -34,18 +34,23 @@ logger = logging.getLogger(__name__)
 _api_requests_buffer: List[Dict[str, Any]] = []
 _MAX_BUFFER_SIZE = 1000
 
+
 class ObservabilityService:
     @staticmethod
-    def record_request(path: str, method: str, status_code: int, duration_ms: float) -> None:
+    def record_request(
+        path: str, method: str, status_code: int, duration_ms: float
+    ) -> None:
         """Record an API request to the in-memory ring buffer for stats calculation."""
         global _api_requests_buffer
-        _api_requests_buffer.append({
-            "path": path,
-            "method": method,
-            "status_code": status_code,
-            "duration_ms": duration_ms,
-            "timestamp": time.time()
-        })
+        _api_requests_buffer.append(
+            {
+                "path": path,
+                "method": method,
+                "status_code": status_code,
+                "duration_ms": duration_ms,
+                "timestamp": time.time(),
+            }
+        )
         if len(_api_requests_buffer) > _MAX_BUFFER_SIZE:
             _api_requests_buffer = _api_requests_buffer[-_MAX_BUFFER_SIZE:]
 
@@ -54,6 +59,7 @@ class ObservabilityService:
         """Collect real-time CPU, memory, and disk metrics via psutil."""
         try:
             import psutil
+
             cpu_pct = psutil.cpu_percent(interval=None)
             mem = psutil.virtual_memory()
             disk = psutil.disk_usage("/")
@@ -89,12 +95,18 @@ class ObservabilityService:
             # Simple latency query
             await db.execute(text("SELECT 1"))
             latency_ms = round((time.perf_counter() - start) * 1000, 2)
-            
+
             # Row counts
-            users_count = (await db.execute(select(func.count()).select_from(User))).scalar() or 0
-            cases_count = (await db.execute(select(func.count()).select_from(Case))).scalar() or 0
-            alerts_count = (await db.execute(select(func.count()).select_from(Alert))).scalar() or 0
-            
+            users_count = (
+                await db.execute(select(func.count()).select_from(User))
+            ).scalar() or 0
+            cases_count = (
+                await db.execute(select(func.count()).select_from(Case))
+            ).scalar() or 0
+            alerts_count = (
+                await db.execute(select(func.count()).select_from(Alert))
+            ).scalar() or 0
+
             return {
                 "status": "healthy",
                 "latency_ms": latency_ms,
@@ -112,6 +124,7 @@ class ObservabilityService:
         start = time.perf_counter()
         try:
             import redis.asyncio as aioredis
+
             r = aioredis.from_url(settings.REDIS_URL, socket_timeout=2)
             await r.ping()
             latency_ms = round((time.perf_counter() - start) * 1000, 2)
@@ -126,17 +139,19 @@ class ObservabilityService:
         """Fetch Celery active workers count and queue lengths from Redis."""
         try:
             import redis
+
             # Direct synchronous redis call for inspector or simple stats
             r = redis.from_url(settings.REDIS_URL, socket_timeout=2)
             # Fetch default celery queue length (Celery stores list at 'celery')
             queue_len = r.llen("celery")
-            
+
             # Check active workers
             from app.core.celery_app import celery_app
+
             inspect = celery_app.control.inspect(timeout=0.5)
             active_workers = inspect.active()
             worker_count = len(active_workers) if active_workers else 0
-            
+
             return {
                 "status": "healthy",
                 "queue_length": queue_len,
@@ -158,7 +173,9 @@ class ObservabilityService:
         # Clean expired buffer items (>1 hour old)
         one_hour_ago = now - 3600
         global _api_requests_buffer
-        _api_requests_buffer = [r for r in _api_requests_buffer if r["timestamp"] > one_hour_ago]
+        _api_requests_buffer = [
+            r for r in _api_requests_buffer if r["timestamp"] > one_hour_ago
+        ]
 
         if not _api_requests_buffer:
             return {
@@ -175,7 +192,9 @@ class ObservabilityService:
         return {
             "request_count_1h": len(_api_requests_buffer),
             "average_latency_ms": round(sum(latencies) / len(latencies), 2),
-            "error_rate_percent": round((len(errors) / len(_api_requests_buffer)) * 100, 2),
+            "error_rate_percent": round(
+                (len(errors) / len(_api_requests_buffer)) * 100, 2
+            ),
             "slow_requests_count": len(slow),
         }
 
@@ -183,6 +202,7 @@ class ObservabilityService:
     async def get_cache_stats(db: AsyncSession) -> Dict[str, Any]:
         """Fetch Redis cache hit/miss stats from the core cache service."""
         from app.core.cache import cache
+
         stats = await cache.stats()
         # Save snapshot of cache stats to database
         try:
@@ -192,7 +212,7 @@ class ObservabilityService:
                 misses=stats.get("misses", 0),
                 sets=stats.get("sets", 0),
                 deletes=stats.get("deletes", 0),
-                hit_rate=stats.get("hit_rate", 0.0)
+                hit_rate=stats.get("hit_rate", 0.0),
             )
             db.add(stat_obj)
             await db.commit()
@@ -206,8 +226,9 @@ class ObservabilityService:
         fifteen_mins_ago = datetime.utcnow() - timedelta(minutes=15)
         try:
             result = await db.execute(
-                select(func.count(func.distinct(AuditLog.user_id)))
-                .where(AuditLog.created_at >= fifteen_mins_ago)
+                select(func.count(func.distinct(AuditLog.user_id))).where(
+                    AuditLog.created_at >= fifteen_mins_ago
+                )
             )
             return result.scalar() or 0
         except Exception:
@@ -220,25 +241,25 @@ class ObservabilityService:
             sys_metrics = await ObservabilityService.get_system_metrics()
             db_health = await ObservabilityService.get_database_health(db)
             redis_health = await ObservabilityService.get_redis_health()
-            
+
             # Persist key metrics
             metrics_to_save = [
                 ("cpu_percent", sys_metrics.get("cpu_percent", 0.0), "%"),
                 ("memory_percent", sys_metrics.get("memory_percent", 0.0), "%"),
                 ("disk_percent", sys_metrics.get("disk_percent", 0.0), "%"),
                 ("db_latency", db_health.get("latency_ms", 0.0), "ms"),
-                ("redis_latency", redis_health.get("latency_ms", 0.0), "ms")
+                ("redis_latency", redis_health.get("latency_ms", 0.0), "ms"),
             ]
-            
+
             for name, val, unit in metrics_to_save:
                 metric = SystemMetric(
                     metric_name=name,
                     metric_value=float(val),
                     unit=unit,
-                    tags={"env": settings.ENV}
+                    tags={"env": settings.ENV},
                 )
                 db.add(metric)
-                
+
             await db.commit()
         except Exception as e:
             logger.error(f"Failed to persist system metrics: {e}")

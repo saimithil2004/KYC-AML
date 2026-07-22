@@ -54,11 +54,10 @@ WEBHOOK_EVENTS = [
 
 def sign_payload(secret: str, payload_bytes: bytes) -> str:
     """Generate HMAC SHA256 signature for a payload."""
-    return "sha256=" + hmac.new(
-        secret.encode("utf-8"),
-        payload_bytes,
-        hashlib.sha256
-    ).hexdigest()
+    return (
+        "sha256="
+        + hmac.new(secret.encode("utf-8"), payload_bytes, hashlib.sha256).hexdigest()
+    )
 
 
 def verify_signature(secret: str, payload_bytes: bytes, signature: str) -> bool:
@@ -119,6 +118,7 @@ class WebhookService:
 
             try:
                 import httpx
+
                 headers = {
                     "Content-Type": "application/json",
                     "X-Webhook-Signature": signature,
@@ -135,10 +135,14 @@ class WebhookService:
                 log.response_body = resp.text[:2000]  # cap response body
                 if 200 <= resp.status_code < 300:
                     log.status = "success"
-                    logger.info(f"[WEBHOOK] Delivered {event} -> {ep.url} [{resp.status_code}]")
+                    logger.info(
+                        f"[WEBHOOK] Delivered {event} -> {ep.url} [{resp.status_code}]"
+                    )
                 else:
                     log.status = "failed"
-                    logger.warning(f"[WEBHOOK] Delivery failed {event} -> {ep.url} [{resp.status_code}]")
+                    logger.warning(
+                        f"[WEBHOOK] Delivery failed {event} -> {ep.url} [{resp.status_code}]"
+                    )
 
             except Exception as exc:
                 log.status = "failed"
@@ -149,20 +153,24 @@ class WebhookService:
             await AuditService.log(
                 db=db,
                 user_id=user_id,
-                action="WEBHOOK_TRIGGERED" if log.status == "success" else "WEBHOOK_FAILED",
+                action=(
+                    "WEBHOOK_TRIGGERED" if log.status == "success" else "WEBHOOK_FAILED"
+                ),
                 entity_name="webhook_log",
                 entity_id=log.id,
                 new_values={"event": event, "endpoint": ep.url, "status": log.status},
             )
 
-            results.append({
-                "endpoint_id": str(ep.id),
-                "url": ep.url,
-                "event": event,
-                "status": log.status,
-                "response_code": log.response_code,
-                "log_id": str(log.id),
-            })
+            results.append(
+                {
+                    "endpoint_id": str(ep.id),
+                    "url": ep.url,
+                    "event": event,
+                    "status": log.status,
+                    "response_code": log.response_code,
+                    "log_id": str(log.id),
+                }
+            )
 
         await db.commit()
         return results
@@ -172,6 +180,7 @@ class WebhookService:
         """Re-queue and re-dispatch failed webhook logs respecting max retries."""
         # Fetch failed logs with remaining retries
         from sqlalchemy import text as sa_text
+
         res = await db.execute(
             select(WebhookLog, WebhookEndpoint)
             .join(WebhookEndpoint, WebhookLog.endpoint_id == WebhookEndpoint.id)
@@ -180,7 +189,7 @@ class WebhookService:
         rows = res.all()
 
         retried = 0
-        for (log, ep) in rows:
+        for log, ep in rows:
             if log.retry_count >= ep.retries:
                 continue
             log.retry_count += 1
@@ -190,6 +199,7 @@ class WebhookService:
                 payload_bytes = json.dumps(log.payload, default=str).encode("utf-8")
                 signature = sign_payload(ep.secret, payload_bytes)
                 import httpx
+
                 headers = {
                     "Content-Type": "application/json",
                     "X-Webhook-Signature": signature,
@@ -197,7 +207,9 @@ class WebhookService:
                     "User-Agent": "AML-Platform-Webhook/1.0",
                 }
                 async with httpx.AsyncClient(timeout=15) as client:
-                    resp = await client.post(ep.url, content=payload_bytes, headers=headers)
+                    resp = await client.post(
+                        ep.url, content=payload_bytes, headers=headers
+                    )
                 log.response_code = resp.status_code
                 log.response_body = resp.text[:2000]
                 log.status = "success" if 200 <= resp.status_code < 300 else "failed"

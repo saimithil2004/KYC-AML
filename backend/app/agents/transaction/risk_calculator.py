@@ -8,7 +8,10 @@ Calculates the transaction risk score (0-100) and maps it to a risk level
 from typing import List, Tuple
 from app.agents.transaction.models import PatternResult
 from app.agents.transaction.constants import (
-    RISK_LOW, RISK_MEDIUM, RISK_HIGH, RISK_CRITICAL
+    RISK_LOW,
+    RISK_MEDIUM,
+    RISK_HIGH,
+    RISK_CRITICAL,
 )
 
 
@@ -22,7 +25,7 @@ class TransactionRiskCalculator:
         """
         Calculates the risk score from triggered patterns.
         Score decreases from 100.0 (safe) down to 0.0 (maximum risk).
-        
+
         Returns:
             (risk_score, risk_level)
         """
@@ -30,7 +33,7 @@ class TransactionRiskCalculator:
             return 100.0, RISK_LOW
 
         score = 100.0
-        
+
         # Count triggers by severity
         critical_count = 0
         high_count = 0
@@ -51,13 +54,13 @@ class TransactionRiskCalculator:
         # Deductions
         # CRITICAL patterns: -40 each (max -80)
         score -= min(80.0, critical_count * 40.0)
-        
+
         # HIGH patterns: -25 each (max -50)
         score -= min(50.0, high_count * 25.0)
-        
+
         # MEDIUM patterns: -15 each (max -30)
         score -= min(30.0, medium_count * 15.0)
-        
+
         # LOW patterns: -5 each
         score -= low_count * 5.0
 

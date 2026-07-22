@@ -23,7 +23,7 @@ class TransactionValidator:
 
     @staticmethod
     def validate_and_normalize(
-        raw_transactions: List[Dict[str, Any]]
+        raw_transactions: List[Dict[str, Any]],
     ) -> Tuple[List[TransactionRecord], List[str], List[str]]:
         """
         Parses and validates a list of raw transaction dicts.
@@ -42,7 +42,12 @@ class TransactionValidator:
             tx_id = tx.get("transaction_id", f"TX-MOCK-INDEX-{idx}")
             try:
                 # ── Check essential presence ──────────────────────────────────
-                required_fields = ["amount", "direction", "timestamp", "transaction_type"]
+                required_fields = [
+                    "amount",
+                    "direction",
+                    "timestamp",
+                    "transaction_type",
+                ]
                 missing = [f for f in required_fields if f not in tx]
                 if missing:
                     err_msg = f"Transaction {tx_id} is missing required fields: {', '.join(missing)}"
@@ -101,7 +106,7 @@ class TransactionValidator:
                             break
                         except ValueError:
                             continue
-                
+
                 if not timestamp:
                     # Fallback to datetime.utcnow() but issue a warning
                     timestamp = datetime.utcnow()
@@ -110,13 +115,21 @@ class TransactionValidator:
                     )
 
                 # ── Validate Countries ────────────────────────────────────────
-                orig_country = str(tx.get("originating_country") or "United Kingdom").strip()
-                dest_country = str(tx.get("destination_country") or "United Kingdom").strip()
+                orig_country = str(
+                    tx.get("originating_country") or "United Kingdom"
+                ).strip()
+                dest_country = str(
+                    tx.get("destination_country") or "United Kingdom"
+                ).strip()
 
                 if not orig_country or len(orig_country) < 2:
-                    warnings.append(f"Transaction {tx_id} originating country is invalid or empty.")
+                    warnings.append(
+                        f"Transaction {tx_id} originating country is invalid or empty."
+                    )
                 if not dest_country or len(dest_country) < 2:
-                    warnings.append(f"Transaction {tx_id} destination country is invalid or empty.")
+                    warnings.append(
+                        f"Transaction {tx_id} destination country is invalid or empty."
+                    )
 
                 # ── Build record ──────────────────────────────────────────────
                 record = TransactionRecord(
@@ -131,7 +144,7 @@ class TransactionValidator:
                     transaction_type=str(tx.get("transaction_type")),
                     originating_country=orig_country,
                     destination_country=dest_country,
-                    status=str(tx.get("status") or "COMPLETED").upper()
+                    status=str(tx.get("status") or "COMPLETED").upper(),
                 )
                 valid_records.append(record)
 

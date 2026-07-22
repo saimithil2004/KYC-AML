@@ -19,96 +19,79 @@ _COUNTRY_MAP: Dict[str, str] = {
     "scotland": "United Kingdom",
     "wales": "United Kingdom",
     "northern ireland": "United Kingdom",
-
     # United States
     "us": "United States",
     "usa": "United States",
     "united states": "United States",
     "united states of america": "United States",
-
     # Germany
     "de": "Germany",
     "deu": "Germany",
     "germany": "Germany",
     "deutschland": "Germany",
-
     # France
     "fr": "France",
     "fra": "France",
     "france": "France",
-
     # Iran
     "ir": "Iran",
     "irn": "Iran",
     "iran": "Iran",
     "islamic republic of iran": "Iran",
-
     # North Korea
     "kp": "North Korea",
     "prk": "North Korea",
     "north korea": "North Korea",
     "democratic people's republic of korea": "North Korea",
     "dprk": "North Korea",
-
     # Russia
     "ru": "Russia",
     "rus": "Russia",
     "russia": "Russia",
     "russian federation": "Russia",
-
     # Syria
     "sy": "Syria",
     "syr": "Syria",
     "syria": "Syria",
     "syrian arab republic": "Syria",
-
     # Cayman Islands
     "ky": "Cayman Islands",
     "cym": "Cayman Islands",
     "cayman islands": "Cayman Islands",
     "cayman": "Cayman Islands",
-
     # Panama
     "pa": "Panama",
     "pan": "Panama",
     "panama": "Panama",
-
     # Singapore
     "sg": "Singapore",
     "sgp": "Singapore",
     "singapore": "Singapore",
-
     # Australia
     "au": "Australia",
     "aus": "Australia",
     "australia": "Australia",
-
     # Spain
     "es": "Spain",
     "esp": "Spain",
     "spain": "Spain",
     "espana": "Spain",
-
     # Belgium
     "be": "Belgium",
     "bel": "Belgium",
     "belgium": "Belgium",
-
     # Switzerland
     "ch": "Switzerland",
     "che": "Switzerland",
     "switzerland": "Switzerland",
-
     # Canada
     "ca": "Canada",
     "can": "Canada",
     "canada": "Canada",
-
     # Japan
     "jp": "Japan",
     "jpn": "Japan",
     "japan": "Japan",
-
     # China
     "cn": "China",
     "chn": "China",
@@ -124,9 +107,9 @@ def normalize_country(country: Optional[str]) -> Optional[str]:
     """
     if not country:
         return None
-    
+
     clean_val = str(country).strip().lower()
-    
+
     # Check map
     if clean_val in _COUNTRY_MAP:
         return _COUNTRY_MAP[clean_val]

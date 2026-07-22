@@ -2,8 +2,10 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 
+
 class AgentResult(BaseModel):
     """Normalized response payload returned by all UK AML + KYC compliance agents."""
+
     status: str  # "success" or "failed"
     success: bool
     agent_name: str

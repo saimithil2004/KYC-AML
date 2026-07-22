@@ -26,9 +26,9 @@ from app.agents.base.exceptions import AgentValidationError
 logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-UBO_DISCLOSURE_THRESHOLD    = 75.0   # Minimum % of ownership that must be disclosed
-UBO_SIGNIFICANT_STAKE       = 25.0   # Significant ownership threshold
-UBO_CIRCULAR_INDICATOR      = "company"  # control_type value suggesting circular ownership
+UBO_DISCLOSURE_THRESHOLD = 75.0  # Minimum % of ownership that must be disclosed
+UBO_SIGNIFICANT_STAKE = 25.0  # Significant ownership threshold
+UBO_CIRCULAR_INDICATOR = "company"  # control_type value suggesting circular ownership
 
 
 @AgentRegistry.register("ubo_verification_agent")
@@ -71,7 +71,9 @@ class UBOVerificationAgent(BaseAgent):
         start_time = time.perf_counter()
         state.logs.append(f"[{self.get_name()}] Starting UBO verification...")
 
-        customer_type = str((state.customer or {}).get("customer_type") or "").strip().lower()
+        customer_type = (
+            str((state.customer or {}).get("customer_type") or "").strip().lower()
+        )
 
         # Skip for individual customers
         if customer_type not in ("corporate", "business", "company"):
@@ -94,9 +96,9 @@ class UBOVerificationAgent(BaseAgent):
             }
 
         ubos: List[Dict[str, Any]] = state.ubos or []
-        findings:        List[str] = []
-        warnings:        List[str] = []
-        errors:          List[str] = []
+        findings: List[str] = []
+        warnings: List[str] = []
+        errors: List[str] = []
         recommendations: List[str] = []
 
         # ── Check 1: UBO records present ──────────────────────────────────────
@@ -110,12 +112,18 @@ class UBOVerificationAgent(BaseAgent):
             execution_duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
             state.logs.append("UBOVerificationAgent: No UBO records — score=0.")
             return self._build_result(
-                score=0.0, risk_level="high",
-                findings=findings, warnings=warnings,
-                errors=errors, recommendations=recommendations,
-                ubos_checked=0, total_ownership=0.0,
-                circular_count=0, unverified_count=0,
-                execution_duration_ms=execution_duration_ms, state=state,
+                score=0.0,
+                risk_level="high",
+                findings=findings,
+                warnings=warnings,
+                errors=errors,
+                recommendations=recommendations,
+                ubos_checked=0,
+                total_ownership=0.0,
+                circular_count=0,
+                unverified_count=0,
+                execution_duration_ms=execution_duration_ms,
+                state=state,
             )
 
         # ── Check 2: Total ownership disclosure ───────────────────────────────
@@ -135,11 +143,11 @@ class UBOVerificationAgent(BaseAgent):
 
         # ── Check 3: Significant stake holders ───────────────────────────────
         unverified_count = 0
-        circular_count   = 0
+        circular_count = 0
 
         for ubo in ubos:
             name = f"{ubo.get('first_name','')} {ubo.get('last_name','')}".strip()
-            pct  = float(ubo.get("ownership_percentage") or 0)
+            pct = float(ubo.get("ownership_percentage") or 0)
             status = str(ubo.get("verification_status") or "").lower()
             control_type = str(ubo.get("control_type") or "").lower()
 
@@ -167,14 +175,16 @@ class UBOVerificationAgent(BaseAgent):
             )
 
         if unverified_count == 0 and circular_count == 0:
-            findings.append("All UBOs with significant stakes are verified. No circular ownership detected.")
+            findings.append(
+                "All UBOs with significant stakes are verified. No circular ownership detected."
+            )
 
         # ── Score calculation ─────────────────────────────────────────────────
         score = 100.0
         if total_ownership < UBO_DISCLOSURE_THRESHOLD:
             score -= 20.0
         score -= unverified_count * 15.0
-        score -= circular_count   * 10.0
+        score -= circular_count * 10.0
         score = round(max(0.0, min(100.0, score)), 2)
         risk_level = "high" if score < 40 else "medium" if score < 70 else "low"
 
@@ -186,29 +196,41 @@ class UBOVerificationAgent(BaseAgent):
         )
 
         return self._build_result(
-            score=score, risk_level=risk_level,
-            findings=findings, warnings=warnings,
-            errors=errors, recommendations=recommendations,
-            ubos_checked=len(ubos), total_ownership=total_ownership,
-            circular_count=circular_count, unverified_count=unverified_count,
-            execution_duration_ms=execution_duration_ms, state=state,
+            score=score,
+            risk_level=risk_level,
+            findings=findings,
+            warnings=warnings,
+            errors=errors,
+            recommendations=recommendations,
+            ubos_checked=len(ubos),
+            total_ownership=total_ownership,
+            circular_count=circular_count,
+            unverified_count=unverified_count,
+            execution_duration_ms=execution_duration_ms,
+            state=state,
         )
 
     def _build_result(
         self,
-        score: float, risk_level: str,
-        findings: List[str], warnings: List[str],
-        errors: List[str], recommendations: List[str],
-        ubos_checked: int, total_ownership: float,
-        circular_count: int, unverified_count: int,
-        execution_duration_ms: float, state: AgentState,
+        score: float,
+        risk_level: str,
+        findings: List[str],
+        warnings: List[str],
+        errors: List[str],
+        recommendations: List[str],
+        ubos_checked: int,
+        total_ownership: float,
+        circular_count: int,
+        unverified_count: int,
+        execution_duration_ms: float,
+        state: AgentState,
     ) -> Dict[str, Any]:
         state.risk_breakdown["ubo"] = score
-        state.shared_metadata["ubo_score"]         = score
-        state.shared_metadata["ubo_risk"]          = risk_level
+        state.shared_metadata["ubo_score"] = score
+        state.shared_metadata["ubo_risk"] = risk_level
         state.shared_metadata["ubo_total_ownership"] = total_ownership
-        state.shared_metadata["ubo_unverified"]    = unverified_count
-        state.shared_metadata["ubo_circular"]      = circular_count
+        state.shared_metadata["ubo_unverified"] = unverified_count
+        state.shared_metadata["ubo_circular"] = circular_count
 
         return {
             "_status": "success",
@@ -216,11 +238,11 @@ class UBOVerificationAgent(BaseAgent):
             "confidence": score / 100.0,
             "risk_score": score,
             "risk_level": risk_level,
-            "findings":   findings,
-            "warnings":   warnings,
+            "findings": findings,
+            "warnings": warnings,
             "recommendations": recommendations,
-            "errors":     errors,
-            "ubo_score":  score,
+            "errors": errors,
+            "ubo_score": score,
             "ubos_checked": ubos_checked,
             "total_ownership_pct": total_ownership,
             "unverified_significant_stakes": unverified_count,

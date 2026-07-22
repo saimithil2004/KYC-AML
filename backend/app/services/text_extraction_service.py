@@ -25,7 +25,7 @@ class TextExtractionService:
             raise FileNotFoundError(f"File not found: {file_path}")
 
         ext = os.path.splitext(file_path)[1].lower()
-        
+
         try:
             if ext == ".pdf":
                 return TextExtractionService._extract_pdf(file_path)
@@ -87,6 +87,7 @@ class TextExtractionService:
         try:
             import pytesseract
             from PIL import Image
+
             # Just a check to see if tesseract binary path is set
             # if pytesseract is present but tesseract executable is missing,
             # it raises TesseractNotFoundError.

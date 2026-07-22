@@ -26,7 +26,7 @@ from app.agents.base.exceptions import AgentValidationError
 logger = logging.getLogger(__name__)
 
 REQUIRED_DIRECTOR_FIELDS = ["first_name", "last_name"]
-MINIMUM_DIRECTORS         = 1
+MINIMUM_DIRECTORS = 1
 
 
 @AgentRegistry.register("director_verification_agent")
@@ -70,7 +70,9 @@ class DirectorVerificationAgent(BaseAgent):
         start_time = time.perf_counter()
         state.logs.append(f"[{self.get_name()}] Starting director verification...")
 
-        customer_type = str((state.customer or {}).get("customer_type") or "").strip().lower()
+        customer_type = (
+            str((state.customer or {}).get("customer_type") or "").strip().lower()
+        )
 
         # Skip for individual customers
         if customer_type not in ("corporate", "business", "company"):
@@ -93,12 +95,19 @@ class DirectorVerificationAgent(BaseAgent):
             }
 
         directors: List[Dict[str, Any]] = state.directors or []
-        companies:  List[Dict[str, Any]] = state.companies  or []
-        company_country = str((companies[0] if companies else {}).get("country_of_incorporation") or "").strip().lower()
+        companies: List[Dict[str, Any]] = state.companies or []
+        company_country = (
+            str(
+                (companies[0] if companies else {}).get("country_of_incorporation")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
 
-        findings:        List[str] = []
-        warnings:        List[str] = []
-        errors:          List[str] = []
+        findings: List[str] = []
+        warnings: List[str] = []
+        errors: List[str] = []
         recommendations: List[str] = []
 
         # ── Check: Minimum director count ─────────────────────────────────────
@@ -106,28 +115,28 @@ class DirectorVerificationAgent(BaseAgent):
             errors.append(
                 f"Insufficient directors: {len(directors)} found, minimum is {MINIMUM_DIRECTORS}."
             )
-            recommendations.append("Add at least one active director to the corporate record.")
+            recommendations.append(
+                "Add at least one active director to the corporate record."
+            )
 
-        inactive_count   = 0
+        inactive_count = 0
         unverified_count = 0
         incomplete_count = 0
         nationality_mismatch_count = 0
 
         for director in directors:
-            first  = str(director.get("first_name") or "").strip()
-            last   = str(director.get("last_name")  or "").strip()
-            name   = f"{first} {last}".strip() or "Unknown"
-            is_active  = director.get("is_active", True)
-            status     = str(director.get("verification_status") or "").lower()
+            first = str(director.get("first_name") or "").strip()
+            last = str(director.get("last_name") or "").strip()
+            name = f"{first} {last}".strip() or "Unknown"
+            is_active = director.get("is_active", True)
+            status = str(director.get("verification_status") or "").lower()
             nationality = str(director.get("nationality") or "").strip().lower()
 
             # ── Completeness check ────────────────────────────────────────────
             missing = [f for f in REQUIRED_DIRECTOR_FIELDS if not director.get(f)]
             if missing:
                 incomplete_count += 1
-                warnings.append(
-                    f"Director record missing fields {missing}: '{name}'."
-                )
+                warnings.append(f"Director record missing fields {missing}: '{name}'.")
 
             # ── Activity check ────────────────────────────────────────────────
             if not is_active:
@@ -140,9 +149,7 @@ class DirectorVerificationAgent(BaseAgent):
             # ── Verification status check ─────────────────────────────────────
             if status not in ("verified", "approved"):
                 unverified_count += 1
-                warnings.append(
-                    f"Director '{name}' has unverified status: '{status}'."
-                )
+                warnings.append(f"Director '{name}' has unverified status: '{status}'.")
 
             # ── Nationality mismatch check ────────────────────────────────────
             if nationality and company_country and nationality != company_country:
@@ -154,10 +161,14 @@ class DirectorVerificationAgent(BaseAgent):
                 )
 
         if inactive_count == 0 and unverified_count == 0 and incomplete_count == 0:
-            findings.append("All directors are active, verified, and have complete records.")
+            findings.append(
+                "All directors are active, verified, and have complete records."
+            )
 
         if unverified_count > 0:
-            recommendations.append(f"Verify {unverified_count} director(s) to complete KYC.")
+            recommendations.append(
+                f"Verify {unverified_count} director(s) to complete KYC."
+            )
         if inactive_count > 0:
             recommendations.append(
                 f"Review {inactive_count} inactive director(s) and update corporate records."
@@ -166,7 +177,7 @@ class DirectorVerificationAgent(BaseAgent):
         # ── Score calculation ─────────────────────────────────────────────────
         score = 100.0
         total = max(len(directors), 1)
-        score -= (inactive_count   / total) * 20.0
+        score -= (inactive_count / total) * 20.0
         score -= (unverified_count / total) * 20.0
         score -= (incomplete_count / total) * 15.0
         if len(directors) < MINIMUM_DIRECTORS:
@@ -178,11 +189,11 @@ class DirectorVerificationAgent(BaseAgent):
 
         # Update state
         state.risk_breakdown["director"] = score
-        state.shared_metadata["director_score"]        = score
-        state.shared_metadata["director_risk"]         = risk_level
-        state.shared_metadata["director_inactive"]     = inactive_count
-        state.shared_metadata["director_unverified"]   = unverified_count
-        state.shared_metadata["director_incomplete"]   = incomplete_count
+        state.shared_metadata["director_score"] = score
+        state.shared_metadata["director_risk"] = risk_level
+        state.shared_metadata["director_inactive"] = inactive_count
+        state.shared_metadata["director_unverified"] = unverified_count
+        state.shared_metadata["director_incomplete"] = incomplete_count
         state.shared_metadata["director_nat_mismatch"] = nationality_mismatch_count
 
         state.logs.append(
@@ -197,15 +208,15 @@ class DirectorVerificationAgent(BaseAgent):
             "confidence": score / 100.0,
             "risk_score": score,
             "risk_level": risk_level,
-            "findings":   findings,
-            "warnings":   warnings,
+            "findings": findings,
+            "warnings": warnings,
             "recommendations": recommendations,
-            "errors":     errors,
-            "director_score":          score,
-            "directors_checked":       len(directors),
-            "inactive_directors":      inactive_count,
-            "unverified_directors":    unverified_count,
-            "incomplete_directors":    incomplete_count,
-            "nationality_mismatches":  nationality_mismatch_count,
-            "execution_duration_ms":   execution_duration_ms,
+            "errors": errors,
+            "director_score": score,
+            "directors_checked": len(directors),
+            "inactive_directors": inactive_count,
+            "unverified_directors": unverified_count,
+            "incomplete_directors": incomplete_count,
+            "nationality_mismatches": nationality_mismatch_count,
+            "execution_duration_ms": execution_duration_ms,
         }

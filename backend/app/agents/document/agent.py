@@ -31,10 +31,10 @@ from app.agents.base.exceptions import AgentValidationError
 logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-MIN_FILE_SIZE_BYTES   = 5_000        # Proxy for minimum acceptable image quality
-NAME_MATCH_THRESHOLD  = 0.80         # SequenceMatcher ratio for fuzzy name match
-VERIFIED_STATUSES     = {"verified", "approved", "accepted"}
-NEXT_AGENT            = "pep_agent"  # Routing hint for orchestrator
+MIN_FILE_SIZE_BYTES = 5_000  # Proxy for minimum acceptable image quality
+NAME_MATCH_THRESHOLD = 0.80  # SequenceMatcher ratio for fuzzy name match
+VERIFIED_STATUSES = {"verified", "approved", "accepted"}
+NEXT_AGENT = "pep_agent"  # Routing hint for orchestrator
 
 
 @AgentRegistry.register("document_verification_agent")
@@ -82,14 +82,14 @@ class DocumentVerificationAgent(BaseAgent):
         state.logs.append(f"[{self.get_name()}] Starting document verification...")
 
         docs: List[Dict[str, Any]] = state.uploaded_documents or []
-        kyc: Dict[str, Any]        = state.kyc_profile or {}
+        kyc: Dict[str, Any] = state.kyc_profile or {}
 
         declared_name = str(kyc.get("full_name") or "").strip().lower()
-        declared_dob  = kyc.get("date_of_birth") or kyc.get("dob")
+        declared_dob = kyc.get("date_of_birth") or kyc.get("dob")
 
-        findings:        List[str] = []
-        warnings:        List[str] = []
-        errors:          List[str] = []
+        findings: List[str] = []
+        warnings: List[str] = []
+        errors: List[str] = []
         recommendations: List[str] = []
 
         # Track for deduplication
@@ -97,23 +97,25 @@ class DocumentVerificationAgent(BaseAgent):
         duplicate_count = 0
 
         # Counters
-        name_mismatches  = 0
-        dob_mismatches   = 0
-        low_quality      = 0
-        verified_count   = 0
-        total_docs       = len(docs)
+        name_mismatches = 0
+        dob_mismatches = 0
+        low_quality = 0
+        verified_count = 0
+        total_docs = len(docs)
 
         for doc in docs:
             doc_type = doc.get("document_type", "UNKNOWN")
             file_name = str(doc.get("file_name") or "").strip()
             file_size = int(doc.get("file_size") or 0)
-            status    = str(doc.get("verification_status") or "").lower()
-            ocr_data  = doc.get("ocr_data") or {}
+            status = str(doc.get("verification_status") or "").lower()
+            ocr_data = doc.get("ocr_data") or {}
 
             # ── Duplicate detection ───────────────────────────────────────────
             if file_name and file_name in seen_filenames:
                 duplicate_count += 1
-                warnings.append(f"Duplicate document detected: '{file_name}' ({doc_type}).")
+                warnings.append(
+                    f"Duplicate document detected: '{file_name}' ({doc_type})."
+                )
             elif file_name:
                 seen_filenames.add(file_name)
 
@@ -130,7 +132,11 @@ class DocumentVerificationAgent(BaseAgent):
                 )
 
             # ── OCR name match ────────────────────────────────────────────────
-            ocr_name = str(ocr_data.get("full_name") or ocr_data.get("name") or "").strip().lower()
+            ocr_name = (
+                str(ocr_data.get("full_name") or ocr_data.get("name") or "")
+                .strip()
+                .lower()
+            )
             if ocr_name and declared_name:
                 ratio = SequenceMatcher(None, declared_name, ocr_name).ratio()
                 if ratio < NAME_MATCH_THRESHOLD:
@@ -149,7 +155,7 @@ class DocumentVerificationAgent(BaseAgent):
             ocr_dob_raw = ocr_data.get("dob") or ocr_data.get("date_of_birth")
             if ocr_dob_raw and declared_dob:
                 try:
-                    ocr_dob  = self._parse_date(ocr_dob_raw)
+                    ocr_dob = self._parse_date(ocr_dob_raw)
                     decl_dob = self._parse_date(declared_dob)
                     if ocr_dob and decl_dob and ocr_dob != decl_dob:
                         dob_mismatches += 1
@@ -158,7 +164,9 @@ class DocumentVerificationAgent(BaseAgent):
                             f"declared '{decl_dob}' vs OCR '{ocr_dob}'."
                         )
                     elif ocr_dob and decl_dob:
-                        findings.append(f"DOB verified on {doc_type}: declared DOB matches OCR.")
+                        findings.append(
+                            f"DOB verified on {doc_type}: declared DOB matches OCR."
+                        )
                 except Exception as exc:
                     warnings.append(f"Could not compare DOB on {doc_type}: {exc}")
 
@@ -173,11 +181,17 @@ class DocumentVerificationAgent(BaseAgent):
         if duplicate_count > 0:
             recommendations.append("Remove or review duplicate document submissions.")
         if name_mismatches > 0:
-            recommendations.append("Resolve name discrepancies between documents and KYC declaration.")
+            recommendations.append(
+                "Resolve name discrepancies between documents and KYC declaration."
+            )
         if dob_mismatches > 0:
-            recommendations.append("Resolve DOB discrepancies between documents and KYC declaration.")
+            recommendations.append(
+                "Resolve DOB discrepancies between documents and KYC declaration."
+            )
         if low_quality > 0:
-            recommendations.append("Request higher-quality document images from the customer.")
+            recommendations.append(
+                "Request higher-quality document images from the customer."
+            )
 
         # ── Calculate document score (0–100) ──────────────────────────────────
         document_score = self._calculate_document_score(
@@ -189,20 +203,24 @@ class DocumentVerificationAgent(BaseAgent):
             low_quality=low_quality,
         )
 
-        risk_level = "high" if document_score < 40 else "medium" if document_score < 70 else "low"
+        risk_level = (
+            "high"
+            if document_score < 40
+            else "medium" if document_score < 70 else "low"
+        )
 
         execution_duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
         # ── Update AgentState ─────────────────────────────────────────────────
         state.risk_breakdown["document"] = document_score
-        state.shared_metadata["document_score"]           = document_score
-        state.shared_metadata["document_risk"]            = risk_level
+        state.shared_metadata["document_score"] = document_score
+        state.shared_metadata["document_risk"] = risk_level
         state.shared_metadata["document_name_mismatches"] = name_mismatches
-        state.shared_metadata["document_dob_mismatches"]  = dob_mismatches
-        state.shared_metadata["document_duplicates"]      = duplicate_count
-        state.shared_metadata["document_verified_count"]  = verified_count
-        state.shared_metadata["document_total"]           = total_docs
-        state.shared_metadata["next_agent"]               = NEXT_AGENT
+        state.shared_metadata["document_dob_mismatches"] = dob_mismatches
+        state.shared_metadata["document_duplicates"] = duplicate_count
+        state.shared_metadata["document_verified_count"] = verified_count
+        state.shared_metadata["document_total"] = total_docs
+        state.shared_metadata["next_agent"] = NEXT_AGENT
 
         state.logs.append(
             f"DocumentVerificationAgent: {total_docs} doc(s), {verified_count} verified. "
@@ -221,14 +239,14 @@ class DocumentVerificationAgent(BaseAgent):
             "recommendations": recommendations,
             "errors": errors,
             # Metadata
-            "document_score":        document_score,
-            "total_docs":            total_docs,
-            "verified_count":        verified_count,
-            "name_mismatches":       name_mismatches,
-            "dob_mismatches":        dob_mismatches,
-            "duplicate_count":       duplicate_count,
-            "low_quality_count":     low_quality,
-            "next_agent":            NEXT_AGENT,
+            "document_score": document_score,
+            "total_docs": total_docs,
+            "verified_count": verified_count,
+            "name_mismatches": name_mismatches,
+            "dob_mismatches": dob_mismatches,
+            "duplicate_count": duplicate_count,
+            "low_quality_count": low_quality,
+            "next_agent": NEXT_AGENT,
             "execution_duration_ms": execution_duration_ms,
         }
 
@@ -250,12 +268,12 @@ class DocumentVerificationAgent(BaseAgent):
 
     @staticmethod
     def _calculate_document_score(
-        total_docs:      int,
-        verified_count:  int,
+        total_docs: int,
+        verified_count: int,
         name_mismatches: int,
-        dob_mismatches:  int,
-        duplicates:      int,
-        low_quality:     int,
+        dob_mismatches: int,
+        duplicates: int,
+        low_quality: int,
     ) -> float:
         """Computes document verification score (0–100, 100 = perfect)."""
         if total_docs == 0:
@@ -265,9 +283,9 @@ class DocumentVerificationAgent(BaseAgent):
 
         # Deduct for verification mismatches
         score -= name_mismatches * 20.0
-        score -= dob_mismatches  * 20.0
-        score -= duplicates      * 10.0
-        score -= low_quality     * 5.0
+        score -= dob_mismatches * 20.0
+        score -= duplicates * 10.0
+        score -= low_quality * 5.0
 
         # Boost for verified documents
         verification_ratio = verified_count / total_docs
