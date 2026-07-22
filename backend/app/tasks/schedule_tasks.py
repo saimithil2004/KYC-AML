@@ -1,7 +1,7 @@
 import logging
 import asyncio
 from uuid import UUID
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from sqlalchemy import select, and_, update
 from app.core.celery_app import celery_app
 from app.core.database import SessionLocal
@@ -415,6 +415,7 @@ def daily_system_backup_task():
     async def _execute():
         async with SessionLocal() as db:
             from app.services.backup_service import BackupService
+            from app.core.config import settings
 
             # Create standard database backup
             record = await BackupService.create_backup(

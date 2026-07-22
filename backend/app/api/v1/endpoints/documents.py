@@ -212,7 +212,7 @@ async def reprocess_document(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Document).where(Document.id == document_id))
-    document = document.scalars().first()
+    document = result.scalars().first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found.")
 

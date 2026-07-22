@@ -10,6 +10,7 @@ from uuid import UUID
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, desc
 
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user

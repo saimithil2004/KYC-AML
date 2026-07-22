@@ -6,6 +6,7 @@ execution histories, and file download exports (PDF, Excel, CSV, JSON).
 Only accessible to compliance officers and administrators.
 """
 
+import logging
 import os
 from uuid import UUID, uuid4
 from datetime import datetime, timedelta
@@ -42,6 +43,7 @@ from app.schemas.schemas import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/", response_model=List[ReportResponse])

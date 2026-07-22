@@ -25,6 +25,7 @@ from app.models.models import (
     MonitoringHistory,
     RiskScore,
     Case,
+    Alert,
 )
 from app.schemas.schemas import (
     PaginatedMonitoringSchedules,
