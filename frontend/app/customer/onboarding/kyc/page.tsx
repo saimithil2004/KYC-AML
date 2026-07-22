@@ -220,7 +220,7 @@ export default function KycStep() {
         <div className="mt-3 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <Info className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
           <p className="text-xs text-amber-700">
-            This information is used solely for AML compliance screening as required by UK Money Laundering Regulations 2017. All data is handled under our Privacy Policy.
+            This information is used solely for AML compliance screening as required by UK Money Laundering Regulations 2017 (as amended through 2024/2026) & ECCTA 2023. All data is handled under our Privacy Policy.
           </p>
         </div>
       </Section>

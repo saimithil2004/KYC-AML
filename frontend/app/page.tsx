@@ -19,7 +19,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-800/30 via-transparent to-transparent" />
         <div className="relative mx-auto max-w-3xl">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-teal-500/30 bg-teal-500/10 px-4 py-1.5 text-sm text-teal-300">
-            <ShieldCheck className="h-3.5 w-3.5" /> UK Money Laundering Regulations 2017 Compliant
+            <ShieldCheck className="h-3.5 w-3.5" /> UK Money Laundering Regulations 2017 (as amended through 2024/2026) & ECCTA 2023 Compliant
           </div>
           <h1 className="text-5xl font-extrabold leading-tight tracking-tight">
             AI-Powered{" "}

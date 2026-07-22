@@ -174,7 +174,7 @@ class CompanyValidator:
     def validate_ubos(ubos: List[Dict[str, Any]]) -> Tuple[float, List[str], List[str]]:
         """
         Checks: at least one UBO with ≥ 25% ownership declared (10 pts).
-        UK POCA/MLR 2017 requires disclosure of all beneficial owners above 25%.
+        UK POCA / MLR 2017 (as amended through 2024/2026) and ECCTA 2023 require disclosure of all beneficial owners above 25%.
         """
         score = 0.0
         missing: List[str] = []

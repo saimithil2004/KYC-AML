@@ -159,7 +159,7 @@ export default function RegisterPage() {
         </div>
 
         <p className="mt-4 text-center text-xs text-zinc-400">
-          Your data is encrypted and processed under UK GDPR and MLR 2017.
+          Your data is encrypted and processed under UK GDPR, Data Protection Act 2018, MLR 2017 (as amended through 2024/2026), and ECCTA 2023.
         </p>
       </div>
     </div>

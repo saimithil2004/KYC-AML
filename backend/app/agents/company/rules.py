@@ -116,7 +116,7 @@ class CompanyRulesEngine:
             failed_rules.append(RULE_NO_UBOS)
             recommendations.append(
                 f"[{RULE_NO_UBOS}] No UBO with ≥25% ownership declared. "
-                "MLR 2017 requires disclosure of all beneficial owners above 25%. "
+                "MLR 2017 (as amended through 2024/2026) and ECCTA 2023 require disclosure of all beneficial owners above 25%. "
                 "Recommend Enhanced Due Diligence (EDD)."
             )
             risk_influences.add(RISK_HIGH)

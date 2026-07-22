@@ -49,8 +49,17 @@ next. The Company Agent never calls the next agent directly.
 | Industry / SIC Code | `CO005` | 10 |
 | Directors (≥1 verified) | `CO006` | 15 |
 | Shareholders (≥1 declared) | `CO007` | 10 |
-| UBOs ≥25% ownership (MLR 2017) | `CO008` | 10 |
+| UBOs ≥25% ownership (MLR 2017 as amended / ECCTA 2023) | `CO008` | 10 |
 | Company Incorporation Documents | `CO009` | 5 |
+
+---
+
+## Statutory Compliance Framework & UBO Guidance
+
+The **Company Agent** enforces corporate transparency requirements governed by:
+- **Money Laundering Regulations 2017 (as amended through 2024/2026)**: Mandates disclosure and verification of all Ultimate Beneficial Owners (UBOs) holding ≥ 25% ownership or control.
+- **Economic Crime and Corporate Transparency Act 2023 (ECCTA 2023)**: Mandates **Beneficial Ownership verification**, mandatory **PSC (Persons with Significant Control) verification**, and identity proofing for company directors and key controllers.
+- **Identity Verification & EDD (Enhanced Due Diligence)**: When qualifying UBO or director declarations are missing or discrepant (`CO006` or `CO008`), the system triggers high-risk routing and requires mandatory Enhanced Due Diligence (EDD) before onboarding approval.
 
 ---
 
@@ -65,7 +74,7 @@ next. The Company Agent never calls the next agent directly.
 | `CO005` | Missing industry classification | – |
 | `CO006` | No verified directors | HIGH |
 | `CO007` | No shareholders declared | MEDIUM |
-| `CO008` | No UBOs with ≥25% ownership | HIGH → EDD |
+| `CO008` | No UBOs with ≥25% ownership (MLR 2017 / ECCTA 2023) | HIGH → EDD |
 | `CO009` | No incorporation documents | Recommendation |
 | `CO010` | Dissolved / struck-off status | HIGH |
 

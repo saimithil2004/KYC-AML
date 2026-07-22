@@ -17,6 +17,23 @@ A production-grade, AI-agentic Anti-Money Laundering (AML) and Know Your Custome
 
 ---
 
+## Regulatory Compliance Framework
+
+The platform natively enforces compliance across UK, EU, and international AML/KYC statutory regimes:
+
+| Regulation / Framework | Statute / Version | Implemented Modules & Agent Architecture |
+|---|---|---|
+| **UK Money Laundering Regulations** | MLR 2017 (as amended through 2024/2026) | `kyc_agent`, `company_agent`, `risk_agent`, Multi-step Onboarding |
+| **Economic Crime & Corporate Transparency Act** | ECCTA 2023 | `company_agent` (UBO ≥25% & PSC verification), Vision Document OCR |
+| **Proceeds of Crime Act** | POCA 2002 | `sar_agent` (Automated SAR drafting), MLRO Investigation Workspace |
+| **Fraud Act** | Fraud Act 2006 | Customer Identity Verification & Onboarding Legal Consent Declarations |
+| **UK General Data Protection Regulation** | UK GDPR | PII Encryption Engine (AES-256-GCM), Consent & Privacy Controls |
+| **Data Protection Act** | Data Protection Act 2018 | Audit Logging, Role-Based Access Control (RBAC), Password Lockout |
+| **Sanctions & Anti-Money Laundering Act** | SAMLA 2018 | `sanctions_agent` (OFSI watchlist screening), Real-time Transaction Blocking |
+| **FATF Recommendations** | FATF Standards (Latest through 2025) | `pep_agent`, `country_risk_agent` (Blacklist/Greylist), `transaction_agent` |
+
+---
+
 ## 2. Platform Architecture
 
 ```mermaid

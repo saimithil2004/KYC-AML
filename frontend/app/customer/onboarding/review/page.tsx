@@ -179,7 +179,7 @@ export default function ReviewStep() {
       <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-zinc-800 mb-2">Declaration</h3>
         <p className="text-xs text-zinc-500 leading-relaxed">
-          By submitting this application, I confirm that all information provided is true, accurate, and complete to the best of my knowledge. I understand that providing false or misleading information may constitute a criminal offence under the Fraud Act 2006. I consent to my information being processed for AML and KYC compliance purposes as required by the Money Laundering, Terrorist Financing and Transfer of Funds (Information on the Payer) Regulations 2017.
+          By submitting this application, I confirm that all information provided is true, accurate, and complete to the best of my knowledge. I understand that providing false or misleading information may constitute a criminal offence under the Fraud Act 2006. I consent to my information being processed for AML and KYC compliance purposes as required by the Money Laundering, Terrorist Financing and Transfer of Funds (Information on the Payer) Regulations 2017 (as amended), the Economic Crime and Corporate Transparency Act 2023, the Proceeds of Crime Act 2002, UK GDPR, and the Data Protection Act 2018.
         </p>
       </div>
 
