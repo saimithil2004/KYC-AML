@@ -34,7 +34,7 @@ export default function CompanyStep() {
     control,
     reset,
     formState: { errors, isSubmitting },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line
   } = useForm<CompanyFormData, any, CompanyFormData>({
     resolver: zodResolver(companySchema) as any,
     defaultValues: {

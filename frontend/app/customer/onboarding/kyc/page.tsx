@@ -33,7 +33,7 @@ export default function KycStep() {
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line
   } = useForm<KycFormData, any, KycFormData>({
     resolver: zodResolver(kycSchema) as any,
     defaultValues: {

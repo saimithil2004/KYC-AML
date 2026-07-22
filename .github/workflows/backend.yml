@@ -39,6 +39,10 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+    defaults:
+      run:
+        working-directory: backend
+
     steps:
     - uses: actions/checkout@v4
 
@@ -51,19 +55,15 @@ jobs:
 
     - name: Install dependencies
       run: |
-        cd backend
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install flake8 black pytest pytest-asyncio pytest-cov
 
     - name: Run code formatting check (Black)
       run: |
-        cd backend
         black --check app tests
 
     - name: Run style linter (Flake8)
       run: |
-        cd backend
         # stop the build if there are Python syntax errors or undefined names
         flake8 app tests --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings.
@@ -76,13 +76,13 @@ jobs:
         SECRET_KEY: test_secret_key_validation_must_be_strong_min_length_32_bytes
         ENCRYPTION_KEY: StrongAESKeyForPIIEncryptionBase64String=
         ENV: test
+        PYTHONPATH: .
       run: |
-        cd backend
         python -m pytest --cov=app --cov-report=xml
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        file: ./backend/coverage.xml
+        file: backend/coverage.xml
         fail_ci_if_error: false
