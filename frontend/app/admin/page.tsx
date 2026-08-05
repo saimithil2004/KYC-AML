@@ -57,7 +57,7 @@ function SvgPieChart({ data }: { data: PieChartData[] }) {
   const total = data.reduce((acc, curr) => acc + curr.value, 0);
   if (total === 0) {
     return (
-      <div className="flex h-40 items-center justify-center text-xs text-zinc-400">
+      <div className="flex h-44 items-center justify-center text-xs font-semibold text-zinc-400">
         No distribution data
       </div>
     );
@@ -65,36 +65,51 @@ function SvgPieChart({ data }: { data: PieChartData[] }) {
 
   let accumulatedAngle = 0;
   return (
-    <div className="flex flex-col items-center justify-center">
-      <svg width="150" height="150" viewBox="0 0 32 32" className="transform -rotate-90">
-        {data.map((slice, i) => {
-          if (slice.value === 0) return null;
-          const percentage = (slice.value / total) * 100;
-          const strokeDasharray = `${percentage} ${100 - percentage}`;
-          const strokeDashoffset = 100 - accumulatedAngle;
-          accumulatedAngle += percentage;
+    <div className="flex flex-col items-center justify-center space-y-4 w-full">
+      <div className="relative flex items-center justify-center">
+        <svg width="140" height="140" viewBox="0 0 40 40" className="transform -rotate-90">
+          {data.map((slice, i) => {
+            if (slice.value === 0) return null;
+            const percentage = (slice.value / total) * 100;
+            const strokeDasharray = `${percentage} ${100 - percentage}`;
+            const strokeDashoffset = 100 - accumulatedAngle;
+            accumulatedAngle += percentage;
 
-          return (
-            <circle
-              key={i}
-              cx="16"
-              cy="16"
-              r="15.91549430918954"
-              fill="transparent"
-              stroke={slice.color}
-              strokeWidth="3.2"
-              strokeDasharray={strokeDasharray}
-              strokeDashoffset={strokeDashoffset}
-            />
-          );
-        })}
-      </svg>
-      <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+            return (
+              <circle
+                key={i}
+                cx="20"
+                cy="20"
+                r="15.91549430918954"
+                fill="transparent"
+                stroke={slice.color}
+                strokeWidth="4"
+                strokeDasharray={strokeDasharray}
+                strokeDashoffset={strokeDashoffset}
+                className="transition-all duration-500 hover:opacity-80"
+              />
+            );
+          })}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <span className="text-xl font-black text-zinc-900 dark:text-white leading-none">
+            {total}
+          </span>
+          <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mt-0.5">
+            Total
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-center gap-2.5 flex-wrap text-xs w-full pt-1">
         {data.map((slice, i) => (
-          <div key={i} className="flex items-center gap-1.5">
-            <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: slice.color }} />
-            <span className="text-zinc-600 dark:text-zinc-400 capitalize">{slice.label}</span>
-            <span className="font-bold text-zinc-900 dark:text-zinc-200">({slice.value})</span>
+          <div
+            key={i}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60"
+          >
+            <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: slice.color }} />
+            <span className="text-zinc-600 dark:text-zinc-300 font-medium capitalize">{slice.label}</span>
+            <span className="font-bold text-zinc-900 dark:text-zinc-100">({slice.value})</span>
           </div>
         ))}
       </div>
@@ -509,30 +524,33 @@ export default function AdminDashboard() {
       {activeTab === "overview" && (
         <div className="space-y-6">
           {/* Part 1: KPI Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3.5">
             {[
-              { label: "Total Customers", val: overview?.customers.total, icon: Users, col: "text-blue-600 bg-blue-50 dark:bg-blue-950/20" },
-              { label: "Approved Customers", val: overview?.customers.approved, icon: UserCheck, col: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20" },
-              { label: "Pending KYC", val: overview?.customers.pending_kyc, icon: Clock, col: "text-amber-600 bg-amber-50 dark:bg-amber-950/20" },
-              { label: "High Risk Customers", val: overview?.risk.high, icon: Shield, col: "text-red-600 bg-red-50 dark:bg-red-950/20" },
-              { label: "Total Alerts", val: overview?.alerts.total, icon: AlertTriangle, col: "text-red-500 bg-rose-50 dark:bg-rose-950/20" },
-              { label: "Open Cases", val: overview?.cases.open, icon: Briefcase, col: "text-purple-600 bg-purple-50 dark:bg-purple-950/20" },
-              { label: "Today Transactions", val: overview?.transactions.today, icon: ArrowUpDown, col: "text-teal-600 bg-teal-50 dark:bg-teal-950/20" },
-              { label: "Average Risk Score", val: overview?.risk.average_score, icon: TrendingUp, col: "text-orange-600 bg-orange-50 dark:bg-orange-950/20" },
-              { label: "AI Screenings Today", val: overview?.ai.screenings_today, icon: Bot, col: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/20" },
-              { label: "Total Regulations", val: overview?.regulations?.total, icon: FileText, col: "text-zinc-600 bg-zinc-50 dark:bg-zinc-950/20" },
-              { label: "Active Regulations", val: overview?.regulations?.active, icon: BookOpen, col: "text-teal-600 bg-teal-50 dark:bg-teal-950/20" },
-              { label: "Pending Regulations", val: overview?.regulations?.pending, icon: AlertCircle, col: "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/20" },
-              { label: "Executive Compliance Score", val: "98.5%", icon: Shield, col: "text-teal-600 bg-teal-50 dark:bg-teal-950/20" },
+              { label: "Total Customers", val: overview?.customers.total, icon: Users, col: "text-blue-600 bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30" },
+              { label: "Approved Customers", val: overview?.customers.approved, icon: UserCheck, col: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30" },
+              { label: "Pending KYC", val: overview?.customers.pending_kyc, icon: Clock, col: "text-amber-600 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30" },
+              { label: "High Risk Customers", val: overview?.risk.high, icon: Shield, col: "text-red-600 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30" },
+              { label: "Total Alerts", val: overview?.alerts.total, icon: AlertTriangle, col: "text-red-500 bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30" },
+              { label: "Open Cases", val: overview?.cases.open, icon: Briefcase, col: "text-purple-600 bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30" },
+              { label: "Today Transactions", val: overview?.transactions.today, icon: ArrowUpDown, col: "text-teal-600 bg-teal-50 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/30" },
+              { label: "Average Risk Score", val: overview?.risk.average_score, icon: TrendingUp, col: "text-orange-600 bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/30" },
+              { label: "AI Screenings Today", val: overview?.ai.screenings_today, icon: Bot, col: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30" },
+              { label: "Total Regulations", val: overview?.regulations?.total, icon: FileText, col: "text-zinc-600 bg-zinc-50 dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-800" },
+              { label: "Active Regulations", val: overview?.regulations?.active, icon: BookOpen, col: "text-teal-600 bg-teal-50 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/30" },
+              { label: "Pending Regulations", val: overview?.regulations?.pending, icon: AlertCircle, col: "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-100 dark:border-yellow-900/30" },
+              { label: "Executive Compliance Score", val: "98.5%", icon: Shield, col: "text-teal-600 bg-teal-50 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/30" },
             ].map((kpi, idx) => {
               const Icon = kpi.icon;
               return (
-                <div key={idx} className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                <div
+                  key={idx}
+                  className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-sm transition-all hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2 min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 leading-snug line-clamp-2 min-w-0">
                       {kpi.label}
                     </p>
-                    <div className={`p-1.5 rounded-lg ${kpi.col}`}>
+                    <div className={`shrink-0 p-1.5 rounded-lg ${kpi.col}`}>
                       <Icon className="h-4 w-4" />
                     </div>
                   </div>

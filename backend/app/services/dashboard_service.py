@@ -300,10 +300,17 @@ class DashboardService:
         ).all()
 
         # 5. Monthly screenings — last 6 months (area)
+        bind = db.bind
+        dialect_name = bind.dialect.name if bind else "postgresql"
+        if dialect_name == "sqlite":
+            month_expr = func.strftime("%Y-%m", AuditLog.created_at)
+        else:
+            month_expr = func.date_trunc("month", AuditLog.created_at)
+
         screenings_monthly = (
             await db.execute(
                 select(
-                    func.date_trunc("month", AuditLog.created_at).label("month"),
+                    month_expr.label("month"),
                     func.count(AuditLog.id).label("count"),
                 )
                 .where(
@@ -311,8 +318,8 @@ class DashboardService:
                     AuditLog.created_at
                     >= datetime.combine(six_months_ago, datetime.min.time()),
                 )
-                .group_by(func.date_trunc("month", AuditLog.created_at))
-                .order_by(func.date_trunc("month", AuditLog.created_at))
+                .group_by(month_expr)
+                .order_by(month_expr)
             )
         ).all()
 

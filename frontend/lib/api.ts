@@ -74,6 +74,13 @@ import type {
 
 async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("user_profile");
+      if (!window.location.pathname.startsWith("/auth/")) {
+        window.location.href = "/auth/login?session_expired=true";
+      }
+    }
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload.detail || `Request failed (${response.status})`);
   }

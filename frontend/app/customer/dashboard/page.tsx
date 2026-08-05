@@ -188,6 +188,23 @@ export default function CustomerDashboard() {
   return (
     <ProtectedRoute>
       <div className="space-y-6 animate-fade-in">
+        {(user?.role === "compliance_officer" || user?.role === "admin") && (
+          <div className="flex items-center justify-between rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-indigo-900 shadow-sm">
+            <div className="flex items-center gap-3">
+              <Shield className="h-5 w-5 text-indigo-600 shrink-0" />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">Officer / Administrator View</p>
+                <p className="text-sm font-medium">You are currently previewing the Customer KYC Portal as <span className="font-bold">{user.email}</span> ({user.role.replace("_", " ")}).</p>
+              </div>
+            </div>
+            <Link
+              href="/admin"
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-700 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-800 transition-colors shadow-sm"
+            >
+              Open Officer Panel <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        )}
 
         {/* Welcome Banner */}
         <div className="rounded-xl border border-teal-100 bg-gradient-to-r from-teal-700 to-teal-800 p-6 text-white shadow-md">

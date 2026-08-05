@@ -170,8 +170,19 @@ def configure_logging() -> None:
         )
     console_formatter = PlainTextFormatter()
 
+    class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
+        """RotatingFileHandler that safely catches Windows file lock PermissionError during rollover."""
+
+        def doRollover(self) -> None:
+            try:
+                super().doRollover()
+            except (PermissionError, OSError):
+                # On Windows, when multiple processes (Uvicorn reloader workers) hold app.log open,
+                # os.rename fails with WinError 32. Suppress the error to prevent crash/logging error noise.
+                pass
+
     def _make_rotating_handler(filename: str) -> logging.handlers.RotatingFileHandler:
-        handler = logging.handlers.RotatingFileHandler(
+        handler = SafeRotatingFileHandler(
             os.path.join(log_dir, filename),
             maxBytes=10 * 1024 * 1024,  # 10 MB
             backupCount=10,
@@ -211,6 +222,16 @@ def configure_logging() -> None:
     # Suppress noisy third-party loggers
     for noisy in ["httpx", "asyncio", "uvicorn.access"]:
         logging.getLogger(noisy).setLevel(logging.WARNING)
+
+    # Suppress watchfiles' internal per-event logger.
+    # uvicorn's WatchFilesReload calls watchfiles.watch() with watch_filter=None,
+    # so watchfiles logs EVERY raw OS filesystem event (including .pyc bytecode
+    # writes from the worker subprocess) at INFO level — before uvicorn's own
+    # FileFilter can decide whether to actually trigger a reload.
+    # This causes the "1 change detected" spam. Setting WARNING silences it
+    # completely while hot-reload continues to work normally.
+    for wf_logger in ["watchfiles", "watchfiles.main"]:
+        logging.getLogger(wf_logger).setLevel(logging.WARNING)
 
     logging.info(
         f"Logging configured — Level: {settings.LOG_LEVEL}, JSON: {use_json}, Dir: {log_dir}"

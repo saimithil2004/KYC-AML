@@ -72,7 +72,7 @@ export default function RegisterPage() {
             <p className="text-sm text-zinc-500">Register to begin your KYC onboarding</p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form method="POST" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {/* Email */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">

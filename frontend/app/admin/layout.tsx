@@ -66,13 +66,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600">
                 <ShieldCheck className="h-4.5 w-4.5 text-white" />
               </div>
-              <span>UK Compliance <span className="text-teal-400">Officer Panel</span></span>
+              <span>
+                AML Compliance{" "}
+                <span className="text-teal-400">
+                  {user?.role === "admin" ? "System Admin Panel" : "Officer Panel"}
+                </span>
+              </span>
             </div>
 
             <div className="flex items-center gap-4">
-              <span className="text-xs text-zinc-400 font-medium">
-                Logged in: <span className="text-white">{user?.email}</span>
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                  user?.role === "admin" ? "bg-purple-900/80 text-purple-200 border border-purple-700" : "bg-indigo-900/80 text-indigo-200 border border-indigo-700"
+                )}>
+                  {user?.role === "admin" ? "Administrator" : "Compliance Officer"}
+                </span>
+                <span className="text-xs text-zinc-400 font-medium">
+                  <span className="text-white">{user?.email}</span>
+                </span>
+              </div>
               <button
                 onClick={logout}
                 className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors"

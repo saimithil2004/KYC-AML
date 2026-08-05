@@ -11,11 +11,15 @@ from sqlalchemy import (
     ForeignKey,
     UUID,
     UniqueConstraint,
+    JSON,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from uuid import uuid4
 from app.core.database import Base
+
+# Cross-database compatible JSON type (JSONB on PostgreSQL, JSON/TEXT on SQLite)
+JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
 
 
 # 1. USERS TABLE
@@ -252,9 +256,9 @@ class Document(Base):
     file_path: Mapped[str] = mapped_column(Text, nullable=False)
     content_type: Mapped[Optional[str]] = mapped_column(String(100))
     file_size: Mapped[Optional[int]] = mapped_column(Integer)
-    ocr_data: Mapped[Optional[dict]] = mapped_column(JSONB)
+    ocr_data: Mapped[Optional[dict]] = mapped_column(JSON_TYPE)
     verification_status: Mapped[str] = mapped_column(String(50), default="uploaded")
-    verification_metadata: Mapped[Optional[dict]] = mapped_column(JSONB)
+    verification_metadata: Mapped[Optional[dict]] = mapped_column(JSON_TYPE)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -342,7 +346,7 @@ class Alert(Base):
     alert_type: Mapped[str] = mapped_column(String(100), nullable=False)
     risk_score: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="open")
-    alert_metadata: Mapped[Optional[dict]] = mapped_column(JSONB)
+    alert_metadata: Mapped[Optional[dict]] = mapped_column(JSON_TYPE)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -399,7 +403,7 @@ class RiskScore(Base):
     )
     overall_score: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False)
     risk_tier: Mapped[str] = mapped_column(String(20), nullable=False)
-    breakdown: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    breakdown: Mapped[dict] = mapped_column(JSON_TYPE, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -444,8 +448,8 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(String(255), nullable=False)
     entity_name: Mapped[str] = mapped_column(String(100), nullable=False)
     entity_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    old_values: Mapped[Optional[dict]] = mapped_column(JSONB)
-    new_values: Mapped[Optional[dict]] = mapped_column(JSONB)
+    old_values: Mapped[Optional[dict]] = mapped_column(JSON_TYPE)
+    new_values: Mapped[Optional[dict]] = mapped_column(JSON_TYPE)
     ip_address: Mapped[Optional[str]] = mapped_column(String(45))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -465,8 +469,8 @@ class AgentLog(Base):
     )
     agent_name: Mapped[str] = mapped_column(String(100), nullable=False)
     step_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    input_state: Mapped[Optional[dict]] = mapped_column(JSONB)
-    output_state: Mapped[Optional[dict]] = mapped_column(JSONB)
+    input_state: Mapped[Optional[dict]] = mapped_column(JSON_TYPE)
+    output_state: Mapped[Optional[dict]] = mapped_column(JSON_TYPE)
     execution_time_ms: Mapped[Optional[int]] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -505,7 +509,7 @@ class Regulation(Base):
         String(50), default="active"
     )  # active, archived, draft, pending_review
     extracted_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    document_metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    document_metadata: Mapped[Optional[dict]] = mapped_column(JSON_TYPE, nullable=True)
 
     # Relationships
     uploaded_by: Mapped[Optional["User"]] = relationship(back_populates="regulations")
@@ -531,7 +535,7 @@ class PolicyRule(Base):
     rule_type: Mapped[str] = mapped_column(
         String(100), nullable=False
     )  # 'threshold', 'block', 'edd', 'aml', 'kyc', 'internal'
-    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    conditions: Mapped[dict] = mapped_column(JSON_TYPE, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -564,7 +568,7 @@ class RegulationVersion(Base):
     version: Mapped[str] = mapped_column(String(50), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     extracted_text: Mapped[str] = mapped_column(Text, nullable=False)
-    rules_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    rules_snapshot: Mapped[dict] = mapped_column(JSON_TYPE, nullable=False)
     change_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     author_id: Mapped[Optional[UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
@@ -633,7 +637,7 @@ class MonitoringHistory(Base):
         String(50), default="stable"
     )  # improving, stable, deteriorating
     agents_executed: Mapped[dict] = mapped_column(
-        JSONB, nullable=False
+        JSON_TYPE, nullable=False
     )  # stores list of agent names as json array
     execution_time_ms: Mapped[int] = mapped_column(Integer, default=0)
     case_id: Mapped[Optional[UUID]] = mapped_column(
@@ -681,7 +685,7 @@ class Investigation(Base):
     )  # open, under_review, escalated, edd_required, closed
     risk_level: Mapped[str] = mapped_column(String(50), default="medium")
     ai_summary: Mapped[Optional[dict]] = mapped_column(
-        JSONB
+        JSON_TYPE
     )  # case_summary, suspicious_behaviour_analysis, recommended_next_actions, questions_for_investigator, missing_evidence_suggestions, risk_explanation
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -785,7 +789,7 @@ class SAR(Base):
     narrative: Mapped[str] = mapped_column(Text, nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     risk_indicators: Mapped[dict] = mapped_column(
-        JSONB, nullable=False
+        JSON_TYPE, nullable=False
     )  # JSON list of risk indicator tags
     recommendation: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(
@@ -872,7 +876,7 @@ class ReportTemplate(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     config: Mapped[dict] = mapped_column(
-        JSONB, nullable=False
+        JSON_TYPE, nullable=False
     )  # fields, charts, tables config
     created_by: Mapped[Optional[UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
@@ -909,7 +913,7 @@ class Report(Base):
     )  # pdf, excel, csv, json
     file_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     filters: Mapped[dict] = mapped_column(
-        JSONB, nullable=False, default=dict
+        JSON_TYPE, nullable=False, default=dict
     )  # date range, customer, countries, etc.
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -983,7 +987,7 @@ class DashboardLayout(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
-    config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    config: Mapped[dict] = mapped_column(JSON_TYPE, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -1008,7 +1012,7 @@ class DashboardWidget(Base):
         String(100), nullable=False
     )  # chart_bar, chart_pie, kpi_card, etc.
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    config: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    config: Mapped[dict] = mapped_column(JSON_TYPE, nullable=False)
     position_x: Mapped[int] = mapped_column(Integer, default=0)
     position_y: Mapped[int] = mapped_column(Integer, default=0)
     width: Mapped[int] = mapped_column(Integer, default=3)
@@ -1038,7 +1042,7 @@ class IntegrationSetting(Base):
     api_secret: Mapped[Optional[str]] = mapped_column(Text)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     timeout: Mapped[int] = mapped_column(Integer, default=30)
-    configuration: Mapped[dict] = mapped_column(JSONB, default=dict)
+    configuration: Mapped[dict] = mapped_column(JSON_TYPE, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -1084,7 +1088,7 @@ class NotificationTemplate(Base):
     )  # email, slack, teams, in_app
     subject: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
-    variables: Mapped[dict] = mapped_column(JSONB, default=list)
+    variables: Mapped[dict] = mapped_column(JSON_TYPE, default=list)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -1126,7 +1130,7 @@ class Notification(Base):
     )  # pending, sent, failed, retry
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
-    metadata_: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
+    metadata_: Mapped[dict] = mapped_column("metadata", JSON_TYPE, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -1148,7 +1152,7 @@ class WebhookEndpoint(Base):
     url: Mapped[str] = mapped_column(String(1000), nullable=False)
     secret: Mapped[str] = mapped_column(String(500), nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    events: Mapped[dict] = mapped_column(JSONB, default=list)
+    events: Mapped[dict] = mapped_column(JSON_TYPE, default=list)
     retries: Mapped[int] = mapped_column(Integer, default=3)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -1175,7 +1179,7 @@ class WebhookLog(Base):
         nullable=False,
     )
     event: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    payload: Mapped[dict] = mapped_column(JSONB, default=dict)
+    payload: Mapped[dict] = mapped_column(JSON_TYPE, default=dict)
     signature: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     response_code: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     response_body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -1323,7 +1327,7 @@ class SecurityEvent(Base):
     user_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
     ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    metadata_: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
+    metadata_: Mapped[dict] = mapped_column("metadata", JSON_TYPE, default=dict)
     resolved: Mapped[bool] = mapped_column(Boolean, default=False)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -1344,7 +1348,7 @@ class SystemMetric(Base):
     unit: Mapped[Optional[str]] = mapped_column(
         String(50), nullable=True
     )  # %, ms, MB, req/s, etc.
-    tags: Mapped[dict] = mapped_column(JSONB, default=dict)  # {host, service, env}
+    tags: Mapped[dict] = mapped_column(JSON_TYPE, default=dict)  # {host, service, env}
     timestamp: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, index=True
     )

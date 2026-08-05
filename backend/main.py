@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -19,11 +21,21 @@ from app.core.middleware import (
 configure_logging()
 logger = get_logger("main")
 
+# Suppress watchfiles' internal per-event logger immediately.
+# uvicorn calls watchfiles.watch() with watch_filter=None, so watchfiles logs
+# every raw OS filesystem event (.pyc writes, etc.) at INFO BEFORE uvicorn's
+# own FileFilter decides whether to actually reload. Silencing this logger
+# removes the spam without affecting hot-reload behaviour.
+import logging as _logging
+_logging.getLogger("watchfiles.main").setLevel(_logging.WARNING)
+_logging.getLogger("watchfiles").setLevel(_logging.WARNING)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Initializing AML & KYC Compliance Platform (Phase 17)...")
     
+
     # Auto-migrations
     async with SessionLocal() as db:
         try:
@@ -76,5 +88,23 @@ def read_root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    from pathlib import Path
+    # Always run from the backend directory so relative imports work
+    _base = Path(__file__).parent
+    os.chdir(_base)
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        # Whitelist approach: ONLY watch actual Python source files.
+        # This prevents watchfiles from triggering on .pyc bytecode,
+        # __pycache__ dirs, log files, SQLite WAL files, or anything else
+        # the running server writes to disk — fixing the infinite reload loop.
+        reload_dirs=[str(_base / "app")],
+        reload_includes=["*.py"],
+        reload_excludes=["*/__pycache__/*", "*.pyc"],
+    )
+
+
 

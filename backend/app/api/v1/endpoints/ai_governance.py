@@ -5,7 +5,7 @@ from datetime import datetime, date, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, and_, desc, func
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user, RoleChecker
@@ -80,6 +80,7 @@ class FeedbackCreate(BaseModel):
 
 
 class ModelEvaluationSubmit(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
     model_version_id: UUID
     evaluator_name: str
     metrics_json: Dict[str, Any]
