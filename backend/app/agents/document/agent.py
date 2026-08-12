@@ -101,6 +101,7 @@ class DocumentVerificationAgent(BaseAgent):
         dob_mismatches = 0
         low_quality = 0
         verified_count = 0
+        flagged_count = 0
         total_docs = len(docs)
 
         for doc in docs:
@@ -109,6 +110,18 @@ class DocumentVerificationAgent(BaseAgent):
             file_size = int(doc.get("file_size") or 0)
             status = str(doc.get("verification_status") or "").lower()
             ocr_data = doc.get("ocr_data") or {}
+
+            # Safe extraction of fraud/tampering metadata
+            v_meta = doc.get("verification_metadata") or {}
+            fraud_checks = v_meta.get("fraud_checks") if isinstance(v_meta, dict) else {}
+            tampering_detected = bool(fraud_checks.get("tampering_detected")) if isinstance(fraud_checks, dict) else False
+
+            # ── Document Fraud / Tampering Detection ─────────────────────────
+            if status == "flagged" or tampering_detected:
+                flagged_count += 1
+                errors.append(
+                    f"Document fraud / tampering flagged on {doc_type} '{file_name}'."
+                )
 
             # ── Duplicate detection ───────────────────────────────────────────
             if file_name and file_name in seen_filenames:
@@ -178,6 +191,8 @@ class DocumentVerificationAgent(BaseAgent):
             warnings.append("No documents have a 'verified' status yet.")
             recommendations.append("Manually verify uploaded documents.")
 
+        if flagged_count > 0:
+            recommendations.append("Escalate flagged fraudulent/tampered document for compliance review.")
         if duplicate_count > 0:
             recommendations.append("Remove or review duplicate document submissions.")
         if name_mismatches > 0:
@@ -201,6 +216,7 @@ class DocumentVerificationAgent(BaseAgent):
             dob_mismatches=dob_mismatches,
             duplicates=duplicate_count,
             low_quality=low_quality,
+            flagged_count=flagged_count,
         )
 
         risk_level = (
@@ -215,6 +231,7 @@ class DocumentVerificationAgent(BaseAgent):
         state.risk_breakdown["document"] = document_score
         state.shared_metadata["document_score"] = document_score
         state.shared_metadata["document_risk"] = risk_level
+        state.shared_metadata["document_flagged_count"] = flagged_count
         state.shared_metadata["document_name_mismatches"] = name_mismatches
         state.shared_metadata["document_dob_mismatches"] = dob_mismatches
         state.shared_metadata["document_duplicates"] = duplicate_count
@@ -223,7 +240,7 @@ class DocumentVerificationAgent(BaseAgent):
         state.shared_metadata["next_agent"] = NEXT_AGENT
 
         state.logs.append(
-            f"DocumentVerificationAgent: {total_docs} doc(s), {verified_count} verified. "
+            f"DocumentVerificationAgent: {total_docs} doc(s), {verified_count} verified, {flagged_count} flagged. "
             f"Score={document_score}, Risk={risk_level}. "
             f"Name mismatches={name_mismatches}, DOB mismatches={dob_mismatches}."
         )
@@ -242,6 +259,7 @@ class DocumentVerificationAgent(BaseAgent):
             "document_score": document_score,
             "total_docs": total_docs,
             "verified_count": verified_count,
+            "flagged_count": flagged_count,
             "name_mismatches": name_mismatches,
             "dob_mismatches": dob_mismatches,
             "duplicate_count": duplicate_count,
@@ -252,8 +270,8 @@ class DocumentVerificationAgent(BaseAgent):
 
     # ── Private Helpers ───────────────────────────────────────────────────────
     @staticmethod
-    def _parse_date(raw) -> Optional[date]:
-        """Parses various date formats into a date object."""
+    def _parse_date(raw: Any) -> Optional[date]:
+        """Parses raw date input into standard datetime.date."""
         if isinstance(raw, date):
             return raw
         if isinstance(raw, datetime):
@@ -274,6 +292,7 @@ class DocumentVerificationAgent(BaseAgent):
         dob_mismatches: int,
         duplicates: int,
         low_quality: int,
+        flagged_count: int = 0,
     ) -> float:
         """Computes document verification score (0–100, 100 = perfect)."""
         if total_docs == 0:
@@ -281,15 +300,19 @@ class DocumentVerificationAgent(BaseAgent):
 
         score = 100.0
 
+        # Major penalty for explicit document fraud / tampering flags
+        score -= flagged_count * 70.0
+
         # Deduct for verification mismatches
         score -= name_mismatches * 20.0
         score -= dob_mismatches * 20.0
         score -= duplicates * 10.0
         score -= low_quality * 5.0
 
-        # Boost for verified documents
-        verification_ratio = verified_count / total_docs
-        if verification_ratio < 1.0:
-            score -= (1.0 - verification_ratio) * 20.0
+        # Boost / deduction for unverified ratio (only if unflagged)
+        if flagged_count == 0:
+            verification_ratio = verified_count / total_docs
+            if verification_ratio < 1.0:
+                score -= (1.0 - verification_ratio) * 20.0
 
         return round(max(0.0, min(100.0, score)), 2)
