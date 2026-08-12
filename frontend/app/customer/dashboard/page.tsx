@@ -81,12 +81,11 @@ function ProgressRing({ pct }: { pct: number }) {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export default function CustomerDashboard() {
-  const { user } = useAuth();
-  const { token } = useAuth();
+  const { user, token } = useAuth();
   const { data: customer, isLoading: custLoading } = useCustomer();
   const { data: kyc } = useKycProfile(customer?.id);
   const { data: documents } = useDocuments(customer?.id);
-  const { completionPercent, draft } = useOnboardingDraft();
+  const { draft } = useOnboardingDraft();
   const [riskScore, setRiskScore] = useState<RiskScore | null>(null);
 
   useEffect(() => {
@@ -96,13 +95,39 @@ export default function CustomerDashboard() {
       .catch(() => { /* not yet available */ });
   }, [customer?.id, token]);
 
+  const isSubmittedOrProcessed = Boolean(
+    customer?.status && customer.status !== "onboarding"
+  );
+
+  const isProfileDone =
+    isSubmittedOrProcessed ||
+    draft.profileComplete ||
+    Boolean(customer?.first_name && (customer?.street_address || customer?.city));
+
+  const isKycDone =
+    isSubmittedOrProcessed ||
+    draft.kycComplete ||
+    Boolean(kyc?.full_name && kyc?.source_of_funds);
+
+  const isDocsDone =
+    isSubmittedOrProcessed ||
+    draft.documentsComplete ||
+    (documents != null && documents.length > 0);
+
+  const isCompanyDone =
+    isSubmittedOrProcessed ||
+    draft.companyComplete ||
+    customer?.customer_type !== "corporate";
+
+  const isReviewDone = isSubmittedOrProcessed;
+
   const tasks: Task[] = [
     {
       id: "profile",
       label: "Complete Your Profile",
       description: "Add personal details, address, and contact information",
       href: "/customer/onboarding/profile",
-      done: draft.profileComplete,
+      done: isProfileDone,
       priority: "high",
     },
     {
@@ -110,7 +135,7 @@ export default function CustomerDashboard() {
       label: "Submit KYC Declaration",
       description: "Provide occupation, source of funds and wealth information",
       href: "/customer/onboarding/kyc",
-      done: draft.kycComplete,
+      done: isKycDone,
       priority: "high",
     },
     {
@@ -118,16 +143,16 @@ export default function CustomerDashboard() {
       label: "Upload Identity Documents",
       description: "Upload passport, national ID or driving licence",
       href: "/customer/onboarding/documents",
-      done: draft.documentsComplete,
+      done: isDocsDone,
       priority: "high",
     },
-    ...(draft.customerType === "corporate"
+    ...(customer?.customer_type === "corporate" || draft.customerType === "corporate"
       ? [{
           id: "company",
           label: "Submit Company Details",
           description: "Add directors, UBOs, and shareholder information",
           href: "/customer/onboarding/company",
-          done: draft.companyComplete,
+          done: isCompanyDone,
           priority: "medium" as const,
         }]
       : []),
@@ -136,13 +161,16 @@ export default function CustomerDashboard() {
       label: "Review & Submit Application",
       description: "Confirm all information and submit for AML screening",
       href: "/customer/onboarding/review",
-      done: customer?.status !== "onboarding" && customer?.status !== "pending_verification",
+      done: isReviewDone,
       priority: "medium",
     },
   ];
 
   const pendingTasks = tasks.filter((t) => !t.done);
   const completedTasks = tasks.filter((t) => t.done);
+  const completionPercent = isSubmittedOrProcessed
+    ? 100
+    : Math.round((completedTasks.length / tasks.length) * 100);
 
   const stats = [
     {
@@ -409,11 +437,11 @@ export default function CustomerDashboard() {
               </div>
               <div className="p-4">
                 {[
-                  { label: "Profile", done: draft.profileComplete },
-                  { label: "KYC", done: draft.kycComplete },
-                  { label: "Documents", done: draft.documentsComplete },
-                  { label: "Review", done: customer?.status !== "onboarding" },
-                  { label: "Screening", done: !!riskScore },
+                  { label: "Profile", done: isProfileDone },
+                  { label: "KYC", done: isKycDone },
+                  { label: "Documents", done: isDocsDone },
+                  { label: "Review", done: isReviewDone },
+                  { label: "Screening", done: !!riskScore || isSubmittedOrProcessed },
                 ].map((step, i, arr) => (
                   <div key={step.label} className="flex items-center gap-3">
                     <div className={cn(

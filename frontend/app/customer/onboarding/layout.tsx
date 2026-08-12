@@ -6,6 +6,7 @@ import { Check, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useOnboardingDraft } from "@/hooks/useOnboardingDraft";
+import { useCustomer, useKycProfile, useDocuments } from "@/hooks/usePortalData";
 
 const STEPS = [
   { key: "profile",   label: "Profile",   path: "/customer/onboarding/profile"   },
@@ -17,30 +18,32 @@ const STEPS = [
 
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { data: customer } = useCustomer();
+  const { data: kyc } = useKycProfile(customer?.id);
+  const { data: documents } = useDocuments(customer?.id);
   const { draft } = useOnboardingDraft();
 
   const currentIndex = STEPS.findIndex((s) => pathname?.startsWith(s.path));
 
-  const isStepAccessible = (index: number): boolean => {
-    if (index === 0) return true;
-    const prev = STEPS[index - 1];
-    const completionMap: Record<string, boolean> = {
-      profile:   draft.profileComplete,
-      kyc:       draft.kycComplete,
-      documents: draft.documentsComplete,
-      company:   draft.companyComplete,
-    };
-    return completionMap[prev.key] ?? false;
-  };
+  const isSubmittedOrProcessed = Boolean(
+    customer?.status && customer.status !== "onboarding"
+  );
 
   const isStepDone = (key: string): boolean => {
+    if (isSubmittedOrProcessed) return true;
     const map: Record<string, boolean> = {
-      profile:   draft.profileComplete,
-      kyc:       draft.kycComplete,
-      documents: draft.documentsComplete,
-      company:   draft.companyComplete,
+      profile:   draft.profileComplete || Boolean(customer?.first_name),
+      kyc:       draft.kycComplete || Boolean(kyc?.full_name),
+      documents: draft.documentsComplete || ((documents?.length ?? 0) > 0),
+      company:   draft.companyComplete || customer?.customer_type !== "corporate",
     };
     return map[key] ?? false;
+  };
+
+  const isStepAccessible = (index: number): boolean => {
+    if (index === 0 || isSubmittedOrProcessed) return true;
+    const prev = STEPS[index - 1];
+    return isStepDone(prev.key);
   };
 
   return (
