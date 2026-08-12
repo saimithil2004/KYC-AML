@@ -140,11 +140,18 @@ class DecisionAgent(BaseAgent):
             or sanctions_status == "POSSIBLE_MATCH"
             or tx_status in ("ALERT", "CRITICAL")
             or len(violations) > 0
+            or sm.get("document_risk") == "high"
+            or sm.get("document_score", 100.0) < 50.0
+            or sm.get("document_flagged_count", 0) > 0
         ):
             decision = DECISION_MANUAL_REVIEW
             if overall_score > APPROVE_MAX_SCORE:
                 reasons.append(
                     f"Risk score {overall_score:.1f}/100 in MEDIUM range — manual review required."
+                )
+            if sm.get("document_risk") == "high" or sm.get("document_score", 100.0) < 50.0:
+                reasons.append(
+                    "Document verification flagged high risk / potential fraud — manual review required."
                 )
             if pep_status not in ("CLEAR", "UNKNOWN"):
                 reasons.append(f"PEP status: {pep_status} — requires human review.")
