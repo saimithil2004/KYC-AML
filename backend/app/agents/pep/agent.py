@@ -51,6 +51,7 @@ from app.agents.pep.models import (
     PepAuditTrail,
 )
 from app.agents.pep.provider import BasePepProvider, MockPepProvider
+from app.providers.provider_factory import get_pep_provider
 from app.agents.pep.validator import PepValidator
 from app.agents.pep.matcher import PepMatcher
 from app.agents.pep.rules import PepRulesEngine
@@ -68,7 +69,7 @@ class PepAgent(BaseAgent):
 
     def __init__(self, provider: Optional[BasePepProvider] = None, **kwargs):
         super().__init__(**kwargs)
-        self._provider: BasePepProvider = provider or MockPepProvider()
+        self._provider: BasePepProvider = provider or get_pep_provider()
 
     # ── Agent Metadata ────────────────────────────────────────────────────────
     def get_name(self) -> str:

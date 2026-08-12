@@ -1,14 +1,66 @@
+import logging
+from urllib.parse import urlparse
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 from app.core.config import settings
 
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=False,
-    future=True,
-    pool_pre_ping=True,
-)
+logger = logging.getLogger("app.core.database")
+
+
+def log_database_connection_info(url_str: str = None):
+    """
+    Defensive logging helper that parses the database URL and prints host, port,
+    database name, and connection scheme.
+    """
+    target_url = url_str or settings.DATABASE_URL
+    try:
+        parsed = urlparse(target_url)
+        scheme = parsed.scheme or "unknown"
+        host = parsed.hostname or "localhost"
+        port = parsed.port if parsed.port is not None else (5432 if "postgresql" in scheme else "N/A")
+        db_name = parsed.path.lstrip("/") if parsed.path else "local_db"
+        user = parsed.username or "none"
+        logger.info(
+            f"Database Configuration -> Host: '{host}', Port: {port}, Database: '{db_name}', Scheme: '{scheme}', User: '{user}'"
+        )
+    except Exception as exc:
+        logger.warning(f"Could not parse DATABASE_URL for logging: {exc}")
+
+
+# Log configuration on module import
+log_database_connection_info(settings.DATABASE_URL)
+
+# Initialize primary engine
+db_url = settings.DATABASE_URL
+
+# Fallback check for local development outside Docker
+if db_url.startswith("postgresql") and "postgres:5432" in db_url:
+    # Handle legacy unresolvable container hostname when running on host machine
+    logger.warning(
+        "Detected unresolvable Docker hostname 'postgres' in DATABASE_URL while running on host. "
+        "Rewriting host to 'localhost'."
+    )
+    db_url = db_url.replace("@postgres:5432", "@localhost:5432")
+
+try:
+    engine = create_async_engine(
+        db_url,
+        echo=False,
+        future=True,
+        pool_pre_ping=True,
+    )
+except Exception as exc:
+    logger.warning(
+        f"Failed to initialize PostgreSQL engine with URL '{db_url}': {exc}. "
+        "Falling back to local SQLite database."
+    )
+    db_url = "sqlite+aiosqlite:///./aml_compliance_db.db"
+    engine = create_async_engine(
+        db_url,
+        echo=False,
+        future=True,
+    )
 
 SessionLocal = async_sessionmaker(
     bind=engine,
@@ -19,7 +71,6 @@ SessionLocal = async_sessionmaker(
 )
 
 # Synchronous engine and sessionmaker for background Celery tasks
-db_url = settings.DATABASE_URL
 if db_url.startswith("postgresql+asyncpg://"):
     sync_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
 elif db_url.startswith("sqlite+aiosqlite://"):

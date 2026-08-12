@@ -51,6 +51,7 @@ from app.agents.sanctions.constants import (
 )
 from app.agents.sanctions.models import SanctionMatchResult, SanctionsAuditTrail
 from app.agents.sanctions.provider import BaseSanctionsProvider, MockSanctionsProvider
+from app.providers.provider_factory import get_sanctions_provider
 from app.agents.sanctions.validator import SanctionsValidator
 from app.agents.sanctions.matcher import SanctionsMatcher
 from app.agents.sanctions.rules import SanctionsRulesEngine
@@ -65,7 +66,7 @@ class SanctionsAgent(BaseAgent):
 
     def __init__(self, provider: Optional[BaseSanctionsProvider] = None, **kwargs):
         super().__init__(**kwargs)
-        self._provider: BaseSanctionsProvider = provider or MockSanctionsProvider()
+        self._provider: BaseSanctionsProvider = provider or get_sanctions_provider()
 
     # ── Agent Metadata ────────────────────────────────────────────────────────
     def get_name(self) -> str:

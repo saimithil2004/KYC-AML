@@ -43,6 +43,28 @@ from app.services.audit_service import AuditService
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
+def _flatten_breakdown(raw: dict | None) -> dict:
+    """
+    Normalise the risk breakdown dict.
+    The risk agent stores each signal as {weight, agent_score, contribution}.
+    `contribution` is already in 0–100 point space (weights sum to 100),
+    so it is returned directly without further scaling.
+    Plain floats are returned as-is.
+    """
+    if not raw:
+        return {}
+    result: dict = {}
+    for key, val in raw.items():
+        if isinstance(val, dict):
+            result[key] = round(float(val.get("contribution", 0)), 1)
+        elif val is not None:
+            result[key] = float(val)
+        else:
+            result[key] = 0.0
+    return result
+
+
 VALID_STATUSES = {
     "open",
     "under_review",
@@ -112,6 +134,41 @@ async def list_cases(
     items = (await db.execute(q)).scalars().all()
 
     return PaginatedCases(total=total, page=page, page_size=page_size, items=items)
+
+
+# ── GET /cases/customer/{customer_id} ────────────────────────────────────────
+
+
+@router.get("/customer/{customer_id}", response_model=list[CaseResponse])
+async def get_cases_by_customer(
+    customer_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Return all cases for a given customer.
+    Customers may only retrieve their own cases; compliance officers
+    and admins may access any customer's cases.
+    """
+    if current_user.role == "customer":
+        # Verify the requesting customer owns this customer_id
+        cust_result = await db.execute(
+            select(Customer).where(Customer.user_id == current_user.id)
+        )
+        customer = cust_result.scalars().first()
+        if not customer or customer.id != customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorised to view cases for this customer.",
+            )
+
+    cases_result = await db.execute(
+        select(Case)
+        .where(Case.customer_id == customer_id)
+        .order_by(Case.created_at.desc())
+        .limit(25)
+    )
+    return cases_result.scalars().all()
 
 
 # ── GET /cases/{id} ───────────────────────────────────────────────────────────
@@ -256,7 +313,7 @@ async def get_case_full(
                 "id": str(r.id),
                 "overall_score": float(r.overall_score),
                 "risk_tier": r.risk_tier,
-                "breakdown": r.breakdown,
+                "breakdown": _flatten_breakdown(r.breakdown),
                 "created_at": r.created_at.isoformat(),
             }
             for r in risk_scores

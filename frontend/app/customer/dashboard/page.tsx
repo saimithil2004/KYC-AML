@@ -375,7 +375,7 @@ export default function CustomerDashboard() {
                 </div>
                 <div className="space-y-2.5 p-4">
                   {Object.entries(riskScore.breakdown).map(([key, score]) => {
-                    const maxes: Record<string, number> = { sanctions: 35, pep: 25, jurisdiction: 20, documents: 20 };
+                    const maxes: Record<string, number> = { pep: 25, sanctions: 35, country: 20, document: 20, transaction: 20 };
                     const max = maxes[key] ?? 20;
                     const pct = (score / max) * 100;
                     return (

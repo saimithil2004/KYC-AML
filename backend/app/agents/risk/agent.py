@@ -178,7 +178,7 @@ class RiskScoringAgent(BaseAgent):
         )
 
         # ── Step 6: Persist to DB ─────────────────────────────────────────────
-        self._persist_risk_score(
+        await self._persist_risk_score(
             state, overall_score, risk_level, contributing_factors, agent_scores
         )
 
@@ -263,7 +263,7 @@ class RiskScoringAgent(BaseAgent):
             "Continue standard monitoring. Schedule next review per monitoring schedule."
         ]
 
-    def _persist_risk_score(
+    async def _persist_risk_score(
         self,
         state: AgentState,
         overall_score: float,
@@ -271,13 +271,16 @@ class RiskScoringAgent(BaseAgent):
         contributing_factors: List[ContributingFactor],
         agent_scores: Dict[str, float],
     ) -> None:
-        """Persists RiskScore record to the database if a DB session is available."""
+        """Persists RiskScore record to the database if a DB session is available (supports Async and Sync)."""
         if not self.db:
             logger.warning(
                 "RiskScoringAgent: No DB session — skipping risk_score persistence."
             )
             return
         try:
+            from uuid import UUID
+            from sqlalchemy.ext.asyncio import AsyncSession
+            from sqlalchemy import select
             from app.models.models import RiskScore, KYCProfile
 
             cust_uuid = UUID(state.customer_id)
@@ -297,23 +300,33 @@ class RiskScoringAgent(BaseAgent):
             )
             self.db.add(record)
 
-            # Sync KYC profile risk category
-            kyc = (
-                self.db.query(KYCProfile)
-                .filter(KYCProfile.customer_id == cust_uuid)
-                .first()
-            )
-            if kyc:
-                kyc.risk_category = risk_level.lower()
-                kyc.screening_completed_at = datetime.utcnow()
+            if isinstance(self.db, AsyncSession):
+                res = await self.db.execute(select(KYCProfile).where(KYCProfile.customer_id == cust_uuid))
+                kyc = res.scalars().first()
+                if kyc:
+                    kyc.risk_category = risk_level.lower()
+                    kyc.screening_completed_at = datetime.utcnow()
+                await self.db.commit()
+            else:
+                kyc = (
+                    self.db.query(KYCProfile)
+                    .filter(KYCProfile.customer_id == cust_uuid)
+                    .first()
+                )
+                if kyc:
+                    kyc.risk_category = risk_level.lower()
+                    kyc.screening_completed_at = datetime.utcnow()
+                self.db.commit()
 
-            self.db.commit()
             logger.info(
                 f"RiskScoringAgent: Risk score persisted for customer {state.customer_id}."
             )
         except Exception as exc:
             logger.error(f"RiskScoringAgent: Failed to persist risk score: {exc}")
             try:
-                self.db.rollback()
+                if isinstance(self.db, AsyncSession):
+                    await self.db.rollback()
+                else:
+                    self.db.rollback()
             except Exception:
                 pass

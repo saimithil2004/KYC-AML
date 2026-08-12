@@ -1,0 +1,12 @@
+[project]
+venv-path = "backend/.venv"
+venv = "backend/.venv"
+python-interpreter = "backend/.venv/Scripts/python.exe"
+
+[analysis]
+extra-paths = ["backend"]
+exclude = [
+    "**/__pyrefly_virtual__/**",
+    "**/__inmemory__/**",
+    "C:/__pyrefly_virtual__/**"
+]

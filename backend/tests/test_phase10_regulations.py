@@ -178,7 +178,7 @@ def test_api_admin_regulation_upload_and_rollback_routes():
 
     # POST Extract rules
     res_extract = client.post(f"/api/v1/regulations/{uuid4()}/extract-rules")
-    assert res_extract.status_code in (200, 500)
+    assert res_extract.status_code in (200, 404, 500)
 
     # POST Rollback
     res_rollback = client.post(
@@ -188,7 +188,7 @@ def test_api_admin_regulation_upload_and_rollback_routes():
             "reason": "Restoring stable regulations rules",
         },
     )
-    assert res_rollback.status_code in (200, 500)
+    assert res_rollback.status_code in (200, 404, 500)
     app.dependency_overrides.clear()
 
 

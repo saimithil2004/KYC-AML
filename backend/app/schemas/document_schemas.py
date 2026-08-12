@@ -22,6 +22,94 @@ class DocumentOcrOutput(BaseModel):
     ubo_information: Optional[List[str]] = []
 
 
+def normalise_ocr_data(raw: Optional[Dict[str, Any]]) -> Optional["DocumentOcrOutput"]:
+    """
+    Convert the OCR engine's raw output into a ``DocumentOcrOutput`` instance.
+
+    OCR engines (Gemini, DocTR, Tesseract) return every field wrapped in a
+    ``{"value": ..., "confidence": ...}`` envelope, e.g.::
+
+        {"full_name": {"value": "John Doe", "confidence": 0.99}}
+
+    ``DocumentOcrOutput`` expects plain scalar values, e.g.::
+
+        {"full_name": "John Doe"}
+
+    This function:
+
+    1. Unwraps the ``{value, confidence}`` envelope for every field.
+    2. Coerces list fields (``directors``, ``shareholders``, ``ubo_information``)
+       so they are always a ``list``, never ``""`` / ``None`` / ``"-"`` / ``"—"``.
+       This handles the case where the frontend sends a plain ``<input>`` string
+       for those fields after the user edits OCR data on the confirmation screen.
+    3. Strips unknown / internal (``_``-prefixed) keys to avoid Pydantic errors.
+
+    Fields that are already plain scalars (e.g. after user confirmation) pass
+    through unchanged.  ``None`` / empty raw data returns ``None``.
+    """
+    if not raw:
+        return None
+
+    # Sentinel values that represent "no data" for list fields
+    _EMPTY_SENTINELS = {"", "-", "—", "–", "none", "null", "n/a"}
+
+    # Identify which DocumentOcrOutput fields are typed as List[*]
+    import typing
+    _list_fields: set[str] = set()
+    for field_name, field_info in DocumentOcrOutput.model_fields.items():
+        annotation = field_info.annotation
+        origin = getattr(annotation, "__origin__", None)
+        # Handles Optional[List[str]]  →  origin is Union, args include List[str]
+        if origin is typing.Union:
+            for arg in annotation.__args__:
+                if getattr(arg, "__origin__", None) is list:
+                    _list_fields.add(field_name)
+                    break
+        elif origin is list:
+            _list_fields.add(field_name)
+
+    known_fields = set(DocumentOcrOutput.model_fields.keys())
+    flat: Dict[str, Any] = {}
+
+    for key, val in raw.items():
+        if key.startswith("_"):
+            # Skip internal metadata keys such as _ocr_engine_used
+            continue
+        if isinstance(val, dict) and "value" in val:
+            # Unwrap {"value": X, "confidence": Y}  →  X
+            flat[key] = val["value"]
+        else:
+            flat[key] = val
+
+    # ── List-field coercion ────────────────────────────────────────────────────
+    # After unwrapping, list fields may hold ""/None/"-" (from frontend inputs)
+    # or a plain scalar.  Pydantic requires an actual list.
+    for lf in _list_fields:
+        if lf not in flat:
+            continue
+        v = flat[lf]
+        if v is None:
+            flat[lf] = []
+        elif isinstance(v, list):
+            pass  # already correct
+        elif isinstance(v, str):
+            if v.strip().lower() in _EMPTY_SENTINELS:
+                flat[lf] = []
+            else:
+                # e.g. "John Doe, Jane Smith" → wrap as single item;
+                # splitting by comma is intentionally NOT done here because
+                # the OCR engine already returns proper lists when it can.
+                flat[lf] = [v]
+        else:
+            # Any other scalar (int, bool …) → wrap in a list
+            flat[lf] = [str(v)]
+
+    # Only pass fields that DocumentOcrOutput actually declares to avoid
+    # Pydantic "unexpected field" errors for engine-specific extras.
+    return DocumentOcrOutput(**{k: v for k, v in flat.items() if k in known_fields})
+
+
+
 class DocumentValidationDetail(BaseModel):
     is_expired: bool = False
     is_blurry: bool = False

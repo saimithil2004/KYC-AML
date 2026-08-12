@@ -105,31 +105,42 @@ export default function DocumentsStep() {
     disabled: !!uploading,
   });
 
-  const loadOcrData = async (documentId: string) => {
+  const loadOcrData = async (documentId: string, retryCount = 0) => {
     if (!token) return;
     setActionLoading(true);
     setViewingOcr(documentId);
     try {
       const result = await getDocumentOcrData(documentId, token);
-      
+
+      // If OCR hasn't run yet (still queued in Celery / processing)
+      if (!result.ocr_data || Object.keys(result.ocr_data).length === 0) {
+        if (retryCount < 5) {
+          toast.info(`OCR is still processing… retrying in 3 s (attempt ${retryCount + 1}/5)`);
+          setTimeout(() => loadOcrData(documentId, retryCount + 1), 3000);
+        } else {
+          toast.error("OCR did not complete. Try the Force Scan button to re-queue.");
+        }
+        return;
+      }
+
       // Flatten the OCR data if it has {value, confidence} structure
       const flattenedData: Record<string, string> = {};
       const ocrData = result.ocr_data as any;
-      if (ocrData) {
-        Object.entries(ocrData).forEach(([key, val]) => {
-          if (val && typeof val === "object" && "value" in val) {
-            flattenedData[key] = String((val as any).value || "");
-          } else {
-            flattenedData[key] = String(val || "");
-          }
-        });
-      }
+      Object.entries(ocrData).forEach(([key, val]) => {
+        if (key.startsWith("_")) return; // skip internal fields like _ocr_engine_used
+        if (val && typeof val === "object" && "value" in val) {
+          flattenedData[key] = String((val as any).value ?? "");
+        } else {
+          flattenedData[key] = String(val ?? "");
+        }
+      });
 
       setOcrReview({
         documentId,
         ocrData: flattenedData,
         verificationStatus: result.verification_status,
-        metadata: result.verification_metadata || {}
+        // FIX: backend returns `metadata`, not `verification_metadata`
+        metadata: result.metadata || {}
       });
     } catch {
       toast.error("OCR scans are processing. Please wait a few seconds and try again.");
@@ -140,15 +151,25 @@ export default function DocumentsStep() {
 
   const handleConfirmOcr = async () => {
     if (!ocrReview || !token) return;
+
+    // Guard: do not submit if there are no OCR fields at all
+    const hasFields = Object.keys(ocrReview.ocrData).filter(k => !k.startsWith("_")).length > 0;
+    if (!hasFields) {
+      toast.error("OCR data is empty — please use Force Scan to re-process the document first.");
+      return;
+    }
+
     setActionLoading(true);
     try {
       // Re-map simple form inputs back to the expected payload structure
       const payloadOcr: Record<string, any> = {};
       Object.entries(ocrReview.ocrData).forEach(([k, v]) => {
-        payloadOcr[k] = { value: v, confidence: 1.0 };
+        if (!k.startsWith("_")) {
+          payloadOcr[k] = { value: v, confidence: 1.0 };
+        }
       });
 
-      const res = await verifyDocumentOcr(ocrReview.documentId, payloadOcr, token);
+      await verifyDocumentOcr(ocrReview.documentId, payloadOcr, token);
       toast.success("Document verification completed!");
       setOcrReview(null);
       await invalidate();

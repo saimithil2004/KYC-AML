@@ -11,6 +11,7 @@ from app.schemas.schemas import DocumentResponse
 from app.schemas.document_schemas import (
     DocumentVerificationDetailsResponse,
     ReprocessResponse,
+    normalise_ocr_data,
 )
 from app.core.celery_app import celery_app
 from app.services.upload_service import UploadService
@@ -65,11 +66,41 @@ async def upload_document(
     await db.commit()
     await db.refresh(document)
 
-    # Launch OCR analysis asynchronously (Step 11 Workflow: Queue Job)
-    celery_app.send_task(
-        "tasks.kyc_tasks.extract_document_ocr", args=[str(document.id)]
-    )
+    # Launch OCR analysis asynchronously (Step 11 Workflow: Queue Job).
+    # If Redis/Celery is unavailable, fall back to synchronous inline OCR
+    # so ocr_data is always populated before the response returns.
+    try:
+        celery_app.send_task(
+            "tasks.kyc_tasks.extract_document_ocr", args=[str(document.id)]
+        )
+    except Exception as celery_err:
+        import logging as _log
+        _log.getLogger(__name__).warning(
+            f"Celery unavailable ({celery_err}); running OCR synchronously as fallback."
+        )
+        try:
+            from app.core.database import SessionLocalSync
+            from app.services.document_verification import DocumentVerificationService
+            import threading
 
+            def _run_sync_ocr():
+                sync_db = SessionLocalSync()
+                try:
+                    DocumentVerificationService.run_pre_ocr_checks(sync_db, document.id)
+                except Exception as ocr_err:
+                    _log.getLogger(__name__).error(f"Inline OCR failed: {ocr_err}")
+                finally:
+                    sync_db.close()
+
+            t = threading.Thread(target=_run_sync_ocr, daemon=True)
+            t.start()
+            # Give OCR up to 15 s to complete before we return the response
+            t.join(timeout=15)
+        except Exception as inline_err:
+            _log.getLogger(__name__).error(f"Inline OCR thread failed: {inline_err}")
+
+    # Reload document so response includes ocr_data if sync OCR finished
+    await db.refresh(document)
     return document
 
 
@@ -132,7 +163,8 @@ async def get_document_by_id(
     return DocumentVerificationDetailsResponse(
         document_id=document.id,
         verification_status=document.verification_status,
-        ocr_data=document.ocr_data,
+        # Unwrap OCR engine's {value, confidence} envelope → plain scalar
+        ocr_data=normalise_ocr_data(document.ocr_data),
         validation=validation if validation else None,
         matching=matching if matching else None,
         risk=risk if risk else None,
@@ -167,7 +199,9 @@ async def verify_ocr_results(
     """
     doc_id_str = payload.get("document_id")
     confirmed_data = payload.get("ocr_data")
-    if not doc_id_str or not confirmed_data:
+    # NOTE: use `is None` — not falsy check — because an empty dict {} is a
+    # valid (though sparse) ocr_data payload and must not be rejected.
+    if not doc_id_str or confirmed_data is None:
         raise HTTPException(
             status_code=400, detail="Missing document_id or ocr_data in payload."
         )
@@ -196,7 +230,8 @@ async def verify_ocr_results(
     return DocumentVerificationDetailsResponse(
         document_id=document.id,
         verification_status=document.verification_status,
-        ocr_data=document.ocr_data,
+        # Unwrap OCR engine's {value, confidence} envelope → plain scalar
+        ocr_data=normalise_ocr_data(document.ocr_data),
         validation=verification_metadata.get("validation"),
         matching=verification_metadata.get("matching"),
         risk=verification_metadata.get("risk"),
@@ -231,7 +266,7 @@ async def reprocess_document(
     )
 
 
-@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{document_id}", status_code=status.HTTP_200_OK)
 async def delete_document(
     document_id: UUID,
     current_user: User = Depends(get_current_user),
@@ -255,4 +290,5 @@ async def delete_document(
 
     await db.delete(document)
     await db.commit()
-    return None
+    return {"message": "Document deleted successfully", "document_id": str(document_id)}
+

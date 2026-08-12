@@ -17,7 +17,9 @@ from app.dependencies.auth import verify_compliance_officer, get_current_user
 from app.models.models import User, Customer, RiskScore, Alert, Case, AuditLog
 from app.services.dashboard_service import DashboardService
 
-# ─── Mock auth dependency overrides ──────────────────────────────────────────
+from unittest.mock import AsyncMock, MagicMock, patch
+
+# ─── Mock Auth & DB dependency overrides ─────────────────────────────────────
 
 
 class MockUser:
@@ -47,22 +49,22 @@ async def override_get_current_user_customer():
 # ─── Tests ───────────────────────────────────────────────────────────────────
 
 
-def test_dashboard_rbac_compliance_officer():
+@patch.object(DashboardService, "get_overview", new_callable=AsyncMock)
+def test_dashboard_rbac_compliance_officer(mock_overview):
     """Verify compliance officer can access dashboard overview."""
+    mock_overview.return_value = {
+        "total_customers": 100,
+        "high_risk_customers": 5,
+        "pending_cases": 2,
+        "open_alerts": 3,
+    }
     app.dependency_overrides[verify_compliance_officer] = (
         override_verify_compliance_officer
     )
     client = TestClient(app)
     response = client.get("/api/v1/dashboard/overview")
 
-    # We mock out database or let it fall back.
-    # Note: If no real DB, FastAPI test client might raise db error,
-    # but the routing/RBAC security dependency is evaluated first.
-    # To test RBAC purely, we assert it doesn't return 403 or 401.
-    assert response.status_code in (
-        200,
-        500,
-    )  # 500 is database connection issue, which is acceptable since DB is not active.
+    assert response.status_code == 200
     app.dependency_overrides.clear()
 
 
@@ -84,7 +86,6 @@ def test_dashboard_rbac_customer_forbidden():
 @pytest.mark.asyncio
 async def test_dashboard_service_mock_aggregation():
     """Test DashboardService aggregation logic with mock database sessions."""
-    # We create a dummy test to ensure service functions exist and run
     assert hasattr(DashboardService, "get_overview")
     assert hasattr(DashboardService, "get_charts")
     assert hasattr(DashboardService, "get_activity")
@@ -96,8 +97,10 @@ async def test_dashboard_service_mock_aggregation():
     assert hasattr(DashboardService, "get_ai_summary")
 
 
-def test_dashboard_search_endpoint():
+@patch.object(DashboardService, "search", new_callable=AsyncMock)
+def test_dashboard_search_endpoint(mock_search):
     """Verify search API parameters and routing."""
+    mock_search.return_value = {"query": "test", "results": []}
     app.dependency_overrides[verify_compliance_officer] = (
         override_verify_compliance_officer
     )
@@ -107,12 +110,29 @@ def test_dashboard_search_endpoint():
     assert res1.status_code == 422  # Missing q parameter
 
     res2 = client.get("/api/v1/dashboard/search?q=test")
-    assert res2.status_code in (200, 500)
+    assert res2.status_code == 200
     app.dependency_overrides.clear()
 
 
-def test_dashboard_charts_endpoints():
+@patch.object(DashboardService, "get_charts", new_callable=AsyncMock)
+@patch.object(DashboardService, "get_activity", new_callable=AsyncMock)
+@patch.object(DashboardService, "get_high_risk", new_callable=AsyncMock)
+@patch.object(DashboardService, "get_alerts_summary", new_callable=AsyncMock)
+@patch.object(DashboardService, "get_cases_summary", new_callable=AsyncMock)
+@patch.object(DashboardService, "get_monitoring", new_callable=AsyncMock)
+@patch.object(DashboardService, "get_ai_summary", new_callable=AsyncMock)
+def test_dashboard_charts_endpoints(
+    mock_ai, mock_mon, mock_cases, mock_alerts, mock_risk, mock_act, mock_charts
+):
     """Verify charts and helper overview routes."""
+    mock_charts.return_value = {}
+    mock_act.return_value = []
+    mock_risk.return_value = []
+    mock_alerts.return_value = {}
+    mock_cases.return_value = {}
+    mock_mon.return_value = {}
+    mock_ai.return_value = {}
+
     app.dependency_overrides[verify_compliance_officer] = (
         override_verify_compliance_officer
     )
@@ -120,6 +140,6 @@ def test_dashboard_charts_endpoints():
 
     for route in ["charts", "activity", "risk", "alerts", "cases", "monitoring", "ai"]:
         res = client.get(f"/api/v1/dashboard/{route}")
-        assert res.status_code in (200, 500)
+        assert res.status_code == 200
 
     app.dependency_overrides.clear()

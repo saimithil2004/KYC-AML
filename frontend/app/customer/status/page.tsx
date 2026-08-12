@@ -7,10 +7,10 @@ import {
   Shield, FileSearch, User, Globe, BarChart3, Eye, FileCheck,
 } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { useCustomer, useKycProfile } from "@/hooks/usePortalData";
+import { useCustomer, useKycProfile, useDocuments } from "@/hooks/usePortalData";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/api";
-import type { RiskScore, Case } from "@/lib/types";
+import type { RiskScore, Case, DocumentRecord } from "@/lib/types";
 import { cn, formatDate, getRiskColor, getStatusColor } from "@/lib/utils";
 
 type TimelineStage = {
@@ -24,16 +24,17 @@ type TimelineStage = {
 };
 
 function buildTimeline(
-  customerStatus: string,
-  kyc: { risk_category?: string } | null,
+  customer: { status: string; created_at: string } | null,
+  kyc: { risk_category?: string; nationality?: string } | null,
+  documents: DocumentRecord[] | null,
   riskScore: RiskScore | null,
   caseData: Case | null
 ): TimelineStage[] {
-  const s = customerStatus?.toLowerCase() ?? "";
+  const s = customer?.status?.toLowerCase() ?? "";
 
-  const submitted = true;
-  const kycDone = !["onboarding", "pending_verification"].includes(s);
-  const docsDone = kycDone;
+  const submitted = !["onboarding"].includes(s);
+  const kycDone = !["onboarding", "pending_verification"].includes(s) || kyc != null;
+  const docsDone = (documents && documents.length > 0) || kycDone;
   const amlDone = riskScore != null;
   const riskDone = amlDone;
   const isReferred = s === "referred" || caseData?.status === "open";
@@ -42,14 +43,21 @@ function buildTimeline(
   const manualNeeded = isReferred;
   const completed = isApproved || isRejected;
 
+  const docCount = documents?.length ?? 0;
+  const pepPts = riskScore?.breakdown?.pep ?? 0;
+  const sanctionsPts = riskScore?.breakdown?.sanctions ?? 0;
+  const countryPts = riskScore?.breakdown?.country ?? 0;
+
   return [
     {
       id: "submitted",
       label: "Application Submitted",
       description: "KYC form and supporting documents received",
       icon: FileCheck,
-      status: submitted ? "completed" : "pending",
-      detail: "Customer profile, KYC declaration, and document uploads confirmed",
+      status: submitted ? "completed" : "in_progress",
+      detail: submitted
+        ? `Application confirmed on ${customer ? formatDate(customer.created_at) : "file"}`
+        : "Awaiting final application submission",
     },
     {
       id: "kyc_check",
@@ -57,7 +65,9 @@ function buildTimeline(
       description: "Identity and declaration cross-checking",
       icon: User,
       status: kycDone ? "completed" : submitted ? "in_progress" : "pending",
-      detail: kycDone ? `Profile validated — Risk category: ${kyc?.risk_category ?? "—"}` : "Verifying identity against declarations",
+      detail: kyc
+        ? `Profile validated — Risk category: ${(kyc.risk_category || "low").toUpperCase()} (${kyc.nationality || "UK"})`
+        : "Verifying identity declarations",
     },
     {
       id: "doc_check",
@@ -65,7 +75,9 @@ function buildTimeline(
       description: "OCR extraction and document authenticity checks",
       icon: FileSearch,
       status: docsDone ? "completed" : kycDone ? "in_progress" : "pending",
-      detail: docsDone ? "Documents verified and OCR data matched to declarations" : "Extracting and validating document data",
+      detail: docCount > 0
+        ? `${docCount} document(s) uploaded and OCR verified`
+        : "Extracting and validating document data",
     },
     {
       id: "aml_screening",
@@ -74,7 +86,7 @@ function buildTimeline(
       icon: Shield,
       status: amlDone ? "completed" : docsDone ? "in_progress" : "pending",
       detail: amlDone
-        ? `Screening complete — Sanctions: clean, PEP: ${riskScore.breakdown.pep ? "flagged" : "clean"}`
+        ? `Screening complete — Sanctions: ${sanctionsPts > 0 ? `${sanctionsPts} pts` : "clean"}, PEP: ${pepPts > 0 ? `${pepPts} pts` : "clean"}`
         : "Running AI-powered AML agent pipeline",
     },
     {
@@ -94,7 +106,7 @@ function buildTimeline(
       icon: Eye,
       status: manualNeeded ? "in_progress" : completed ? "skipped" : "pending",
       detail: manualNeeded
-        ? "Case escalated to compliance officer for manual review"
+        ? `Case #${caseData ? caseData.id.slice(0, 8) : "REVIEW"} escalated to compliance officer for manual review`
         : completed
         ? "Auto-resolved — no manual review required"
         : "Pending risk analysis outcome",
@@ -104,9 +116,9 @@ function buildTimeline(
       label: "Geopolitical Screening",
       description: "FATF watchlist and high-risk jurisdiction checks",
       icon: Globe,
-      status: amlDone ? (riskScore?.breakdown?.jurisdiction ?? 0) > 0 ? "failed" : "completed" : "pending",
+      status: amlDone ? (countryPts > 0 ? "failed" : "completed") : "pending",
       detail: riskScore
-        ? `Jurisdiction score: ${riskScore.breakdown?.jurisdiction ?? 0} pts`
+        ? `Country risk score: ${countryPts} pts ${countryPts > 0 ? "(High Risk Jurisdiction)" : "(Clean)"}`
         : "Pending",
     },
     {
@@ -128,6 +140,7 @@ export default function StatusPage() {
   const { token } = useAuth();
   const { data: customer, isLoading: custLoading, refetch } = useCustomer();
   const { data: kyc } = useKycProfile(customer?.id);
+  const { data: documents } = useDocuments(customer?.id);
   const [riskScore, setRiskScore] = useState<RiskScore | null>(null);
   const [caseData, setCaseData] = useState<Case | null>(null);
   const [loading, setLoading] = useState(false);
@@ -157,7 +170,7 @@ export default function StatusPage() {
   }, [customer?.id, token]);
 
   const timeline = customer
-    ? buildTimeline(customer.status, kyc ?? null, riskScore, caseData)
+    ? buildTimeline(customer, kyc ?? null, documents ?? null, riskScore, caseData)
     : [];
 
   const overallStatus = customer?.status ?? "loading";
@@ -216,7 +229,11 @@ export default function StatusPage() {
             <div className="space-y-3">
               {Object.entries(riskScore.breakdown).map(([key, score]) => {
                 const maxScores: Record<string, number> = {
-                  sanctions: 35, pep: 25, jurisdiction: 20, documents: 20,
+                  pep: 25,
+                  sanctions: 35,
+                  country: 20,
+                  document: 20,
+                  transaction: 20,
                 };
                 const max = maxScores[key] ?? 20;
                 const pct = (score / max) * 100;

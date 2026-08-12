@@ -95,17 +95,20 @@ class TransactionValidator:
                 if isinstance(raw_time, datetime):
                     timestamp = raw_time
                 elif isinstance(raw_time, str):
-                    for fmt in (
-                        "%Y-%m-%dT%H:%M:%S.%f",
-                        "%Y-%m-%dT%H:%M:%S",
-                        "%Y-%m-%d %H:%M:%S",
-                        "%Y-%m-%d",
-                    ):
-                        try:
-                            timestamp = datetime.strptime(raw_time, fmt)
-                            break
-                        except ValueError:
-                            continue
+                    try:
+                        timestamp = datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
+                    except Exception:
+                        for fmt in (
+                            "%Y-%m-%dT%H:%M:%S.%f",
+                            "%Y-%m-%dT%H:%M:%S",
+                            "%Y-%m-%d %H:%M:%S",
+                            "%Y-%m-%d",
+                        ):
+                            try:
+                                timestamp = datetime.strptime(raw_time, fmt)
+                                break
+                            except ValueError:
+                                continue
 
                 if not timestamp:
                     # Fallback to datetime.utcnow() but issue a warning

@@ -5,6 +5,14 @@ celery_app = Celery(
     "aml_compliance_tasks",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
+    # Explicitly list every module that contains @celery_app.task decorators.
+    # This replaces autodiscover_tasks(["app"]) which only imported the empty
+    # app/tasks/__init__.py and never reached the actual task modules.
+    include=[
+        "app.tasks.kyc_tasks",
+        "app.tasks.schedule_tasks",
+        "app.tasks.sync_tasks",
+    ],
 )
 
 celery_app.conf.update(
@@ -17,5 +25,3 @@ celery_app.conf.update(
     task_time_limit=300,  # 5 minutes limit per screening run
 )
 
-# Auto-discover tasks from app.tasks sub-modules
-celery_app.autodiscover_tasks(["app"])

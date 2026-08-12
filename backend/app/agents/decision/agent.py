@@ -134,6 +134,7 @@ class DecisionAgent(BaseAgent):
             overall_score > APPROVE_MAX_SCORE
             or pep_status in ("CONFIRMED_PEP", "POSSIBLE_MATCH")
             or sanctions_status == "POSSIBLE_MATCH"
+            or tx_status in ("ALERT", "CRITICAL")
             or len(violations) > 0
         ):
             decision = DECISION_MANUAL_REVIEW
@@ -145,6 +146,10 @@ class DecisionAgent(BaseAgent):
                 reasons.append(f"PEP status: {pep_status} — requires human review.")
             if sanctions_status == "POSSIBLE_MATCH":
                 reasons.append("Possible sanctions match — human review required.")
+            if tx_status in ("ALERT", "CRITICAL"):
+                reasons.append(
+                    f"Transaction behavioral risk status '{tx_status}' requires manual review."
+                )
             if len(violations) > 0:
                 reasons.append(
                     f"{len(violations)} policy violation(s) require compliance officer review."
@@ -179,7 +184,7 @@ class DecisionAgent(BaseAgent):
         state.shared_metadata["customer_status"] = new_customer_status
 
         # ── Persist to DB ─────────────────────────────────────────────────────
-        self._persist_decision(state, decision, new_customer_status, decision_reason)
+        await self._persist_decision(state, decision, new_customer_status, decision_reason)
 
         state.logs.append(
             f"DecisionAgent: DECISION={decision}. Score={overall_score:.1f}. "
@@ -215,31 +220,41 @@ class DecisionAgent(BaseAgent):
             "execution_duration_ms": execution_duration_ms,
         }
 
-    def _persist_decision(
+    async def _persist_decision(
         self, state: AgentState, decision: str, status: str, reason: str
     ) -> None:
-        """Updates customer and case status in the database."""
+        """Updates customer and case status in the database (supports Async and Sync sessions)."""
         if not self.db:
             return
         try:
             from uuid import UUID
+            from sqlalchemy.ext.asyncio import AsyncSession
+            from sqlalchemy import select
             from app.models.models import Customer, Case, Alert
 
             cust_uuid = UUID(state.customer_id)
+            is_async = isinstance(self.db, AsyncSession)
 
             # Update customer status
-            customer = self.db.query(Customer).filter(Customer.id == cust_uuid).first()
+            if is_async:
+                res = await self.db.execute(select(Customer).where(Customer.id == cust_uuid))
+                customer = res.scalars().first()
+            else:
+                customer = self.db.query(Customer).filter(Customer.id == cust_uuid).first()
+
             if customer:
                 customer.status = status
 
             # Update case status and notes
             case_id_raw = state.shared_metadata.get("case_id") or state.case_id
             if case_id_raw:
-                case = (
-                    self.db.query(Case)
-                    .filter(Case.id == UUID(str(case_id_raw)))
-                    .first()
-                )
+                c_uuid = UUID(str(case_id_raw))
+                if is_async:
+                    c_res = await self.db.execute(select(Case).where(Case.id == c_uuid))
+                    case = c_res.scalars().first()
+                else:
+                    case = self.db.query(Case).filter(Case.id == c_uuid).first()
+
                 if case:
                     case.status = (
                         "resolved_auto" if decision == DECISION_APPROVE else "open"
@@ -264,11 +279,17 @@ class DecisionAgent(BaseAgent):
                 )
                 self.db.add(alert)
 
-            self.db.commit()
+            if is_async:
+                await self.db.commit()
+            else:
+                self.db.commit()
         except Exception as exc:
             logger.error(f"DecisionAgent: DB persistence failed: {exc}")
             try:
-                self.db.rollback()
+                if isinstance(self.db, AsyncSession):
+                    await self.db.rollback()
+                else:
+                    self.db.rollback()
             except Exception:
                 pass
 

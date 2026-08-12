@@ -81,11 +81,35 @@ async function parseResponse<T>(response: Response): Promise<T> {
         window.location.href = "/auth/login?session_expired=true";
       }
     }
-    const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.detail || `Request failed (${response.status})`);
+    const errorText = await response.text().catch(() => "");
+    let payload: Record<string, any> = {};
+    if (errorText && errorText.trim()) {
+      try {
+        payload = JSON.parse(errorText);
+      } catch {
+        payload = {};
+      }
+    }
+    throw new Error(payload.detail || payload.message || errorText || `Request failed (${response.status})`);
   }
-  return response.json() as Promise<T>;
+
+  // HTTP 204 No Content or 205 Reset Content have no response body
+  if (response.status === 204 || response.status === 205) {
+    return {} as T;
+  }
+
+  const text = await response.text();
+  if (!text || !text.trim()) {
+    return {} as T;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch (err) {
+    return {} as T;
+  }
 }
+
 
 export async function apiRequest<T>(
   path: string,
@@ -225,7 +249,17 @@ export async function uploadDocument(
 export async function getDocumentOcrData(
   documentId: string,
   token: string
-): Promise<{ document_id: string; verification_status: string; ocr_data: Record<string, string>; verification_metadata: Record<string, unknown> }> {
+): Promise<{
+  document_id: string;
+  verification_status: string;
+  ocr_data: Record<string, any> | null;
+  // The backend returns "metadata", NOT "verification_metadata"
+  metadata: Record<string, unknown>;
+  validation: Record<string, unknown> | null;
+  matching: Record<string, unknown> | null;
+  risk: Record<string, unknown> | null;
+  history: Record<string, unknown>[];
+}> {
   return apiRequest(`/documents/${documentId}`, {}, token);
 }
 

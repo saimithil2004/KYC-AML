@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, customers, documents, kyc, sync
+from app.api.v1.endpoints import auth, customers, documents, kyc, sync, risk_scores
 from app.api.v1.endpoints import (
     transactions,
     alerts,
@@ -19,6 +19,7 @@ api_router.include_router(customers.router, prefix="/customers", tags=["customer
 api_router.include_router(documents.router, prefix="/documents", tags=["documents"])
 api_router.include_router(kyc.router, prefix="/kyc", tags=["kyc"])
 api_router.include_router(sync.router, prefix="/sync", tags=["sync"])
+api_router.include_router(risk_scores.router, prefix="/risk-scores", tags=["risk-scores"])
 
 # Phase 8 — Compliance Operations
 api_router.include_router(
@@ -28,6 +29,7 @@ api_router.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
 api_router.include_router(cases.router, prefix="/cases", tags=["cases"])
 api_router.include_router(screening.router, prefix="/screening", tags=["screening"])
 api_router.include_router(audit_logs.router, prefix="/audit-logs", tags=["audit-logs"])
+
 
 # Phase 9 — Dashboard
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])

@@ -11,6 +11,8 @@ class AgentState(BaseModel):
 
     customer_id: str
     case_id: str
+    investigation_id: Optional[str] = None
+    risk_score_id: Optional[str] = None
 
     # Core Domain Context Models (Inputs/References)
     customer: Dict[str, Any] = Field(default_factory=dict)

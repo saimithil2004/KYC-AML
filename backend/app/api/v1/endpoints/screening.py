@@ -26,6 +26,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _flatten_breakdown(raw: dict | None) -> dict:
+    """Normalise risk breakdown: {weight,agent_score,contribution} → pts float (no scaling needed)."""
+    if not raw:
+        return {}
+    result: dict = {}
+    for key, val in raw.items():
+        if isinstance(val, dict):
+            result[key] = round(float(val.get("contribution", 0)), 1)
+        elif val is not None:
+            result[key] = float(val)
+        else:
+            result[key] = 0.0
+    return result
+
+
 def _get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
     return (
@@ -150,7 +165,7 @@ async def get_screening_status(
             {
                 "overall_score": float(risk.overall_score),
                 "risk_tier": risk.risk_tier,
-                "breakdown": risk.breakdown,
+                "breakdown": _flatten_breakdown(risk.breakdown),
                 "assessed_at": risk.created_at.isoformat(),
             }
             if risk

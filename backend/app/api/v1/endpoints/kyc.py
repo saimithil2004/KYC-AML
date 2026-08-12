@@ -220,15 +220,10 @@ async def update_kyc(
         changed = True
 
     if changed:
-        customer.status = "pending_verification"
+        kyc.updated_at = datetime.utcnow()
 
     await db.commit()
     await db.refresh(kyc)
-
-    if changed:
-        celery_app.send_task(
-            "tasks.kyc_tasks.run_aml_kyc_pipeline", args=[str(customer.id)]
-        )
 
     return KYCProfileResponse(
         id=kyc.id,
@@ -247,3 +242,101 @@ async def update_kyc(
         created_at=kyc.created_at,
         updated_at=kyc.updated_at,
     )
+
+
+# ── POST /kyc/{customer_id}/submit ───────────────────────────────────────────
+
+
+@router.post("/{customer_id}/submit")
+async def submit_application(
+    customer_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Dedicated Onboarding Application Submission Endpoint.
+    Validates completeness, checks customer state to prevent duplicate runs,
+    sets customer status to 'pending_verification', and dispatches the AML screening pipeline.
+    """
+    from app.models.models import Document
+    from datetime import datetime
+
+    # 1. Load customer
+    result = await db.execute(select(Customer).where(Customer.id == customer_id))
+    customer = result.scalars().first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer profile not found.")
+
+    # 2. Permissions check
+    if customer.user_id != current_user.id and current_user.role not in [
+        "compliance_officer",
+        "admin",
+    ]:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to submit application for this profile."
+        )
+
+    # 3. Prevent duplicate or invalid state submissions
+    if customer.status == "approved":
+        raise HTTPException(
+            status_code=400,
+            detail="Customer application is already approved.",
+        )
+    if customer.status == "pending_verification":
+        raise HTTPException(
+            status_code=400,
+            detail="Application has already been submitted and is currently being processed.",
+        )
+    if customer.status == "rejected":
+        raise HTTPException(
+            status_code=400,
+            detail="Application has been rejected.",
+        )
+
+    # 4. Check KYC declaration completeness
+    res_kyc = await db.execute(
+        select(KYCProfile).where(KYCProfile.customer_id == customer_id)
+    )
+    kyc = res_kyc.scalars().first()
+    if not kyc or not kyc.full_name or not kyc.nationality:
+        raise HTTPException(
+            status_code=400,
+            detail="KYC declaration is incomplete. Please complete all required fields before submitting.",
+        )
+
+    # 5. Check Document completeness
+    res_docs = await db.execute(
+        select(Document).where(Document.customer_id == customer_id)
+    )
+    docs = res_docs.scalars().all()
+    if not docs:
+        raise HTTPException(
+            status_code=400,
+            detail="No identity document uploaded. Please upload a supporting document before submitting.",
+        )
+
+    # 6. Update customer status
+    customer.status = "pending_verification"
+    await db.commit()
+    await db.refresh(customer)
+
+    # 7. Dispatch background screening pipeline exactly once
+    try:
+        celery_app.send_task(
+            "tasks.kyc_tasks.run_aml_kyc_pipeline", args=[str(customer.id)]
+        )
+    except Exception as exc:
+        # Fallback to inline screening if Celery/Broker is unavailable
+        from app.services.screening_service import ScreeningService
+        try:
+            await ScreeningService.run_screening_async(str(customer.id))
+        except Exception as inner_exc:
+            print(f"[SUBMIT] Pipeline trigger error: {inner_exc}")
+
+    return {
+        "status": "submitted",
+        "message": "Application submitted successfully for AML screening.",
+        "customer_id": str(customer.id),
+        "submitted_at": datetime.utcnow().isoformat(),
+    }
+

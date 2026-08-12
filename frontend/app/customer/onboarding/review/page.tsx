@@ -87,10 +87,10 @@ export default function ReviewStep() {
   const handleSubmit = async () => {
     if (!customer?.id || !token) return;
     try {
-      // Trigger AML screening via KYC update
+      // Trigger AML screening via dedicated submission endpoint
       await apiRequest(
-        `/kyc/${customer.id}`,
-        { method: "PUT", body: JSON.stringify({ risk_category: "low" }) },
+        `/kyc/${customer.id}/submit`,
+        { method: "POST" },
         token
       );
       clearDraft();

@@ -1,13 +1,13 @@
 import time
 from uuid import UUID
-from app.core.celery_app import celery_app
+from celery import shared_task
 from app.core.database import SessionLocalSync
 from app.models.models import Customer, Document, KYCProfile
 from app.services.screening_service import ScreeningService
 from app.services.document_verification import DocumentVerificationService
 
 
-@celery_app.task(name="tasks.kyc_tasks.run_aml_kyc_pipeline")
+@shared_task(name="tasks.kyc_tasks.run_aml_kyc_pipeline")
 def run_aml_kyc_pipeline(customer_id: str):
     """
     Executes the main LangGraph Agentic Pipeline.
@@ -27,7 +27,7 @@ def run_aml_kyc_pipeline(customer_id: str):
         raise e
 
 
-@celery_app.task(name="tasks.kyc_tasks.extract_document_ocr")
+@shared_task(name="tasks.kyc_tasks.extract_document_ocr")
 def extract_document_ocr(document_id: str):
     """
     Triggers Stage A of the production document verification pipeline:

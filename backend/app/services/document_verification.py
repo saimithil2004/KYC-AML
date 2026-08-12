@@ -281,6 +281,10 @@ class DocumentVerificationService:
             pass
 
         # Document Number reuse check
+        # NOTE: .astext is a PostgreSQL-only operator.  SQLite stores JSON as
+        # plain TEXT so we cannot use SQLAlchemy JSON column-path expressions.
+        # Instead, pull all other documents (cheap: only id and ocr_data) and
+        # compare the value in Python.
         doc_num_field = ocr_data.get("document_number", {})
         doc_num = (
             doc_num_field.get("value")
@@ -288,18 +292,24 @@ class DocumentVerificationService:
             else doc_num_field
         )
         if doc_num:
-            other_doc = (
+            other_docs = (
                 db_session.query(Document)
-                .filter(
-                    Document.id != current_doc_id,
-                    Document.ocr_data["document_number"]["value"].astext == doc_num,
-                )
-                .first()
+                .filter(Document.id != current_doc_id)
+                .all()
             )
-            if other_doc:
-                fraud_reasons.append(
-                    f"Duplicate document number reuse detected: matched customer {other_doc.customer_id}"
+            for other in other_docs:
+                other_ocr = other.ocr_data or {}
+                other_num_field = other_ocr.get("document_number", {})
+                other_num = (
+                    other_num_field.get("value")
+                    if isinstance(other_num_field, dict)
+                    else other_num_field
                 )
+                if other_num and str(other_num).strip() == str(doc_num).strip():
+                    fraud_reasons.append(
+                        f"Duplicate document number reuse detected: matched customer {other.customer_id}"
+                    )
+                    break  # one match is enough
 
         return fraud_reasons
 
@@ -394,20 +404,22 @@ class DocumentVerificationService:
         # Update ocr_data with confirmed fields
         doc.ocr_data = confirmed_ocr_data
 
-        # Hash check for duplicate document uploads
+        # Hash check for duplicate document uploads.
+        # NOTE: .astext is a PostgreSQL-only operator.  On SQLite the JSON
+        # column is stored as TEXT, so we filter candidates in Python instead.
         file_hash = doc.verification_metadata.get("file_hash", "")
         duplicate_hash = False
         if file_hash:
-            match = (
+            other_docs = (
                 db_session.query(Document)
-                .filter(
-                    Document.id != doc.id,
-                    Document.verification_metadata["file_hash"].astext == file_hash,
-                )
-                .first()
+                .filter(Document.id != doc.id)
+                .all()
             )
-            if match:
-                duplicate_hash = True
+            for other in other_docs:
+                other_meta = other.verification_metadata or {}
+                if other_meta.get("file_hash") == file_hash:
+                    duplicate_hash = True
+                    break
 
         # Validation Agent
         validation = cls.validate_document(doc, confirmed_ocr_data, duplicate_hash)

@@ -21,7 +21,7 @@ from typing import TypedDict, List, Optional, Dict, Any
 from uuid import UUID, uuid4
 from datetime import date, datetime
 
-from sqlalchemy.future import select
+from sqlalchemy import select
 
 from app.core.database import SessionLocalSync
 from app.models.models import (
@@ -169,6 +169,9 @@ class ScreeningService:
                     .all()
                 )
 
+            logger.info(
+                f"ScreeningService: Found {len(accounts)} accounts and {len(transactions)} transactions for customer {cust_uuid}"
+            )
             policies = db.query(PolicyRule).filter(PolicyRule.is_active == True).all()
 
             # ── Build AgentState ──────────────────────────────────────────────
@@ -236,17 +239,23 @@ class ScreeningService:
             transactions_list = [
                 {
                     "id": str(t.id),
+                    "transaction_id": str(t.id),
                     "sender_account_id": str(t.sender_account_id),
+                    "account_id": str(t.sender_account_id),
                     "receiver_account_number": t.receiver_account_number,
                     "receiver_sort_code": t.receiver_sort_code,
                     "receiver_name": t.receiver_name,
                     "receiver_country": t.receiver_country,
+                    "originating_country": "United Kingdom",
+                    "destination_country": t.receiver_country,
                     "amount": float(t.amount),
                     "currency": t.currency,
                     "transaction_type": t.transaction_type,
+                    "direction": "OUTFLOW",
+                    "timestamp": t.created_at.isoformat() if t.created_at else datetime.utcnow().isoformat(),
                     "status": t.status,
                     "reference": t.reference,
-                    "created_at": t.created_at.isoformat(),
+                    "created_at": t.created_at.isoformat() if t.created_at else datetime.utcnow().isoformat(),
                 }
                 for t in transactions
             ]
