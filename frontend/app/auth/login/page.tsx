@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ShieldCheck, Eye, EyeOff, LogIn, Briefcase, Settings, UserCheck, Lock } from "lucide-react";
+import { ShieldCheck, Eye, EyeOff, LogIn, Briefcase, Settings, UserCheck, Lock, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -79,27 +79,27 @@ function LoginFormContent() {
       title: "Client Portal Access",
       subtitle: "Sign in to complete your KYC application & onboarding",
       badge: "Customer Portal",
-      badgeClass: "bg-teal-100 text-teal-800 border-teal-200",
-      bgGradient: "bg-gradient-to-r from-teal-700 to-teal-800",
-      buttonBg: "bg-teal-700 hover:bg-teal-800 focus:ring-teal-200",
+      badgeClass: "bg-teal-500/10 text-teal-300 border-teal-500/30",
+      bgGradient: "bg-gradient-to-br from-teal-500 via-emerald-500 to-cyan-600 shadow-teal-500/25",
+      buttonBg: "bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 focus:ring-teal-500/50 shadow-lg shadow-teal-500/20",
       icon: UserCheck,
     },
     compliance: {
       title: "Compliance Officer Portal",
       subtitle: "Sign in to AML risk screening & investigation desk",
       badge: "Officer & Analyst Access",
-      badgeClass: "bg-indigo-100 text-indigo-800 border-indigo-200",
-      bgGradient: "bg-gradient-to-r from-indigo-800 to-slate-900",
-      buttonBg: "bg-indigo-700 hover:bg-indigo-800 focus:ring-indigo-200",
+      badgeClass: "bg-indigo-500/10 text-indigo-300 border-indigo-500/30",
+      bgGradient: "bg-gradient-to-br from-indigo-500 via-purple-500 to-slate-700 shadow-indigo-500/25",
+      buttonBg: "bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 focus:ring-indigo-500/50 shadow-lg shadow-indigo-500/20",
       icon: Briefcase,
     },
     admin: {
       title: "Administrator Portal Access",
       subtitle: "Sign in to system admin, policy engine & AI governance",
       badge: "Admin Privileges Required",
-      badgeClass: "bg-purple-100 text-purple-800 border-purple-200",
-      bgGradient: "bg-gradient-to-r from-purple-800 to-zinc-900",
-      buttonBg: "bg-purple-700 hover:bg-purple-800 focus:ring-purple-200",
+      badgeClass: "bg-purple-500/10 text-purple-300 border-purple-500/30",
+      bgGradient: "bg-gradient-to-br from-purple-600 via-fuchsia-600 to-pink-600 shadow-purple-500/25",
+      buttonBg: "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 focus:ring-purple-500/50 shadow-lg shadow-purple-500/20",
       icon: Settings,
     },
   };
@@ -108,19 +108,22 @@ function LoginFormContent() {
   const IconComponent = currentConfig.icon;
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-zinc-50 px-4 py-12">
-      <div className="w-full max-w-lg">
+    <div className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center bg-zinc-950 px-4 py-12 text-zinc-100 overflow-hidden">
+      {/* Background Ambient Glows */}
+      <div className="pointer-events-none absolute -top-40 -left-40 h-96 w-96 rounded-full bg-teal-500/15 blur-[120px]" />
+      <div className="pointer-events-none absolute -bottom-40 -right-40 h-96 w-96 rounded-full bg-indigo-500/15 blur-[120px]" />
 
+      <div className="relative w-full max-w-lg animate-fade-in">
         {/* Portal Selection Tabs */}
-        <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl bg-zinc-200/80 p-1.5 shadow-inner">
+        <div className="mb-4 grid grid-cols-3 gap-1.5 rounded-2xl bg-zinc-900/90 p-1.5 border border-zinc-800/80 backdrop-blur-md shadow-2xl">
           <button
             type="button"
             onClick={() => setActiveTab("client")}
             className={cn(
-              "flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all",
+              "flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all duration-200",
               activeTab === "client"
-                ? "bg-white text-teal-800 shadow-sm"
-                : "text-zinc-600 hover:text-zinc-900"
+                ? "bg-gradient-to-r from-teal-500/20 to-emerald-500/20 text-teal-300 border border-teal-500/40 shadow-sm"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
             )}
           >
             <UserCheck className="h-3.5 w-3.5" />
@@ -131,10 +134,10 @@ function LoginFormContent() {
             type="button"
             onClick={() => setActiveTab("compliance")}
             className={cn(
-              "flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all",
+              "flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all duration-200",
               activeTab === "compliance"
-                ? "bg-white text-indigo-800 shadow-sm"
-                : "text-zinc-600 hover:text-zinc-900"
+                ? "bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
             )}
           >
             <Briefcase className="h-3.5 w-3.5" />
@@ -145,10 +148,10 @@ function LoginFormContent() {
             type="button"
             onClick={() => setActiveTab("admin")}
             className={cn(
-              "flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all",
+              "flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all duration-200",
               activeTab === "admin"
-                ? "bg-white text-purple-800 shadow-sm"
-                : "text-zinc-600 hover:text-zinc-900"
+                ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 border border-purple-500/40 shadow-sm"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
             )}
           >
             <Settings className="h-3.5 w-3.5" />
@@ -156,76 +159,73 @@ function LoginFormContent() {
           </button>
         </div>
 
-        {/* Card */}
-        <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-xl">
-          {/* Logo & Portal Header */}
+        {/* Glass Card */}
+        <div className="glass-card rounded-2xl border border-zinc-800/80 p-8 shadow-2xl backdrop-blur-xl">
+          {/* Header */}
           <div className="mb-6 flex flex-col items-center text-center">
-            <div className={cn("mb-3 flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-md transition-all duration-300", currentConfig.bgGradient)}>
+            <div className={cn("mb-3 flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-xl transition-all duration-300 animate-float", currentConfig.bgGradient)}>
               <IconComponent className="h-7 w-7" />
             </div>
 
-            <span className={cn("mb-2 rounded-full border px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider", currentConfig.badgeClass)}>
+            <span className={cn("mb-2 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wider", currentConfig.badgeClass)}>
+              <Sparkles className="h-3 w-3" />
               {currentConfig.badge}
             </span>
 
-            <h1 className="text-2xl font-extrabold text-zinc-900">{currentConfig.title}</h1>
-            <p className="mt-1 text-sm text-zinc-500">{currentConfig.subtitle}</p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-white">{currentConfig.title}</h1>
+            <p className="mt-1 text-sm text-zinc-400">{currentConfig.subtitle}</p>
           </div>
 
           {/* Form */}
-          <form method="POST" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form method="POST" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             {/* Email */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Email Address <span className="text-red-500">*</span>
+              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                Email Address <span className="text-teal-400">*</span>
               </label>
               <input
                 type="email"
                 {...register("email")}
                 autoComplete="email"
-                placeholder={activeTab === "client" ? "customer@example.com" : "officer@company.com"}
+                placeholder={activeTab === "client" ? "john.clean@example.com" : "officer@compliance.com"}
                 className={cn(
-                  "w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition-all",
-                  errors.email
-                    ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-2 focus:ring-red-100"
-                    : "border-zinc-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                  "glass-input w-full rounded-xl px-4 py-3 text-sm placeholder-zinc-500 outline-none transition-all",
+                  errors.email && "border-red-500/50 bg-red-500/10 focus:border-red-500"
                 )}
               />
-              {errors.email && <p className="text-xs text-red-600">{errors.email.message}</p>}
+              {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email.message}</p>}
             </div>
 
             {/* Password */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Password <span className="text-red-500">*</span>
+              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                Password <span className="text-teal-400">*</span>
               </label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   {...register("password")}
                   autoComplete="current-password"
-                  placeholder="Minimum 8 characters"
+                  placeholder="••••••••"
                   className={cn(
-                    "w-full rounded-lg border px-3.5 py-2.5 pr-10 text-sm outline-none transition-all",
-                    errors.password
-                      ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-2 focus:ring-red-100"
-                      : "border-zinc-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                    "glass-input w-full rounded-xl px-4 py-3 pr-10 text-sm placeholder-zinc-500 outline-none transition-all",
+                    errors.password && "border-red-500/50 bg-red-500/10 focus:border-red-500"
                   )}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {errors.password && <p className="text-xs text-red-600">{errors.password.message}</p>}
+              {errors.password && <p className="text-xs text-red-400 mt-1">{errors.password.message}</p>}
             </div>
 
             {activeTab !== "client" && (
-              <div className="rounded-lg bg-zinc-50 p-3 border border-zinc-200 flex items-start gap-2 text-xs text-zinc-600">
-                <Lock className="h-4 w-4 text-zinc-400 shrink-0 mt-0.5" />
+              <div className="rounded-xl bg-indigo-500/10 p-3.5 border border-indigo-500/20 flex items-start gap-2.5 text-xs text-indigo-300">
+                <Lock className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
                 <span>
                   {activeTab === "compliance"
                     ? "Compliance Officer accounts require verified officer role credentials."
@@ -238,31 +238,31 @@ function LoginFormContent() {
               type="submit"
               disabled={isSubmitting}
               className={cn(
-                "flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold text-white shadow focus:outline-none focus:ring-2 transition-all mt-2",
+                "flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white transition-all transform active:scale-[0.98]",
                 currentConfig.buttonBg,
                 isSubmitting && "opacity-60 cursor-not-allowed"
               )}
             >
               {isSubmitting ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
               ) : (
                 <><LogIn className="h-4 w-4" /> Sign In to {activeTab === "client" ? "Client Portal" : activeTab === "compliance" ? "Officer Panel" : "Admin Panel"}</>
               )}
             </button>
           </form>
 
-          <div className="mt-6 border-t border-zinc-100 pt-5 text-center">
+          <div className="mt-6 border-t border-zinc-800/80 pt-5 text-center">
             {activeTab === "client" ? (
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-zinc-400">
                 No account?{" "}
-                <Link href="/auth/register" className="font-semibold text-teal-700 hover:text-teal-800 hover:underline">
+                <Link href="/auth/register" className="font-semibold text-teal-400 hover:text-teal-300 underline underline-offset-4">
                   Register customer account
                 </Link>
               </p>
             ) : (
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-zinc-400">
                 Need an officer or admin account?{" "}
-                <Link href="/auth/register" className="font-semibold text-teal-700 hover:text-teal-800 hover:underline">
+                <Link href="/auth/register" className="font-semibold text-teal-400 hover:text-teal-300 underline underline-offset-4">
                   Create role profile
                 </Link>
               </p>
@@ -270,7 +270,8 @@ function LoginFormContent() {
           </div>
         </div>
 
-        <p className="mt-4 text-center text-xs text-zinc-400">
+        <p className="mt-4 text-center text-xs text-zinc-500 flex items-center justify-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5 text-teal-400" />
           Protected by 256-bit AES encryption & MFA support. Compliant with UK MLR 2017 & GDPR.
         </p>
       </div>
@@ -281,8 +282,8 @@ function LoginFormContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-zinc-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-teal-700" />
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-zinc-950">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-500/20 border-t-teal-500" />
       </div>
     }>
       <LoginFormContent />

@@ -1,4 +1,5 @@
 import logging
+import inspect
 from typing import Dict, Any, List, Optional
 from uuid import UUID, uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.models import AIExplanation, AIExecution
 
 logger = logging.getLogger(__name__)
+
+async def _safe_commit(db: Any) -> None:
+    res = db.commit()
+    if inspect.isawaitable(res):
+        await res
+
+async def _safe_refresh(db: Any, obj: Any) -> None:
+    res = db.refresh(obj)
+    if inspect.isawaitable(res):
+        await res
 
 
 class ExplainabilityService:
@@ -105,6 +116,6 @@ class ExplainabilityService:
         )
 
         db.add(explanation)
-        await db.commit()
-        await db.refresh(explanation)
+        await _safe_commit(db)
+        await _safe_refresh(db, explanation)
         return explanation

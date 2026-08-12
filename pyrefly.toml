@@ -4,7 +4,8 @@ venv = "backend/.venv"
 python-interpreter = "backend/.venv/Scripts/python.exe"
 
 [analysis]
-extra-paths = ["backend"]
+search-path = ["backend"]
+extra-search-paths = ["backend"]
 exclude = [
     "**/__pyrefly_virtual__/**",
     "**/__inmemory__/**",

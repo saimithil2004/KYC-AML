@@ -162,14 +162,17 @@ async def test_e2e_sanctions_match_reject():
     result = await ScreeningService.run_screening_async(cust_id)
 
     assert result["status"] == "success"
-    assert result["decision"] in ("REJECT", "MANUAL_REVIEW", "EDD_REQUIRED")
+    assert result["decision"] == "REJECT"
 
     db = SessionLocalSync()
     cust = db.query(Customer).filter(Customer.id == cust_uuid).first()
-    assert cust.status in ("rejected", "referred", "under_review")
+    assert cust.status == "rejected"
+
+    c_rec = db.query(Case).filter(Case.customer_id == cust_uuid).order_by(Case.created_at.desc()).first()
+    assert c_rec.status == "open"
 
     alert = db.query(Alert).filter(Alert.customer_id == cust_uuid).first()
-    assert alert is not None or cust.status != "approved"
+    assert alert is not None
     db.close()
 
 

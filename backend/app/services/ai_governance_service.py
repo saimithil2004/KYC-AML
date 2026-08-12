@@ -1,4 +1,5 @@
 import logging
+import inspect
 from datetime import datetime, date, timezone
 from typing import Dict, Any, List, Optional, Tuple
 from uuid import UUID, uuid4
@@ -22,6 +23,22 @@ from app.models.models import (
 
 logger = logging.getLogger(__name__)
 
+async def _safe_execute(db: Any, stmt: Any) -> Any:
+    res = db.execute(stmt)
+    if inspect.isawaitable(res):
+        return await res
+    return res
+
+async def _safe_commit(db: Any) -> None:
+    res = db.commit()
+    if inspect.isawaitable(res):
+        await res
+
+async def _safe_refresh(db: Any, obj: Any) -> None:
+    res = db.refresh(obj)
+    if inspect.isawaitable(res):
+        await res
+
 # Default token pricing config (per 1,000 tokens)
 PRICING_TABLE = {
     "gemini": {"input": 0.000075, "output": 0.000300},
@@ -38,13 +55,13 @@ class AIGovernanceService:
 
     @staticmethod
     async def register_model(
-        db: AsyncSession, name: str, provider: str, is_active: bool = True
+        db: Any, name: str, provider: str, is_active: bool = True
     ) -> AIModel:
         """Register a new LLM model inside governance registry."""
         model = AIModel(id=uuid4(), name=name, provider=provider, is_active=is_active)
         db.add(model)
-        await db.commit()
-        await db.refresh(model)
+        await _safe_commit(db)
+        await _safe_refresh(db, model)
         return model
 
     @staticmethod
@@ -351,8 +368,8 @@ class AIGovernanceService:
             output_tokens=output_tokens,
         )
         db.add(exec_log)
-        await db.commit()
-        await db.refresh(exec_log)
+        await _safe_commit(db)
+        await _safe_refresh(db, exec_log)
         return exec_log
 
     # ─── Human Feedback Loops ─────────────────────────────────────────────────

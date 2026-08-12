@@ -90,7 +90,11 @@ class DecisionAgent(BaseAgent):
         tx_status = sm.get("transaction_status", "CLEAR")
         behavior_flags = sm.get("account_behavior_flags", {})
 
-        is_confirmed_sanctions = str(sanctions_status).upper() == "CONFIRMED"
+        is_confirmed_sanctions = str(sanctions_status).upper() in (
+            "CONFIRMED",
+            "CONFIRMED_SANCTION",
+            "CONFIRMED_MATCH",
+        )
         is_confirmed_pep = str(pep_status).upper() == "CONFIRMED_PEP"
         has_block_triggers = len(block_triggers) > 0
         has_edd_triggers = len(edd_triggers) > 0

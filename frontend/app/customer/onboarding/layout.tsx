@@ -48,10 +48,10 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
 
   return (
     <ProtectedRoute>
-      <div className="mx-auto max-w-4xl space-y-6 animate-fade-in">
-        {/* Step Indicator */}
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-1">
+      <div className="mx-auto max-w-4xl space-y-6 animate-fade-in text-zinc-100">
+        {/* Step Indicator Card */}
+        <div className="glass-card rounded-2xl border border-zinc-800/80 p-5 backdrop-blur-xl shadow-2xl">
+          <div className="flex items-center gap-1.5">
             {STEPS.map((step, i) => {
               const done = isStepDone(step.key);
               const active = i === currentIndex;
@@ -64,12 +64,12 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
                       className={cn(
                         "flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold border-2 transition-all duration-300",
                         done
-                          ? "border-teal-600 bg-teal-600 text-white"
+                          ? "border-teal-500 bg-teal-500 text-white shadow-[0_0_15px_rgba(20,184,166,0.5)]"
                           : active
-                          ? "border-teal-600 bg-white text-teal-700 shadow-md animate-pulse-glow"
+                          ? "border-teal-400 bg-zinc-900 text-teal-300 shadow-[0_0_20px_rgba(20,184,166,0.4)] animate-pulse-glow"
                           : accessible
-                          ? "border-zinc-300 bg-white text-zinc-500 hover:border-zinc-400"
-                          : "border-zinc-200 bg-zinc-50 text-zinc-300"
+                          ? "border-zinc-700 bg-zinc-900/80 text-zinc-400 hover:border-zinc-500"
+                          : "border-zinc-800 bg-zinc-950 text-zinc-600"
                       )}
                     >
                       {done ? (
@@ -82,8 +82,8 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
                     </div>
                     <span
                       className={cn(
-                        "hidden text-[10px] font-medium sm:block",
-                        active ? "text-teal-700" : done ? "text-teal-600" : "text-zinc-400"
+                        "hidden text-[11px] font-semibold tracking-wide uppercase sm:block",
+                        active ? "text-teal-300" : done ? "text-teal-400" : "text-zinc-500"
                       )}
                     >
                       {step.label}
@@ -94,7 +94,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
                     <div
                       className={cn(
                         "h-0.5 flex-1 rounded-full transition-all duration-500",
-                        done ? "bg-teal-500" : "bg-zinc-200"
+                        done ? "bg-gradient-to-r from-teal-500 to-emerald-400 shadow-[0_0_10px_rgba(20,184,166,0.5)]" : "bg-zinc-800"
                       )}
                     />
                   )}
@@ -102,20 +102,12 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
               );
             })}
           </div>
-
-          {draft.lastSaved && (
-            <p className="mt-3 text-center text-[11px] text-zinc-400">
-              Draft auto-saved{" "}
-              {new Date(draft.lastSaved).toLocaleTimeString("en-GB", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
-          )}
         </div>
 
-        {/* Page Content */}
-        {children}
+        {/* Content Box */}
+        <div className="glass-card rounded-2xl border border-zinc-800/80 p-8 backdrop-blur-xl shadow-2xl">
+          {children}
+        </div>
       </div>
     </ProtectedRoute>
   );
